@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImageScape Studios — Management Hub</title>
+<!--
+  ImageScape Studios Management Hub — a small static app (no build step, no
+  server-side code of its own) meant to be hosted on GitHub Pages from a
+  PUBLIC repo. It carries no business data at all — view-source shows only
+  generic app logic, same as any other web-based password manager's client
+  code being open. All calendar/task/link/credential content lives as ONE
+  AES-256-GCM encrypted file (vault.json) in a SEPARATE PRIVATE GitHub repo,
+  reached via the GitHub REST API using a fine-grained personal access token
+  scoped to just that one repo's contents. The key that decrypts it is your
+  password alone, derived via PBKDF2 (600,000 rounds) — never sent anywhere,
+  never stored anywhere, no recovery if it's forgotten.
+
+  HOW SYNC WORKS: every save is a PUT to GitHub's contents API carrying the
+  SHA of the version you last loaded. If someone/something else has saved a
+  newer version since (another device, another tab), GitHub rejects the
+  write instead of silently overwriting it — you're told to reload first.
+  Every save is also a real commit, so full history/rollback comes free via
+  the repo itself.
+
+  CONNECTING A DEVICE: the access token + repo location are entered once per
+  browser and kept in that browser's local storage — never inside vault.json,
+  since the token has to exist before there's anything to decrypt. It's a
+  much lower-stakes secret than your master password (scoped to one private
+  repo, contents only, nothing else in the GitHub account reachable, easily
+  revoked), but it is a real credential and should be treated like one.
+-->
+<style>
+  :root{
+    --navy:#4A5473; --navy-deep:#333c54; --gold:#CDB16D; --gold-deep:#a3833f;
+    --bg:#f5f6f8; --card:#ffffff; --ink:#22262f; --muted:#6a7080; --border:#e2e4ea;
+    --good:#1a8f5e; --good-soft:#e6f6ee; --warn:#b6541c; --warn-soft:#fdeee2;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+    background:var(--bg);color:var(--ink);}
+  .center-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .auth-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:36px 34px;max-width:440px;width:100%;box-shadow:0 20px 50px -20px rgba(30,35,55,.25);}
+  .auth-card .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+  .auth-card .brand .mark{width:34px;height:34px;border:2px solid var(--navy);border-radius:6px;
+    position:relative;flex-shrink:0;}
+  .auth-card .brand .mark::after{content:'';position:absolute;top:7px;left:7px;right:7px;bottom:7px;
+    border-top:2px solid var(--gold);border-left:2px solid var(--gold);}
+  .auth-card .brand span{font-weight:700;font-size:15px;letter-spacing:.01em;}
+  .auth-card h1{font-size:19px;margin:0 0 8px;}
+  .auth-card p.lead{font-size:13.5px;color:var(--muted);line-height:1.55;margin:0 0 22px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px;
+    text-transform:uppercase;letter-spacing:.04em;}
+  .field input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+    font-size:14px;font-family:inherit;}
+  .field input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold-deep);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;
+    border-radius:8px;border:none;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn-primary{background:var(--navy);color:#fff;width:100%;}
+  .btn-primary:hover{background:var(--navy-deep);}
+  .btn-primary:disabled{opacity:.5;cursor:default;}
+  .btn-ghost{background:none;color:var(--navy);border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:var(--navy);}
+  .btn-danger{background:none;color:var(--warn);}
+  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:14px;}
+  .msg.error{background:var(--warn-soft);color:var(--warn);}
+  .msg.info{background:#eef1fa;color:var(--navy);}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4;}
+  .spinner{width:22px;height:22px;border-radius:50%;border:3px solid var(--border);
+    border-top-color:var(--navy);margin:6px auto 18px;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  header.hub-header{background:var(--navy);color:#fff;padding:14px 24px;display:flex;
+    align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  header.hub-header .brand{display:flex;align-items:center;gap:10px;}
+  header.hub-header .brand .mark{width:28px;height:28px;border:2px solid var(--gold);border-radius:5px;
+    position:relative;flex-shrink:0;}
+  header.hub-header .brand .mark::after{content:'';position:absolute;top:6px;left:6px;right:6px;bottom:6px;
+    border-top:2px solid var(--gold);border-left:2px solid var(--gold);}
+  header.hub-header .brand strong{font-size:15px;}
+  header.hub-header .brand span{font-size:11.5px;opacity:.75;display:block;}
+  header.hub-header .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  header.hub-header .btn-ghost{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.25);}
+  header.hub-header .btn-ghost:hover{background:rgba(255,255,255,.16);border-color:#fff;}
+  .dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:6px;}
+  .gh-badge{font-size:11px;opacity:.8;padding:6px 10px;}
+
+  nav.tabs{display:flex;gap:4px;background:var(--card);border-bottom:1px solid var(--border);
+    padding:0 24px;overflow-x:auto;}
+  nav.tabs button{background:none;border:none;padding:14px 16px;font-size:13.5px;font-weight:700;
+    color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;font-family:inherit;white-space:nowrap;}
+  nav.tabs button.active{color:var(--navy);border-bottom-color:var(--gold);}
+
+  main.hub-main{max-width:920px;margin:0 auto;padding:26px 24px 80px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px 22px;margin-bottom:16px;}
+  .card h2{margin:0 0 4px;font-size:16px;}
+  .card .sub{font-size:12.5px;color:var(--muted);margin-bottom:16px;}
+
+  /* --- Calendar --- */
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cal-nav .month-label{font-weight:700;font-size:15px;}
+  .cal-nav .btn-ghost{padding:6px 12px;font-size:12.5px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);
+    border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .cal-grid .dow{background:#f0f1f4;text-align:center;font-size:10.5px;font-weight:700;
+    color:var(--muted);padding:6px 0;text-transform:uppercase;letter-spacing:.04em;}
+  .cal-cell{background:#fff;min-height:64px;padding:5px;font-size:12px;cursor:pointer;position:relative;}
+  .cal-cell:hover{background:#fafbfd;}
+  .cal-cell.empty{background:#fafafb;cursor:default;}
+  .cal-cell .daynum{font-weight:700;font-size:12px;}
+  .cal-cell.today .daynum{color:#fff;background:var(--navy);border-radius:50%;width:20px;height:20px;
+    display:inline-flex;align-items:center;justify-content:center;}
+  .cal-cell .chip{display:block;background:var(--gold);color:var(--navy-deep);border-radius:4px;
+    font-size:10px;font-weight:700;padding:1px 4px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;}
+  .cal-cell .chip.more{background:none;color:var(--muted);font-weight:600;}
+  .event-list{margin-top:18px;}
+  .event-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid var(--border);}
+  .event-row:first-child{border-top:none;}
+  .event-row .date-badge{flex-shrink:0;background:#eef1fa;color:var(--navy);border-radius:6px;
+    padding:4px 8px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .event-row .body{flex:1;}
+  .event-row .body .title{font-weight:600;font-size:13.5px;}
+  .event-row .body .notes{font-size:12px;color:var(--muted);margin-top:2px;}
+  .event-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;}
+  .event-row .del:hover{color:var(--warn);}
+  .empty-note{font-size:13px;color:var(--muted);padding:10px 0;}
+
+  /* --- Tasks --- */
+  .task-add{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .task-add input[type=text]{flex:1;min-width:180px;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;font-size:13.5px;font-family:inherit;}
+  .task-add input[type=date]{padding:9px 8px;border:1px solid var(--border);border-radius:8px;
+    font-size:13px;font-family:inherit;}
+  .task-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--border);}
+  .task-row:first-child{border-top:none;}
+  .task-row input[type=checkbox]{margin-top:3px;width:16px;height:16px;accent-color:var(--good);flex-shrink:0;}
+  .task-row .body{flex:1;font-size:13.5px;}
+  .task-row.done .body .txt{color:var(--muted);text-decoration:line-through;}
+  .task-row .due{font-size:11px;color:var(--muted);margin-top:2px;}
+  .task-row .due.overdue{color:var(--warn);font-weight:700;}
+  .task-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;}
+  .task-row .del:hover{color:var(--warn);}
+
+  /* --- Links --- */
+  .link-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+  .link-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;
+    transition:border-color .15s;}
+  .link-card:hover{border-color:var(--gold-deep);}
+  .link-card a{color:var(--navy);font-weight:700;font-size:13.5px;text-decoration:none;display:block;
+    margin-bottom:3px;}
+  .link-card a:hover{color:var(--gold-deep);}
+  .link-card .url{font-size:11px;color:var(--muted);word-break:break-all;}
+  .link-card .del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);
+    cursor:pointer;font-size:14px;opacity:.5;}
+  .link-card .del:hover{opacity:1;color:var(--warn);}
+  .link-add{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .link-add input{padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;
+    font-family:inherit;flex:1;min-width:160px;}
+  .link-add .optional-hint{flex-basis:100%;font-size:11px;color:var(--muted);margin:-6px 0 2px;}
+  .cred-block{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);}
+  .cred-row{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:5px;}
+  .cred-row .cred-label{color:var(--muted);font-weight:700;width:36px;flex-shrink:0;
+    text-transform:uppercase;font-size:9.5px;letter-spacing:.03em;}
+  .cred-row .cred-value{flex:1;font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,monospace;
+    color:var(--ink);word-break:break-all;}
+  .cred-row button{background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;
+    font-size:10.5px;cursor:pointer;color:var(--navy);font-family:inherit;flex-shrink:0;}
+  .cred-row button:hover{border-color:var(--navy);color:var(--navy-deep);}
+
+  .save-toast{position:fixed;bottom:20px;right:20px;background:var(--navy-deep);color:#fff;
+    padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);
+    opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;
+    max-width:340px;}
+  .save-toast.show{opacity:1;transform:translateY(0);}
+
+  .modal-backdrop{position:fixed;inset:0;background:rgba(20,22,30,.5);display:flex;align-items:center;
+    justify-content:center;padding:20px;z-index:50;}
+  .modal{background:#fff;border-radius:14px;padding:26px 26px;max-width:420px;width:100%;}
+  .modal h3{margin:0 0 6px;font-size:16px;}
+  .modal p{font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.5;}
+  .modal .row{display:flex;gap:10px;margin-top:18px;}
+  .modal .row .btn{flex:1;}
+
+  @media(max-width:640px){
+    .cal-cell{min-height:48px;}
+    header.hub-header{padding:12px 16px;}
+    main.hub-main{padding:18px 14px 70px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================= CONNECT screen (no GitHub connection stored on this device yet) ============================= -->
+<div id="connectScreen" class="center-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
+    <h1>Connect this device</h1>
+    <p class="lead">This app holds no data of its own — everything lives as one encrypted file in a private GitHub repo you control. Paste in a fine-grained access token scoped to just that repo (Contents: Read and write, nothing else) and where to find it. The token is stored only in this browser, on this device.</p>
+    <div id="connectMsg"></div>
+    <div class="field">
+      <label for="cnToken">Personal access token</label>
+      <input type="password" id="cnToken" autocomplete="off" placeholder="github_pat_…">
+    </div>
+    <div class="field">
+      <label for="cnRepo">Data repository</label>
+      <input type="text" id="cnRepo" autocomplete="off" placeholder="yourname/imagescape-hub-data">
+    </div>
+    <div class="field">
+      <label for="cnPath">File name</label>
+      <input type="text" id="cnPath" autocomplete="off" value="vault.json">
+    </div>
+    <button class="btn btn-primary" id="connectBtn">Connect</button>
+  </div>
+</div>
+
+<!-- ============================= LOADING screen ============================= -->
+<div id="loadingScreen" class="center-screen" style="display:none;">
+  <div class="auth-card" style="text-align:center;">
+    <div class="brand" style="justify-content:center;"><span class="mark"></span><span>ImageScape Studios</span></div>
+    <div class="spinner"></div>
+    <p class="lead" id="loadingMsg" style="margin:0;">Checking your data repository…</p>
+  </div>
+</div>
+
+<!-- ============================= CONNECTION ERROR screen ============================= -->
+<div id="connErrorScreen" class="center-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
+    <h1>Couldn't reach your data</h1>
+    <div id="connErrorMsg" class="msg error"></div>
+    <button class="btn btn-primary" id="retryBtn">Retry</button>
+    <button class="btn btn-ghost" id="reconnectBtn" style="margin-top:10px;width:100%;">Change connection details</button>
+  </div>
+</div>
+
+<!-- ============================= SETUP screen (repo reachable, but no vault file in it yet) ============================= -->
+<div id="setupScreen" class="center-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
+    <h1>Set up this Hub's password</h1>
+    <p class="lead">No vault file found yet at <strong id="setupRepoLabel"></strong> — this looks like a first run. Everything you add below will be encrypted with this password (AES-256, PBKDF2 · 600,000 rounds) before it's saved. <strong>There is no password recovery.</strong> If it's lost, the contents cannot be read again, by anyone. Store it somewhere safe.</p>
+    <div id="setupMsg"></div>
+    <div class="field">
+      <label for="setupPw1">New password</label>
+      <input type="password" id="setupPw1" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label for="setupPw2">Confirm password</label>
+      <input type="password" id="setupPw2" autocomplete="new-password">
+      <div class="hint">Minimum 8 characters. Longer and more unusual is stronger than adding symbols to a short one.</div>
+    </div>
+    <button class="btn btn-primary" id="setupBtn">Create &amp; continue</button>
+  </div>
+</div>
+
+<!-- ============================= UNLOCK screen (vault file already exists, freshly fetched) ============================= -->
+<div id="unlockScreen" class="center-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
+    <h1>Management Hub</h1>
+    <p class="lead">Enter the password to decrypt this file. Nothing below this point is readable without it.</p>
+    <div id="unlockMsg"></div>
+    <div class="field">
+      <label for="unlockPw">Password</label>
+      <input type="password" id="unlockPw" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" id="unlockBtn">Unlock</button>
+    <div class="hint">Synced to <span id="unlockRepoLabel"></span> — <a href="#" id="unlockChangeConn">change connection</a></div>
+  </div>
+</div>
+
+<!-- ============================= DASHBOARD (after unlock) ============================= -->
+<div id="dashboard" style="display:none;">
+  <header class="hub-header">
+    <div class="brand">
+      <span class="mark"></span>
+      <div><strong>ImageScape Studios</strong><span>Management Hub</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost gh-badge" id="ghBadgeBtn" title="Change GitHub connection">⇄ <span id="ghBadgeLabel"></span></button>
+      <button class="btn btn-ghost" id="changePwBtn">Change password</button>
+      <button class="btn btn-ghost" id="saveBtn"><span id="dirtyDot" class="dirty-dot" style="display:none;"></span>Save</button>
+      <button class="btn btn-ghost" id="lockBtn" title="Also auto-locks after 15 minutes of inactivity">Lock</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-panel="cal" class="active">Calendar</button>
+    <button data-panel="tasks">Tasks</button>
+    <button data-panel="links">Site &amp; Hosting</button>
+  </nav>
+
+  <main class="hub-main">
+
+    <div class="panel active" id="panel-cal">
+      <div class="card">
+        <div class="cal-nav">
+          <button class="btn btn-ghost" id="calPrev">◀ Prev</button>
+          <div class="month-label" id="calLabel"></div>
+          <button class="btn btn-ghost" id="calNext">Next ▶</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-ghost" id="calAddBtn">+ Add event</button>
+        </div>
+        <div class="event-list" id="eventList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-tasks">
+      <div class="card">
+        <h2>Ongoing tasks</h2>
+        <div class="sub">Add anything the business needs to track — not tied to any one project.</div>
+        <div class="task-add">
+          <input type="text" id="taskText" placeholder="New task…">
+          <input type="date" id="taskDue">
+          <button class="btn btn-primary" id="taskAddBtn" style="width:auto;">Add</button>
+        </div>
+        <div id="taskList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-links">
+      <div class="card">
+        <h2>Site &amp; hosting management</h2>
+        <div class="sub">Organized links to admin panels. Username/password are optional per link — if you add them they're encrypted the same as everything else here, masked on screen by default, and only ever shown or copied when you choose to.</div>
+        <div class="link-add">
+          <input type="text" id="linkLabel" placeholder="Label (e.g. GoDaddy account)">
+          <input type="text" id="linkUrl" placeholder="https://…">
+          <div class="optional-hint">Credentials below are optional — leave blank to keep this just a bookmark.</div>
+          <input type="text" id="linkUser" placeholder="Username (optional)" autocomplete="off">
+          <input type="password" id="linkPass" placeholder="Password (optional)" autocomplete="new-password">
+          <button class="btn btn-primary" id="linkAddBtn" style="width:auto;">Add link</button>
+        </div>
+        <div class="link-grid" id="linkGrid"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="save-toast" id="saveToast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------------------------------------------------------------- crypto
+  const ITERATIONS = 600000;
+
+  function b64(buf){
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function unb64(str){
+    const bin = atob(str);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+  function randomId(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Array.from(crypto.getRandomValues(new Uint8Array(10))).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  // Separate from the crypto b64 helpers above (those move raw ArrayBuffers of
+  // ciphertext bytes) - these move UTF-8 TEXT (the vault's JSON, base64-encoded
+  // the way GitHub's contents API expects file bodies to be transported).
+  function utf8ToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+  function b64ToUtf8(str){ return decodeURIComponent(escape(atob(str.replace(/\s/g, '')))); }
+
+  async function deriveKey(password, saltB64, iterations, usages){
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: unb64(saltB64), iterations, hash: 'SHA-256' },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      usages
+    );
+  }
+
+  async function encryptData(password, dataObj){
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const ivBytes = crypto.getRandomValues(new Uint8Array(12));
+    const saltB64 = b64(saltBytes.buffer);
+    const key = await deriveKey(password, saltB64, ITERATIONS, ['encrypt']);
+    const enc = new TextEncoder();
+    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: ivBytes }, key, enc.encode(JSON.stringify(dataObj)));
+    return { v: 1, iterations: ITERATIONS, salt: saltB64, iv: b64(ivBytes.buffer), ciphertext: b64(ciphertext) };
+  }
+
+  async function decryptVault(password, vault){
+    const key = await deriveKey(password, vault.salt, vault.iterations, ['decrypt']);
+    const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(vault.iv) }, key, unb64(vault.ciphertext));
+    return JSON.parse(new TextDecoder().decode(plainBuf));
+  }
+
+  // ---------------------------------------------------------------- default seed content
+  // This app is now a generic, public, reusable shell (it never carries anyone's
+  // actual data - that all lives in the private data repo), so unlike the old
+  // single-file version there's no reason to strip this out after first use.
+  function seedData(){
+    return {
+      events: [
+        { id: randomId(), date: '2026-08-18', title: 'SkySight Ltd hosting lapses — hard deadline', notes: '' },
+        { id: randomId(), date: '2026-12-10', title: 'skysight.ltd domain ownership ends', notes: '' }
+      ],
+      tasks: [
+        { id: randomId(), text: 'Set up mail forwarding from skysight.ltd addresses to info@imagescape.uk', done: false, due: '2026-08-18' },
+        { id: randomId(), text: 'Update email signature & autoresponders once info@imagescape.uk is confirmed working', done: false, due: '' },
+        { id: randomId(), text: 'Set up 301 redirects from key old skysight.ltd URLs to their new equivalents', done: false, due: '' },
+        { id: randomId(), text: 'Resubmit sitemap & verify new property in Google Search Console; use Change of Address tool', done: false, due: '' },
+        { id: randomId(), text: 'Update Google Business Profile, Instagram handle (@imagescapestudios) & directory listings', done: false, due: '' },
+        { id: randomId(), text: 'Turn off SkySight auto-renew on GoDaddy once fully migrated', done: false, due: '2026-08-18' },
+        { id: randomId(), text: 'File NM01 Companies House name change (by JC)', done: false, due: '' }
+      ],
+      links: [
+        { id: randomId(), label: 'GoDaddy account', url: 'https://www.godaddy.com/' },
+        { id: randomId(), label: 'WordPress admin — imagescapestudios.uk', url: 'https://imagescapestudios.uk/wp-admin/' },
+        { id: randomId(), label: 'WordPress admin — skysight.ltd (old, until decommissioned)', url: 'https://skysight.ltd/wp-admin/' },
+        { id: randomId(), label: 'Google Search Console', url: 'https://search.google.com/search-console' },
+        { id: randomId(), label: 'Google Business Profile', url: 'https://business.google.com/' },
+        { id: randomId(), label: 'Instagram — @imagescapestudios', url: 'https://www.instagram.com/imagescapestudios' },
+        { id: randomId(), label: 'Companies House (file NM01 etc.)', url: 'https://www.gov.uk/government/organisations/companies-house' },
+        { id: randomId(), label: 'Microsoft 365 admin', url: 'https://admin.microsoft.com/' }
+      ]
+    };
+  }
+
+  // ---------------------------------------------------------------- GitHub connection + sync
+  const CONN_KEY = 'imagescapeHub.ghConnection.v1';
+  const GITHUB_API = 'https://api.github.com';
+
+  function loadConnection(){
+    try {
+      const raw = localStorage.getItem(CONN_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e){ return null; }
+  }
+  function persistConnection(c){ localStorage.setItem(CONN_KEY, JSON.stringify(c)); }
+
+  let conn = null;          // {token, owner, repo, path}
+  let currentSha = null;    // sha of the vault.json version currently loaded; null = file doesn't exist yet
+  let pendingVaultJson = null; // vault object fetched but not yet decrypted
+  let currentPassword = null;
+  let data = null;          // decrypted working copy, only ever in memory
+  let dirty = false;
+  let viewYear, viewMonth;
+  let revealedIds = new Set();
+  let pendingUnlockNote = '';
+
+  function ConflictError(message){ this.name = 'ConflictError'; this.message = message; }
+  ConflictError.prototype = Object.create(Error.prototype);
+
+  async function ghFetch(path, opts){
+    opts = opts || {};
+    const headers = Object.assign({
+      'Authorization': 'Bearer ' + conn.token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }, opts.headers || {});
+    return fetch(GITHUB_API + path, Object.assign({}, opts, { headers }));
+  }
+
+  function contentsPath(){
+    return '/repos/' + conn.owner + '/' + conn.repo + '/contents/' + conn.path;
+  }
+
+  async function checkRepoAccess(){
+    const res = await ghFetch('/repos/' + conn.owner + '/' + conn.repo);
+    if (res.status === 404){
+      throw new Error('Repository "' + conn.owner + '/' + conn.repo + '" wasn’t found, or this token can’t see it. Check the name and that the token has access to it.');
+    }
+    if (res.status === 401){
+      throw new Error('GitHub rejected the token as invalid or expired. Generate a fresh one and reconnect.');
+    }
+    if (!res.ok){
+      const body = await res.json().catch(function(){ return {}; });
+      throw new Error(body.message || ('GitHub request failed (' + res.status + ').'));
+    }
+  }
+
+  async function fetchVaultFile(){
+    const res = await ghFetch(contentsPath());
+    if (res.status === 404){
+      return { exists: false, sha: null, obj: null };
+    }
+    if (res.status === 401){
+      throw new Error('GitHub rejected the token as invalid or expired. Generate a fresh one and reconnect.');
+    }
+    if (!res.ok){
+      const body = await res.json().catch(function(){ return {}; });
+      throw new Error(body.message || ('GitHub request failed (' + res.status + ').'));
+    }
+    const body = await res.json();
+    let obj;
+    try {
+      obj = JSON.parse(b64ToUtf8(body.content));
+    } catch (e){
+      throw new Error('The file at that path doesn’t look like a vault this app created (couldn’t parse it).');
+    }
+    return { exists: true, sha: body.sha, obj: obj };
+  }
+
+  async function pushVaultFile(vaultObj, sha){
+    const payload = {
+      message: 'Update ImageScape Hub vault — ' + new Date().toISOString(),
+      content: utf8ToB64(JSON.stringify(vaultObj))
+    };
+    if (sha) payload.sha = sha;
+    const res = await ghFetch(contentsPath(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 409){
+      const body = await res.json().catch(function(){ return {}; });
+      throw new ConflictError(body.message || 'This file changed elsewhere since it was loaded.');
+    }
+    if (!res.ok){
+      const body = await res.json().catch(function(){ return {}; });
+      if (res.status === 422 && /sha/i.test(body.message || '')){
+        throw new ConflictError(body.message || 'This file changed elsewhere since it was loaded.');
+      }
+      throw new Error(body.message || ('GitHub request failed (' + res.status + ').'));
+    }
+    const body = await res.json();
+    return body.content.sha;
+  }
+
+  function repoLabel(){ return conn ? (conn.owner + '/' + conn.repo + ' → ' + conn.path) : ''; }
+
+  function showScreen(id){
+    ['connectScreen','loadingScreen','connErrorScreen','setupScreen','unlockScreen','dashboard'].forEach(function(s){
+      document.getElementById(s).style.display = 'none';
+    });
+    document.getElementById(id).style.display = (id === 'dashboard') ? 'block' : 'flex';
+  }
+
+  async function fetchFlow(){
+    showScreen('loadingScreen');
+    try {
+      await checkRepoAccess();
+      const result = await fetchVaultFile();
+      if (!result.exists){
+        document.getElementById('setupRepoLabel').textContent = repoLabel();
+        showScreen('setupScreen');
+      } else {
+        currentSha = result.sha;
+        pendingVaultJson = result.obj;
+        document.getElementById('unlockRepoLabel').textContent = repoLabel();
+        document.getElementById('unlockMsg').innerHTML = pendingUnlockNote
+          ? '<div class="msg info">' + pendingUnlockNote + '</div>' : '';
+        pendingUnlockNote = '';
+        showScreen('unlockScreen');
+      }
+    } catch (e){
+      document.getElementById('connErrorMsg').textContent = e.message || 'Something went wrong reaching GitHub.';
+      showScreen('connErrorScreen');
+    }
+  }
+
+  function fillConnectFormFromStored(){
+    const c = loadConnection();
+    if (!c) return;
+    document.getElementById('cnToken').value = c.token || '';
+    document.getElementById('cnRepo').value = (c.owner && c.repo) ? (c.owner + '/' + c.repo) : '';
+    document.getElementById('cnPath').value = c.path || 'vault.json';
+  }
+
+  document.getElementById('connectBtn').addEventListener('click', function(){
+    const token = document.getElementById('cnToken').value.trim();
+    const repoField = document.getElementById('cnRepo').value.trim();
+    const path = document.getElementById('cnPath').value.trim() || 'vault.json';
+    const msg = document.getElementById('connectMsg');
+    msg.innerHTML = '';
+    if (!token || !repoField){
+      msg.innerHTML = '<div class="msg error">Token and repository are both required.</div>';
+      return;
+    }
+    const parts = repoField.split('/').map(function(s){ return s.trim(); }).filter(Boolean);
+    if (parts.length !== 2){
+      msg.innerHTML = '<div class="msg error">Repository should look like owner/repo-name.</div>';
+      return;
+    }
+    conn = { token: token, owner: parts[0], repo: parts[1], path: path };
+    persistConnection(conn);
+    fetchFlow();
+  });
+
+  document.getElementById('retryBtn').addEventListener('click', function(){ fetchFlow(); });
+  document.getElementById('reconnectBtn').addEventListener('click', function(){
+    fillConnectFormFromStored();
+    showScreen('connectScreen');
+  });
+  document.getElementById('unlockChangeConn').addEventListener('click', function(e){
+    e.preventDefault();
+    fillConnectFormFromStored();
+    showScreen('connectScreen');
+  });
+  document.getElementById('ghBadgeBtn').addEventListener('click', function(){
+    if (dirty && !confirm('You have unsaved changes that will be lost if you switch connections. Continue?')) return;
+    doLock();
+    fillConnectFormFromStored();
+    showScreen('connectScreen');
+  });
+
+  // ---------------------------------------------------------------- setup flow (first run for this repo)
+  document.getElementById('setupBtn').addEventListener('click', async function(){
+    const p1 = document.getElementById('setupPw1').value;
+    const p2 = document.getElementById('setupPw2').value;
+    const msg = document.getElementById('setupMsg');
+    const btn = document.getElementById('setupBtn');
+    msg.innerHTML = '';
+    if (p1.length < 8){
+      msg.innerHTML = '<div class="msg error">Password needs to be at least 8 characters.</div>';
+      return;
+    }
+    if (p1 !== p2){
+      msg.innerHTML = '<div class="msg error">Passwords don’t match.</div>';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    data = seedData();
+    currentPassword = p1;
+    try {
+      const newVault = await encryptData(p1, data);
+      const sha = await pushVaultFile(newVault, null);
+      currentSha = sha;
+      showDashboard();
+      markClean();
+      toast('Vault created and saved to GitHub.');
+    } catch (e){
+      showDashboard();
+      markDirty();
+      toast('Password set, but the first save to GitHub failed (' + e.message + '). Use Save to retry.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Create & continue';
+    }
+  });
+
+  // ---------------------------------------------------------------- unlock flow
+  document.getElementById('unlockBtn').addEventListener('click', unlock);
+  document.getElementById('unlockPw').addEventListener('keydown', function(e){ if (e.key === 'Enter') unlock(); });
+
+  async function unlock(){
+    const pw = document.getElementById('unlockPw').value;
+    const msg = document.getElementById('unlockMsg');
+    const btn = document.getElementById('unlockBtn');
+    if (!pw){ return; }
+    btn.disabled = true; btn.textContent = 'Unlocking…';
+    try {
+      data = await decryptVault(pw, pendingVaultJson);
+      currentPassword = pw;
+      document.getElementById('unlockPw').value = '';
+      showDashboard();
+    } catch (e){
+      msg.innerHTML = '<div class="msg error">Incorrect password.</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Unlock';
+    }
+  }
+
+  // ---------------------------------------------------------------- dashboard shell
+  function showDashboard(){
+    document.getElementById('ghBadgeLabel').textContent = conn.owner + '/' + conn.repo;
+    showScreen('dashboard');
+    const now = new Date();
+    viewYear = now.getFullYear(); viewMonth = now.getMonth();
+    renderCalendar();
+    renderTasks();
+    renderLinks();
+    resetAutoLockTimer();
+  }
+
+  document.querySelectorAll('nav.tabs button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    });
+  });
+
+  function markDirty(){
+    dirty = true;
+    document.getElementById('dirtyDot').style.display = 'inline-block';
+  }
+  function markClean(){
+    dirty = false;
+    document.getElementById('dirtyDot').style.display = 'none';
+  }
+
+  window.addEventListener('beforeunload', function(e){
+    if (dirty){ e.preventDefault(); e.returnValue = ''; }
+  });
+
+  function doLock(){
+    data = null; currentPassword = null; dirty = false;
+    pendingVaultJson = null; currentSha = null;
+    revealedIds.clear();
+    clearTimeout(autoLockTimer);
+  }
+
+  document.getElementById('lockBtn').addEventListener('click', function(){
+    if (dirty && !confirm('You have unsaved changes that will be lost. Lock anyway?')) return;
+    doLock();
+    fetchFlow(); // re-fetch fresh on every re-unlock, in case another device/session saved since
+  });
+
+  async function saveToGitHub(password){
+    const newVault = await encryptData(password, data);
+    const sha = await pushVaultFile(newVault, currentSha);
+    currentSha = sha;
+    return sha;
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', async function(){
+    if (!currentPassword){ toast('Nothing to save yet.'); return; }
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    try {
+      await saveToGitHub(currentPassword);
+      markClean();
+      toast('Saved.');
+    } catch (e){
+      if (e instanceof ConflictError){
+        toast('This was updated elsewhere since you loaded it. Lock and unlock again to load the latest before saving.');
+      } else {
+        toast('Save failed: ' + e.message);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ---------------------------------------------------------------- change password
+  document.getElementById('changePwBtn').addEventListener('click', function(){
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Change password</h3>' +
+        '<p>Re-encrypts everything with a new password and saves immediately. The old password stops working as soon as that save succeeds.</p>' +
+        '<div id="cpwMsg"></div>' +
+        '<div class="field"><label>New password</label><input type="password" id="cpw1"></div>' +
+        '<div class="field"><label>Confirm new password</label><input type="password" id="cpw2"></div>' +
+        '<div class="row"><button class="btn btn-ghost" id="cpwCancel">Cancel</button><button class="btn btn-primary" id="cpwOk">Change &amp; save</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#cpwCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#cpwOk').addEventListener('click', async function(){
+      const p1 = backdrop.querySelector('#cpw1').value;
+      const p2 = backdrop.querySelector('#cpw2').value;
+      const msg = backdrop.querySelector('#cpwMsg');
+      if (p1.length < 8){ msg.innerHTML = '<div class="msg error">At least 8 characters.</div>'; return; }
+      if (p1 !== p2){ msg.innerHTML = '<div class="msg error">Passwords don’t match.</div>'; return; }
+      const okBtn = backdrop.querySelector('#cpwOk');
+      okBtn.disabled = true; okBtn.textContent = 'Saving…';
+      markDirty();
+      try {
+        await saveToGitHub(p1);
+        currentPassword = p1;
+        markClean();
+        backdrop.remove();
+        toast('Password changed and saved.');
+      } catch (e){
+        backdrop.remove();
+        // Deliberately NOT switching currentPassword on failure: the vault on GitHub
+        // still only decrypts with the OLD password until a save actually succeeds,
+        // so keep using that until it does - otherwise a later lock/unlock cycle
+        // would silently fail with the "new" password that was never really saved.
+        if (e instanceof ConflictError){
+          toast('This was updated elsewhere since you loaded it — lock and unlock again, then retry.');
+        } else {
+          toast('Could not save the new password to GitHub (' + e.message + ') — still using your old password.');
+        }
+      }
+    });
+  });
+
+  function toast(text){
+    const el = document.getElementById('saveToast');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ el.classList.remove('show'); }, 4200);
+  }
+
+  // ---------------------------------------------------------------- clipboard (graceful fallback chain -
+  // some browsers/contexts deny the Clipboard API outright)
+  async function copyToClipboard(text){
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e){ /* fall through to legacy path */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      if (ok) return true;
+    } catch (e){ /* fall through */ }
+    return false;
+  }
+
+  // ---------------------------------------------------------------- auto-lock (inactivity)
+  // Idle timeout so an unlocked tab left open doesn't sit decrypted on screen
+  // indefinitely. Resets on any user interaction while the dashboard is showing.
+  // Unlike the old local-file version, the background save here needs no user
+  // gesture at all (it's just a fetch() call), so it's reliable every time.
+  const AUTO_LOCK_MS = 15 * 60 * 1000;
+  let autoLockTimer = null;
+
+  function dashboardShowing(){
+    return document.getElementById('dashboard').style.display !== 'none';
+  }
+
+  function resetAutoLockTimer(){
+    clearTimeout(autoLockTimer);
+    if (!dashboardShowing()) return;
+    autoLockTimer = setTimeout(autoLockNow, AUTO_LOCK_MS);
+  }
+
+  ['mousemove','mousedown','keydown','wheel','touchstart'].forEach(function(evt){
+    document.addEventListener(evt, resetAutoLockTimer, { passive: true });
+  });
+
+  async function autoLockNow(){
+    if (!dashboardShowing()) return;
+    let note = 'Locked automatically after ' + Math.round(AUTO_LOCK_MS / 60000) + ' minutes of inactivity.';
+    if (dirty && currentPassword){
+      try {
+        await saveToGitHub(currentPassword);
+        note += ' Unsaved changes were saved first.';
+      } catch (e){
+        note += ' Unsaved changes could not be saved automatically (' + e.message + ') and were discarded.';
+      }
+    }
+    doLock();
+    pendingUnlockNote = note;
+    fetchFlow();
+  }
+
+  // ---------------------------------------------------------------- calendar
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function isoDate(y,m,d){ return y + '-' + pad2(m+1) + '-' + pad2(d); }
+
+  function renderCalendar(){
+    document.getElementById('calLabel').textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    DOW.forEach(function(d){
+      const el = document.createElement('div');
+      el.className = 'dow'; el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const firstDay = new Date(viewYear, viewMonth, 1);
+    let leading = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const today = new Date();
+    const todayIso = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
+
+    for (let i = 0; i < leading; i++){
+      const el = document.createElement('div');
+      el.className = 'cal-cell empty';
+      grid.appendChild(el);
+    }
+    for (let day = 1; day <= daysInMonth; day++){
+      const iso = isoDate(viewYear, viewMonth, day);
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell' + (iso === todayIso ? ' today' : '');
+      const num = document.createElement('span');
+      num.className = 'daynum'; num.textContent = day;
+      cell.appendChild(num);
+      const dayEvents = data.events.filter(function(e){ return e.date === iso; });
+      dayEvents.slice(0, 2).forEach(function(ev){
+        const chip = document.createElement('span');
+        chip.className = 'chip'; chip.textContent = ev.title;
+        cell.appendChild(chip);
+      });
+      if (dayEvents.length > 2){
+        const more = document.createElement('span');
+        more.className = 'chip more'; more.textContent = '+' + (dayEvents.length - 2) + ' more';
+        cell.appendChild(more);
+      }
+      cell.addEventListener('click', function(){ openEventForm(iso); });
+      grid.appendChild(cell);
+    }
+    renderEventList();
+  }
+
+  function renderEventList(){
+    const monthPrefix = viewYear + '-' + pad2(viewMonth + 1);
+    const list = document.getElementById('eventList');
+    const monthEvents = data.events.filter(function(e){ return e.date.indexOf(monthPrefix) === 0; })
+      .sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    list.innerHTML = '';
+    if (!monthEvents.length){
+      list.innerHTML = '<div class="empty-note">No events this month.</div>';
+      return;
+    }
+    monthEvents.forEach(function(ev){
+      const row = document.createElement('div');
+      row.className = 'event-row';
+      row.innerHTML =
+        '<span class="date-badge">' + ev.date.slice(8,10) + ' ' + MONTH_NAMES[parseInt(ev.date.slice(5,7),10)-1].slice(0,3) + '</span>' +
+        '<div class="body"><div class="title"></div><div class="notes"></div></div>' +
+        '<button class="del" title="Delete">✕</button>';
+      row.querySelector('.title').textContent = ev.title;
+      row.querySelector('.notes').textContent = ev.notes || '';
+      row.querySelector('.del').addEventListener('click', function(){
+        data.events = data.events.filter(function(e){ return e.id !== ev.id; });
+        markDirty(); renderCalendar();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function openEventForm(iso){
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Add event</h3>' +
+        '<div class="field"><label>Date</label><input type="date" id="evDate" value="' + iso + '"></div>' +
+        '<div class="field"><label>Title</label><input type="text" id="evTitle" placeholder="e.g. Client shoot — Weston site"></div>' +
+        '<div class="field"><label>Notes (optional)</label><input type="text" id="evNotes"></div>' +
+        '<div class="row"><button class="btn btn-ghost" id="evCancel">Cancel</button><button class="btn btn-primary" id="evOk">Add</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#evCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#evOk').addEventListener('click', function(){
+      const date = backdrop.querySelector('#evDate').value;
+      const title = backdrop.querySelector('#evTitle').value.trim();
+      const notes = backdrop.querySelector('#evNotes').value.trim();
+      if (!date || !title) return;
+      data.events.push({ id: randomId(), date: date, title: title, notes: notes });
+      markDirty();
+      backdrop.remove();
+      renderCalendar();
+    });
+  }
+
+  document.getElementById('calPrev').addEventListener('click', function(){
+    viewMonth--; if (viewMonth < 0){ viewMonth = 11; viewYear--; }
+    renderCalendar();
+  });
+  document.getElementById('calNext').addEventListener('click', function(){
+    viewMonth++; if (viewMonth > 11){ viewMonth = 0; viewYear++; }
+    renderCalendar();
+  });
+  document.getElementById('calAddBtn').addEventListener('click', function(){
+    const today = new Date();
+    openEventForm(isoDate(today.getFullYear(), today.getMonth(), today.getDate()));
+  });
+
+  // ---------------------------------------------------------------- tasks
+  function renderTasks(){
+    const list = document.getElementById('taskList');
+    list.innerHTML = '';
+    if (!data.tasks.length){
+      list.innerHTML = '<div class="empty-note">No tasks yet.</div>';
+      return;
+    }
+    const todayIso = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
+    data.tasks.forEach(function(t){
+      const row = document.createElement('div');
+      row.className = 'task-row' + (t.done ? ' done' : '');
+      const overdue = t.due && !t.done && t.due < todayIso;
+      row.innerHTML =
+        '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
+        '<div class="body"><div class="txt"></div>' +
+        (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '') +
+        '</div><button class="del" title="Delete">✕</button>';
+      row.querySelector('.txt').textContent = t.text;
+      if (t.due) row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
+      row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
+        t.done = e.target.checked;
+        markDirty(); renderTasks();
+      });
+      row.querySelector('.del').addEventListener('click', function(){
+        data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
+        markDirty(); renderTasks();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('taskAddBtn').addEventListener('click', function(){
+    const textEl = document.getElementById('taskText');
+    const dueEl = document.getElementById('taskDue');
+    const text = textEl.value.trim();
+    if (!text) return;
+    data.tasks.push({ id: randomId(), text: text, done: false, due: dueEl.value || '' });
+    textEl.value = ''; dueEl.value = '';
+    markDirty(); renderTasks();
+  });
+  document.getElementById('taskText').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('taskAddBtn').click();
+  });
+
+  // ---------------------------------------------------------------- links
+  function maskedValue(text){
+    return '•'.repeat(Math.max(8, Math.min(text.length, 20)));
+  }
+
+  function renderLinks(){
+    const grid = document.getElementById('linkGrid');
+    grid.innerHTML = '';
+    data.links.forEach(function(l){
+      const card = document.createElement('div');
+      card.className = 'link-card';
+      card.innerHTML =
+        '<button class="del" title="Remove">✕</button>' +
+        '<a target="_blank" rel="noopener"></a>' +
+        '<div class="url"></div>';
+      const a = card.querySelector('a');
+      a.href = l.url; a.textContent = l.label;
+      card.querySelector('.url').textContent = l.url;
+      card.querySelector('.del').addEventListener('click', function(){
+        data.links = data.links.filter(function(x){ return x.id !== l.id; });
+        markDirty(); renderLinks();
+      });
+
+      if (l.username || l.password){
+        const block = document.createElement('div');
+        block.className = 'cred-block';
+
+        if (l.username){
+          const row = document.createElement('div');
+          row.className = 'cred-row';
+          row.innerHTML = '<span class="cred-label">User</span><span class="cred-value"></span><button title="Copy username">Copy</button>';
+          row.querySelector('.cred-value').textContent = l.username;
+          row.querySelector('button').addEventListener('click', async function(){
+            const ok = await copyToClipboard(l.username);
+            toast(ok ? 'Username copied.' : 'Couldn’t copy automatically — select and copy manually.');
+          });
+          block.appendChild(row);
+        }
+
+        if (l.password){
+          const key = l.id + ':pass';
+          const row = document.createElement('div');
+          row.className = 'cred-row';
+          row.innerHTML =
+            '<span class="cred-label">Pass</span><span class="cred-value"></span>' +
+            '<button class="cred-toggle" title="Show/hide password"></button>' +
+            '<button class="cred-copy" title="Copy password">Copy</button>';
+          const valueEl = row.querySelector('.cred-value');
+          const toggleEl = row.querySelector('.cred-toggle');
+          const revealed = revealedIds.has(key);
+          valueEl.textContent = revealed ? l.password : maskedValue(l.password);
+          toggleEl.textContent = revealed ? 'Hide' : 'Show';
+          toggleEl.addEventListener('click', function(){
+            if (revealedIds.has(key)) revealedIds.delete(key); else revealedIds.add(key);
+            renderLinks();
+          });
+          row.querySelector('.cred-copy').addEventListener('click', async function(){
+            const ok = await copyToClipboard(l.password);
+            toast(ok ? 'Password copied.' : 'Couldn’t copy automatically — click Show and copy manually.');
+          });
+          block.appendChild(row);
+        }
+
+        card.appendChild(block);
+      }
+
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('linkAddBtn').addEventListener('click', function(){
+    const labelEl = document.getElementById('linkLabel');
+    const urlEl = document.getElementById('linkUrl');
+    const userEl = document.getElementById('linkUser');
+    const passEl = document.getElementById('linkPass');
+    const label = labelEl.value.trim();
+    let url = urlEl.value.trim();
+    const username = userEl.value.trim();
+    const password = passEl.value;
+    if (!label || !url) return;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const entry = { id: randomId(), label: label, url: url };
+    if (username) entry.username = username;
+    if (password) entry.password = password;
+    data.links.push(entry);
+    labelEl.value = ''; urlEl.value = ''; userEl.value = ''; passEl.value = '';
+    markDirty(); renderLinks();
+  });
+
+  // ---------------------------------------------------------------- boot
+  conn = loadConnection();
+  if (!conn){
+    showScreen('connectScreen');
+  } else {
+    fetchFlow();
+  }
+})();
+</script>
+</body>
+</html>
