@@ -133,17 +133,29 @@
   .empty-note{font-size:13px;color:var(--muted);padding:10px 0;}
 
   /* --- Tasks --- */
-  .task-add{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .task-add{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .task-add input[type=text]{flex:1;min-width:180px;padding:9px 11px;border:1px solid var(--border);
     border-radius:8px;font-size:13.5px;font-family:inherit;}
   .task-add input[type=date]{padding:9px 8px;border:1px solid var(--border);border-radius:8px;
     font-size:13px;font-family:inherit;}
+  .task-add select{padding:9px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;
+    font-family:inherit;color:var(--ink);background:#fff;}
+  .task-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+  .task-filter button{background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;
+    font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;}
+  .task-filter button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
   .task-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--border);}
   .task-row:first-child{border-top:none;}
   .task-row input[type=checkbox]{margin-top:3px;width:16px;height:16px;accent-color:var(--good);flex-shrink:0;}
   .task-row .body{flex:1;font-size:13.5px;}
   .task-row.done .body .txt{color:var(--muted);text-decoration:line-through;}
   .task-row .due{font-size:11px;color:var(--muted);margin-top:2px;}
+  .cat-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.03em;padding:2px 7px;border-radius:5px;margin-right:6px;vertical-align:middle;}
+  .cat-badge.cat-website{background:#fdf6e8;color:var(--gold-deep);}
+  .cat-badge.cat-client{background:#eef1fa;color:var(--navy);}
+  .cat-badge.cat-compliance{background:var(--warn-soft);color:var(--warn);}
+  .cat-badge.cat-equipment{background:var(--good-soft);color:var(--good);}
   .task-row .due.overdue{color:var(--warn);font-weight:700;}
   .task-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;}
   .task-row .del:hover{color:var(--warn);}
@@ -320,8 +332,23 @@
         <div class="sub">Add anything the business needs to track — not tied to any one project.</div>
         <div class="task-add">
           <input type="text" id="taskText" placeholder="New task…">
+          <select id="taskCategory">
+            <option value="">No category</option>
+            <option value="website">Website</option>
+            <option value="client">Client work</option>
+            <option value="compliance">Compliance</option>
+            <option value="equipment">Equipment</option>
+          </select>
           <input type="date" id="taskDue">
           <button class="btn btn-primary" id="taskAddBtn" style="width:auto;">Add</button>
+        </div>
+        <div class="task-filter" id="taskFilter">
+          <button data-cat="all" class="active">All</button>
+          <button data-cat="website">Website</button>
+          <button data-cat="client">Client work</button>
+          <button data-cat="compliance">Compliance</button>
+          <button data-cat="equipment">Equipment</button>
+          <button data-cat="none">No category</button>
         </div>
         <div id="taskList"></div>
       </div>
@@ -416,13 +443,13 @@
         { id: randomId(), date: '2026-12-10', title: 'skysight.ltd domain ownership ends', notes: '' }
       ],
       tasks: [
-        { id: randomId(), text: 'Set up mail forwarding from skysight.ltd addresses to info@imagescape.uk', done: false, due: '2026-08-18' },
-        { id: randomId(), text: 'Update email signature & autoresponders once info@imagescape.uk is confirmed working', done: false, due: '' },
-        { id: randomId(), text: 'Set up 301 redirects from key old skysight.ltd URLs to their new equivalents', done: false, due: '' },
-        { id: randomId(), text: 'Resubmit sitemap & verify new property in Google Search Console; use Change of Address tool', done: false, due: '' },
-        { id: randomId(), text: 'Update Google Business Profile, Instagram handle (@imagescapestudios) & directory listings', done: false, due: '' },
-        { id: randomId(), text: 'Turn off SkySight auto-renew on GoDaddy once fully migrated', done: false, due: '2026-08-18' },
-        { id: randomId(), text: 'File NM01 Companies House name change (by JC)', done: false, due: '' }
+        { id: randomId(), text: 'Set up mail forwarding from skysight.ltd addresses to info@imagescape.uk', done: false, due: '2026-08-18', category: 'website' },
+        { id: randomId(), text: 'Update email signature & autoresponders once info@imagescape.uk is confirmed working', done: false, due: '', category: 'website' },
+        { id: randomId(), text: 'Set up 301 redirects from key old skysight.ltd URLs to their new equivalents', done: false, due: '', category: 'website' },
+        { id: randomId(), text: 'Resubmit sitemap & verify new property in Google Search Console; use Change of Address tool', done: false, due: '', category: 'website' },
+        { id: randomId(), text: 'Update Google Business Profile, Instagram handle (@imagescapestudios) & directory listings', done: false, due: '', category: 'client' },
+        { id: randomId(), text: 'Turn off SkySight auto-renew on GoDaddy once fully migrated', done: false, due: '2026-08-18', category: 'website' },
+        { id: randomId(), text: 'File NM01 Companies House name change (by JC)', done: false, due: '', category: 'compliance' }
       ],
       links: [
         { id: randomId(), label: 'GoDaddy account', url: 'https://www.godaddy.com/' },
@@ -977,24 +1004,47 @@
   });
 
   // ---------------------------------------------------------------- tasks
+  const CATEGORY_LABELS = { website: 'Website', client: 'Client work', compliance: 'Compliance', equipment: 'Equipment' };
+  let taskFilter = 'all';
+
+  document.querySelectorAll('#taskFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      taskFilter = btn.dataset.cat;
+      document.querySelectorAll('#taskFilter button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTasks();
+    });
+  });
+
   function renderTasks(){
     const list = document.getElementById('taskList');
     list.innerHTML = '';
+    const visible = data.tasks.filter(function(t){
+      if (taskFilter === 'all') return true;
+      if (taskFilter === 'none') return !t.category;
+      return t.category === taskFilter;
+    });
     if (!data.tasks.length){
       list.innerHTML = '<div class="empty-note">No tasks yet.</div>';
       return;
     }
+    if (!visible.length){
+      list.innerHTML = '<div class="empty-note">No tasks in this category.</div>';
+      return;
+    }
     const todayIso = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
-    data.tasks.forEach(function(t){
+    visible.forEach(function(t){
       const row = document.createElement('div');
       row.className = 'task-row' + (t.done ? ' done' : '');
       const overdue = t.due && !t.done && t.due < todayIso;
       row.innerHTML =
         '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
-        '<div class="body"><div class="txt"></div>' +
+        '<div class="body"><div class="txt">' +
+        (t.category ? '<span class="cat-badge cat-' + t.category + '">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
+        '</div>' +
         (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '') +
         '</div><button class="del" title="Delete">✕</button>';
-      row.querySelector('.txt').textContent = t.text;
+      row.querySelector('.txt').appendChild(document.createTextNode(t.text));
       if (t.due) row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
       row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
         t.done = e.target.checked;
@@ -1011,9 +1061,12 @@
   document.getElementById('taskAddBtn').addEventListener('click', function(){
     const textEl = document.getElementById('taskText');
     const dueEl = document.getElementById('taskDue');
+    const catEl = document.getElementById('taskCategory');
     const text = textEl.value.trim();
     if (!text) return;
-    data.tasks.push({ id: randomId(), text: text, done: false, due: dueEl.value || '' });
+    const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '' };
+    if (catEl.value) entry.category = catEl.value;
+    data.tasks.push(entry);
     textEl.value = ''; dueEl.value = '';
     markDirty(); renderTasks();
   });
