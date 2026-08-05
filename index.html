@@ -185,6 +185,86 @@
   .cred-row button{background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;
     font-size:10.5px;cursor:pointer;color:var(--navy);font-family:inherit;flex-shrink:0;}
   .cred-row button:hover{border-color:var(--navy);color:var(--navy-deep);}
+  .doc-desc{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
+
+  /* --- Alert banner --- */
+  .alert-banner{background:var(--warn-soft);color:var(--warn);padding:10px 24px;font-size:13px;
+    font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .alert-banner.alert-info{background:#eef1fa;color:var(--navy);}
+  .alert-banner button{background:none;border:1px solid var(--warn);color:var(--warn);border-radius:6px;
+    padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;}
+  .alert-banner button:hover{background:var(--warn);color:#fff;}
+  .alert-banner.alert-info button{border-color:var(--navy);color:var(--navy);}
+  .alert-banner.alert-info button:hover{background:var(--navy);color:#fff;}
+
+  /* --- Meetings --- */
+  .meeting-add input,.meeting-add textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;font-size:13.5px;font-family:inherit;margin-bottom:8px;}
+  .meeting-add textarea{min-height:64px;resize:vertical;}
+  .meeting-row{border-top:1px solid var(--border);padding:14px 0;}
+  .meeting-row:first-child{border-top:none;}
+  .meeting-row .mtg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;}
+  .meeting-row .mtg-date{background:#eef1fa;color:var(--navy);border-radius:6px;padding:4px 8px;
+    font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .meeting-row .mtg-attendees{font-size:12px;color:var(--muted);flex:1;}
+  .meeting-row .mtg-notes{font-size:13.5px;white-space:pre-wrap;margin-bottom:8px;line-height:1.5;}
+  .meeting-row .mtg-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;
+    line-height:1;margin-left:auto;}
+  .meeting-row .mtg-del:hover{color:var(--warn);}
+  .action-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;
+    border-top:1px dashed var(--border);}
+  .action-item:first-child{border-top:none;}
+  .action-item .txt{flex:1;}
+  .action-item button{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;
+    font-size:11px;font-weight:700;color:var(--navy);cursor:pointer;font-family:inherit;flex-shrink:0;}
+  .action-item button:hover{border-color:var(--navy);}
+  .action-item button.linked{color:var(--good);border-color:var(--good);cursor:default;background:var(--good-soft);}
+
+  /* --- Blog --- */
+  .wp-status{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-bottom:14px;
+    flex-wrap:wrap;}
+  .wp-status .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+    padding:4px 10px;border-radius:20px;}
+  .wp-status .pill.connected{background:var(--good-soft);color:var(--good);}
+  .wp-status .pill.disconnected{background:var(--warn-soft);color:var(--warn);}
+  .wp-status .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .wp-connect-fields{display:none;margin-bottom:16px;padding:16px;background:#f8f9fb;border-radius:10px;
+    border:1px solid var(--border);}
+  .wp-connect-fields.open{display:block;}
+  .wp-connect-fields input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;
+    font-size:13.5px;font-family:inherit;margin-bottom:8px;}
+  .wp-connect-fields .hint{margin-bottom:10px;}
+  .blog-compose{border-top:1px solid var(--border);margin-top:16px;padding-top:16px;}
+  .blog-compose input[type=text],.blog-compose textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;font-size:13.5px;font-family:inherit;margin-bottom:8px;}
+  .blog-compose textarea{min-height:120px;resize:vertical;}
+  .blog-compose .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .blog-compose .status-choice{display:flex;gap:14px;font-size:13px;align-items:center;}
+  .blog-compose .status-choice label{display:flex;align-items:center;gap:5px;font-weight:600;cursor:pointer;}
+  .img-preview{max-width:160px;max-height:100px;border-radius:6px;border:1px solid var(--border);
+    display:block;margin-top:6px;}
+  .caption-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:16px;}
+  .caption-card{border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .caption-card .plat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .caption-card .plat-name{font-weight:700;font-size:13px;color:var(--navy);}
+  .caption-card .char-count{font-size:10.5px;color:var(--muted);}
+  .caption-card .char-count.over{color:var(--warn);font-weight:700;}
+  .caption-card textarea{width:100%;min-height:110px;padding:8px;border:1px solid var(--border);border-radius:6px;
+    font-size:12.5px;font-family:inherit;resize:vertical;background:#fafbfd;}
+  .caption-card button{margin-top:8px;background:none;border:1px solid var(--border);border-radius:6px;
+    padding:5px 11px;font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer;font-family:inherit;}
+  .caption-card button:hover{border-color:var(--navy);}
+  .post-row{border-top:1px solid var(--border);padding:12px 0;display:flex;gap:12px;align-items:flex-start;}
+  .post-row:first-child{border-top:none;}
+  .post-row .body{flex:1;}
+  .post-row .body .title{font-weight:700;font-size:13.5px;}
+  .post-row .body .meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .post-row .body .meta a{color:var(--navy);}
+  .status-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.03em;padding:2px 7px;border-radius:5px;margin-left:6px;vertical-align:middle;}
+  .status-badge.draft{background:#eef1fa;color:var(--navy);}
+  .status-badge.publish{background:var(--good-soft);color:var(--good);}
+  .status-badge.failed{background:var(--warn-soft);color:var(--warn);}
 
   .save-toast{position:fixed;bottom:20px;right:20px;background:var(--navy-deep);color:#fff;
     padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);
@@ -303,9 +383,17 @@
     </div>
   </header>
 
+  <div class="alert-banner" id="alertBanner" style="display:none;">
+    <span id="alertText"></span>
+    <button id="alertViewBtn">View tasks →</button>
+  </div>
+
   <nav class="tabs">
     <button data-panel="cal" class="active">Calendar</button>
     <button data-panel="tasks">Tasks</button>
+    <button data-panel="meetings">Meeting Notes</button>
+    <button data-panel="documents">Documents</button>
+    <button data-panel="blog">Blog</button>
     <button data-panel="links">Site &amp; Hosting</button>
   </nav>
 
@@ -351,6 +439,90 @@
           <button data-cat="none">No category</button>
         </div>
         <div id="taskList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-meetings">
+      <div class="card">
+        <h2>Meeting notes</h2>
+        <div class="sub">Log notes from meetings. Action items can become tasks with one click.</div>
+        <div class="meeting-add">
+          <input type="date" id="mtgDate">
+          <input type="text" id="mtgAttendees" placeholder="Attendees (optional)">
+          <textarea id="mtgNotes" placeholder="Notes…"></textarea>
+          <textarea id="mtgActions" placeholder="Action items — one per line (optional)"></textarea>
+          <button class="btn btn-primary" id="mtgAddBtn" style="width:auto;">Add meeting note</button>
+        </div>
+        <div id="meetingList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-documents">
+      <div class="card">
+        <h2>Documents</h2>
+        <div class="sub">Links to documents stored elsewhere — Google Drive, Dropbox, etc. This app doesn't store the files themselves.</div>
+        <div class="link-add">
+          <input type="text" id="docLabel" placeholder="Label (e.g. 2026 Insurance policy)">
+          <input type="text" id="docUrl" placeholder="https://…">
+          <input type="text" id="docDesc" placeholder="Description (optional)">
+          <button class="btn btn-primary" id="docAddBtn" style="width:auto;">Add document</button>
+        </div>
+        <div class="link-grid" id="docGrid"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-blog">
+      <div class="card">
+        <h2>WordPress connection</h2>
+        <div class="sub">Lets this Hub create posts directly on imagescapestudios.uk. Uses a WordPress Application Password — a scoped, revocable credential, not your main WordPress login.</div>
+        <div class="wp-status">
+          <span class="pill disconnected" id="wpStatusPill"><span class="dot"></span><span id="wpStatusText">Not connected</span></span>
+          <button class="btn btn-ghost" id="wpEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
+        </div>
+        <div class="wp-connect-fields" id="wpConnectFields">
+          <div class="hint">Create a dedicated WordPress user with the <strong>Author</strong> role (not Administrator) for this, then generate an Application Password for it under that user's profile page. See SETUP.md for the full walkthrough, including the one-time CORS file this site needs.</div>
+          <input type="text" id="wpSiteUrl" placeholder="Site URL (e.g. https://imagescapestudios.uk)">
+          <input type="text" id="wpUsername" placeholder="WordPress username">
+          <input type="password" id="wpAppPassword" placeholder="Application password" autocomplete="off">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="wpSaveBtn" style="width:auto;">Save connection</button>
+            <button class="btn btn-ghost" id="wpDisconnectBtn" style="width:auto;">Remove connection</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Write a post</h2>
+        <div class="sub">Publishes to WordPress, then generates ready-to-copy captions for socials — nothing auto-posts to social platforms, you paste them in yourself.</div>
+        <div class="blog-compose">
+          <input type="text" id="blogTitle" placeholder="Post title">
+          <textarea id="blogBody" placeholder="Write the post… blank lines become paragraph breaks."></textarea>
+          <div class="row">
+            <div>
+              <input type="file" id="blogImage" accept="image/*">
+              <img id="blogImgPreview" class="img-preview" style="display:none;">
+            </div>
+            <div class="status-choice">
+              <label><input type="radio" name="blogStatus" value="draft" checked> Save as draft</label>
+              <label><input type="radio" name="blogStatus" value="publish"> Publish now</label>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="blogPublishBtn" style="width:auto;">Send to WordPress</button>
+          <div id="blogComposeMsg" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="card" id="captionSection" style="display:none;">
+        <h2>Social captions</h2>
+        <div class="sub">Generated from what you just posted. Edit freely, then copy into each app.</div>
+        <div id="blogImageUrlRow" style="display:none;margin-bottom:10px;"></div>
+        <div class="caption-grid" id="captionGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Recent posts</h2>
+        <div class="sub">History of posts sent through this Hub.</div>
+        <div id="blogHistoryList"></div>
       </div>
     </div>
 
@@ -460,8 +632,26 @@
         { id: randomId(), label: 'Instagram — @imagescapestudios', url: 'https://www.instagram.com/imagescapestudios' },
         { id: randomId(), label: 'Companies House (file NM01 etc.)', url: 'https://www.gov.uk/government/organisations/companies-house' },
         { id: randomId(), label: 'Microsoft 365 admin', url: 'https://admin.microsoft.com/' }
-      ]
+      ],
+      meetings: [],
+      documents: [],
+      blogPosts: [],
+      wpConnection: null
     };
+  }
+
+  // Older vaults (saved before Meetings/Documents/Blog existed) won't have
+  // these fields at all - back them in so every render function below can
+  // assume they're always arrays (or null, for wpConnection), never undefined.
+  function normalizeData(d){
+    d.events = d.events || [];
+    d.tasks = d.tasks || [];
+    d.links = d.links || [];
+    d.meetings = d.meetings || [];
+    d.documents = d.documents || [];
+    d.blogPosts = d.blogPosts || [];
+    d.wpConnection = d.wpConnection || null;
+    return d;
   }
 
   // ---------------------------------------------------------------- GitHub connection + sync
@@ -658,7 +848,7 @@
       return;
     }
     btn.disabled = true; btn.textContent = 'Saving…';
-    data = seedData();
+    data = normalizeData(seedData());
     currentPassword = p1;
     try {
       const newVault = await encryptData(p1, data);
@@ -687,7 +877,7 @@
     if (!pw){ return; }
     btn.disabled = true; btn.textContent = 'Unlocking…';
     try {
-      data = await decryptVault(pw, pendingVaultJson);
+      data = normalizeData(await decryptVault(pw, pendingVaultJson));
       currentPassword = pw;
       document.getElementById('unlockPw').value = '';
       showDashboard();
@@ -706,7 +896,13 @@
     viewYear = now.getFullYear(); viewMonth = now.getMonth();
     renderCalendar();
     renderTasks();
+    renderMeetings();
+    renderDocuments();
     renderLinks();
+    renderWpStatus();
+    renderBlogHistory();
+    const mtgDateEl = document.getElementById('mtgDate');
+    if (mtgDateEl && !mtgDateEl.value) mtgDateEl.value = lastFridayIso();
     resetAutoLockTimer();
   }
 
@@ -1056,7 +1252,34 @@
       });
       list.appendChild(row);
     });
+    renderAlerts();
   }
+
+  // ---------------------------------------------------------------- alerts
+  // Purely in-app: this is a static page with no server of its own, so there's
+  // nothing that can ping a phone while the Hub isn't open. What it CAN do is
+  // surface anything outstanding the moment you do open it.
+  function renderAlerts(){
+    const banner = document.getElementById('alertBanner');
+    const todayIso = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
+    const in7 = (function(){ const d = new Date(); d.setDate(d.getDate() + 7); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
+    const overdue = data.tasks.filter(function(t){ return !t.done && t.due && t.due < todayIso; });
+    const soon = data.tasks.filter(function(t){ return !t.done && t.due && t.due >= todayIso && t.due <= in7; });
+    if (!overdue.length && !soon.length){
+      banner.style.display = 'none';
+      return;
+    }
+    const parts = [];
+    if (overdue.length) parts.push(overdue.length + (overdue.length === 1 ? ' task overdue' : ' tasks overdue'));
+    if (soon.length) parts.push(soon.length + (soon.length === 1 ? ' task due within 7 days' : ' tasks due within 7 days'));
+    document.getElementById('alertText').textContent = parts.join(' · ') + '.';
+    banner.className = 'alert-banner' + (overdue.length ? '' : ' alert-info');
+    banner.style.display = 'flex';
+  }
+
+  document.getElementById('alertViewBtn').addEventListener('click', function(){
+    document.querySelector('nav.tabs button[data-panel="tasks"]').click();
+  });
 
   document.getElementById('taskAddBtn').addEventListener('click', function(){
     const textEl = document.getElementById('taskText');
@@ -1072,6 +1295,438 @@
   });
   document.getElementById('taskText').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('taskAddBtn').click();
+  });
+
+  // ---------------------------------------------------------------- meetings
+  function lastFridayIso(){
+    const d = new Date();
+    const diff = (d.getDay() + 2) % 7; // days since the most recent Friday (0 if today is Friday)
+    d.setDate(d.getDate() - diff);
+    return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function renderMeetings(){
+    const list = document.getElementById('meetingList');
+    list.innerHTML = '';
+    const meetings = data.meetings.slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    if (!meetings.length){
+      list.innerHTML = '<div class="empty-note">No meeting notes yet.</div>';
+      return;
+    }
+    meetings.forEach(function(m){
+      const row = document.createElement('div');
+      row.className = 'meeting-row';
+      row.innerHTML =
+        '<div class="mtg-head"><span class="mtg-date"></span><span class="mtg-attendees"></span><button class="mtg-del" title="Delete">✕</button></div>' +
+        '<div class="mtg-notes"></div>' +
+        '<div class="mtg-actionwrap"></div>';
+      row.querySelector('.mtg-date').textContent = m.date;
+      row.querySelector('.mtg-attendees').textContent = m.attendees ? ('Attendees: ' + m.attendees) : '';
+      row.querySelector('.mtg-notes').textContent = m.notes || '';
+      const actionsWrap = row.querySelector('.mtg-actionwrap');
+      (m.actionItems || []).forEach(function(ai){
+        const aRow = document.createElement('div');
+        aRow.className = 'action-item';
+        aRow.innerHTML = '<span class="txt"></span><button></button>';
+        aRow.querySelector('.txt').textContent = ai.text;
+        const btn = aRow.querySelector('button');
+        if (ai.taskId){
+          btn.textContent = '✓ Task added';
+          btn.className = 'linked';
+          btn.disabled = true;
+        } else {
+          btn.textContent = 'Add as task';
+          btn.addEventListener('click', function(){
+            const task = { id: randomId(), text: ai.text, done: false, due: '' };
+            data.tasks.push(task);
+            ai.taskId = task.id;
+            markDirty();
+            renderTasks();
+            renderMeetings();
+            toast('Added to Tasks.');
+          });
+        }
+        actionsWrap.appendChild(aRow);
+      });
+      row.querySelector('.mtg-del').addEventListener('click', function(){
+        data.meetings = data.meetings.filter(function(x){ return x.id !== m.id; });
+        markDirty(); renderMeetings();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('mtgAddBtn').addEventListener('click', function(){
+    const dateEl = document.getElementById('mtgDate');
+    const attEl = document.getElementById('mtgAttendees');
+    const notesEl = document.getElementById('mtgNotes');
+    const actionsEl = document.getElementById('mtgActions');
+    const date = dateEl.value;
+    const attendees = attEl.value.trim();
+    const notes = notesEl.value.trim();
+    const actionLines = actionsEl.value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+    if (!date || (!notes && !actionLines.length)){
+      toast('Add a date, plus some notes or at least one action item.');
+      return;
+    }
+    const actionItems = actionLines.map(function(text){ return { id: randomId(), text: text, taskId: null }; });
+    data.meetings.push({ id: randomId(), date: date, attendees: attendees, notes: notes, actionItems: actionItems });
+    dateEl.value = ''; attEl.value = ''; notesEl.value = ''; actionsEl.value = '';
+    markDirty(); renderMeetings();
+  });
+
+  // ---------------------------------------------------------------- documents
+  function renderDocuments(){
+    const grid = document.getElementById('docGrid');
+    grid.innerHTML = '';
+    if (!data.documents.length){
+      grid.innerHTML = '<div class="empty-note">No documents linked yet.</div>';
+      return;
+    }
+    data.documents.forEach(function(d){
+      const card = document.createElement('div');
+      card.className = 'link-card';
+      card.innerHTML =
+        '<button class="del" title="Remove">✕</button>' +
+        '<a target="_blank" rel="noopener"></a>' +
+        '<div class="url"></div>' +
+        '<div class="doc-desc"></div>';
+      const a = card.querySelector('a');
+      a.href = d.url; a.textContent = d.label;
+      card.querySelector('.url').textContent = d.url;
+      card.querySelector('.doc-desc').textContent = d.description || '';
+      card.querySelector('.del').addEventListener('click', function(){
+        data.documents = data.documents.filter(function(x){ return x.id !== d.id; });
+        markDirty(); renderDocuments();
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('docAddBtn').addEventListener('click', function(){
+    const labelEl = document.getElementById('docLabel');
+    const urlEl = document.getElementById('docUrl');
+    const descEl = document.getElementById('docDesc');
+    const label = labelEl.value.trim();
+    let url = urlEl.value.trim();
+    const description = descEl.value.trim();
+    if (!label || !url) return;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    data.documents.push({ id: randomId(), label: label, url: url, description: description });
+    labelEl.value = ''; urlEl.value = ''; descEl.value = '';
+    markDirty(); renderDocuments();
+  });
+
+  // ---------------------------------------------------------------- blog / WordPress
+  function escapeHtml(s){
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function textToHtml(text){
+    return text.split(/\n\s*\n/).map(function(para){
+      return '<p>' + escapeHtml(para.trim()).replace(/\n/g, '<br>') + '</p>';
+    }).filter(function(p){ return p !== '<p></p>'; }).join('\n');
+  }
+  function plainExcerpt(bodyText, maxLen){
+    const flat = bodyText.replace(/\s+/g, ' ').trim();
+    if (flat.length <= maxLen) return flat;
+    return flat.slice(0, maxLen - 1).replace(/\s+\S*$/, '') + '…';
+  }
+
+  function wpAuthHeader(conn){
+    return 'Basic ' + btoa(conn.username + ':' + conn.appPassword);
+  }
+
+  async function wpApiFetch(conn, path, opts){
+    opts = opts || {};
+    const headers = Object.assign({ 'Authorization': wpAuthHeader(conn) }, opts.headers || {});
+    let res;
+    try {
+      res = await fetch(conn.siteUrl + path, Object.assign({}, opts, { headers: headers }));
+    } catch (e){
+      throw new Error('Could not reach ' + conn.siteUrl + '. Check the site URL, and that the CORS setup file from SETUP.md is installed on the WordPress site.');
+    }
+    if (!res.ok){
+      let body = {};
+      try { body = await res.json(); } catch (e){ /* non-JSON error body */ }
+      if (res.status === 401 || res.status === 403){
+        throw new Error('WordPress rejected the connection (' + res.status + ') — check the username and Application Password.');
+      }
+      throw new Error(body.message || ('WordPress request failed (' + res.status + ').'));
+    }
+    return res.json();
+  }
+
+  async function uploadWpMedia(conn, file){
+    const buf = await file.arrayBuffer();
+    const media = await wpApiFetch(conn, '/wp-json/wp/v2/media', {
+      method: 'POST',
+      headers: {
+        'Content-Disposition': 'attachment; filename="' + file.name.replace(/"/g, '') + '"',
+        'Content-Type': file.type || 'application/octet-stream'
+      },
+      body: buf
+    });
+    // A 2xx response with a body that isn't actually a media object (missing
+    // id/source_url) means something upstream isn't really WordPress's REST
+    // API - e.g. a misconfigured reverse proxy, a login/maintenance page, or
+    // (during testing) a mocked response with no real backend. Don't let that
+    // silently look like success.
+    if (!media || !media.id || !media.source_url){
+      throw new Error('WordPress returned an unexpected response uploading the image — check the site URL points at a real WordPress REST API.');
+    }
+    return media;
+  }
+
+  async function createWpPost(conn, payload){
+    const post = await wpApiFetch(conn, '/wp-json/wp/v2/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!post || !post.id || !post.link){
+      throw new Error('WordPress returned an unexpected response creating the post — check the site URL points at a real WordPress REST API.');
+    }
+    return post;
+  }
+
+  function renderWpStatus(){
+    const pill = document.getElementById('wpStatusPill');
+    const text = document.getElementById('wpStatusText');
+    if (data.wpConnection && data.wpConnection.siteUrl){
+      pill.className = 'pill connected';
+      text.textContent = 'Connected — ' + data.wpConnection.username + ' @ ' + data.wpConnection.siteUrl.replace(/^https?:\/\//, '');
+    } else {
+      pill.className = 'pill disconnected';
+      text.textContent = 'Not connected';
+    }
+  }
+
+  document.getElementById('wpEditBtn').addEventListener('click', function(){
+    const fields = document.getElementById('wpConnectFields');
+    fields.classList.toggle('open');
+    if (fields.classList.contains('open') && data.wpConnection){
+      document.getElementById('wpSiteUrl').value = data.wpConnection.siteUrl || '';
+      document.getElementById('wpUsername').value = data.wpConnection.username || '';
+      document.getElementById('wpAppPassword').value = data.wpConnection.appPassword || '';
+    }
+  });
+
+  document.getElementById('wpSaveBtn').addEventListener('click', function(){
+    const siteUrlEl = document.getElementById('wpSiteUrl');
+    const userEl = document.getElementById('wpUsername');
+    const passEl = document.getElementById('wpAppPassword');
+    let siteUrl = siteUrlEl.value.trim();
+    const username = userEl.value.trim();
+    const appPassword = passEl.value.trim();
+    if (!siteUrl || !username || !appPassword){
+      toast('Site URL, username, and Application Password are all required.');
+      return;
+    }
+    if (!/^https?:\/\//i.test(siteUrl)) siteUrl = 'https://' + siteUrl;
+    siteUrl = siteUrl.replace(/\/$/, '');
+    data.wpConnection = { siteUrl: siteUrl, username: username, appPassword: appPassword };
+    markDirty();
+    renderWpStatus();
+    document.getElementById('wpConnectFields').classList.remove('open');
+    toast('WordPress connection saved. Try sending a test draft to confirm it works.');
+  });
+
+  document.getElementById('wpDisconnectBtn').addEventListener('click', function(){
+    data.wpConnection = null;
+    markDirty();
+    renderWpStatus();
+    document.getElementById('wpSiteUrl').value = '';
+    document.getElementById('wpUsername').value = '';
+    document.getElementById('wpAppPassword').value = '';
+    document.getElementById('wpConnectFields').classList.remove('open');
+  });
+
+  document.getElementById('blogImage').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    const preview = document.getElementById('blogImgPreview');
+    if (!file){ preview.style.display = 'none'; preview.src = ''; return; }
+    const reader = new FileReader();
+    reader.onload = function(){ preview.src = reader.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  });
+
+  function generateCaptions(title, bodyText, link){
+    const excerptLong = plainExcerpt(bodyText, 220);
+    const excerptShort = plainExcerpt(bodyText, 90);
+
+    const instagram = title + '\n\n' + excerptLong + '\n\nLink in bio.\n\n#ImageScapeStudios #Photography #Videography #SmallBusiness';
+    const facebook = title + '\n\n' + excerptLong + '\n\n' + link;
+
+    let x = title + ' — ' + excerptShort + ' ' + link;
+    if (x.length > 280){
+      const room = Math.max(280 - (title.length + 3 + link.length + 1), 10);
+      x = title + ' — ' + plainExcerpt(bodyText, room) + ' ' + link;
+    }
+    if (x.length > 280) x = x.slice(0, 279) + '…';
+
+    const linkedin = title + '\n\n' + plainExcerpt(bodyText, 500) + '\n\nRead the full post: ' + link;
+
+    return { instagram: instagram, facebook: facebook, x: x, linkedin: linkedin };
+  }
+
+  const PLATFORM_LIMITS = { instagram: 2200, facebook: null, x: 280, linkedin: 3000 };
+  const PLATFORM_LABELS = { instagram: 'Instagram', facebook: 'Facebook', x: 'X (Twitter)', linkedin: 'LinkedIn' };
+
+  function makeCaptionCard(key, text){
+    const card = document.createElement('div');
+    card.className = 'caption-card';
+    const limit = PLATFORM_LIMITS[key];
+    card.innerHTML =
+      '<div class="plat-head"><span class="plat-name"></span><span class="char-count"></span></div>' +
+      '<textarea></textarea>' +
+      '<button type="button">Copy</button>';
+    card.querySelector('.plat-name').textContent = PLATFORM_LABELS[key];
+    const textarea = card.querySelector('textarea');
+    const countEl = card.querySelector('.char-count');
+    textarea.value = text;
+    function updateCount(){
+      const len = textarea.value.length;
+      countEl.textContent = limit ? (len + ' / ' + limit) : (len + ' chars');
+      countEl.className = 'char-count' + (limit && len > limit ? ' over' : '');
+    }
+    updateCount();
+    textarea.addEventListener('input', updateCount);
+    card.querySelector('button').addEventListener('click', async function(){
+      const ok = await copyToClipboard(textarea.value);
+      toast(ok ? (PLATFORM_LABELS[key] + ' caption copied.') : 'Couldn’t copy automatically — select and copy manually.');
+    });
+    return card;
+  }
+
+  function renderCaptionSection(captions, imageUrl){
+    const section = document.getElementById('captionSection');
+    const grid = document.getElementById('captionGrid');
+    grid.innerHTML = '';
+    ['instagram', 'facebook', 'x', 'linkedin'].forEach(function(key){
+      grid.appendChild(makeCaptionCard(key, captions[key]));
+    });
+    const imgRow = document.getElementById('blogImageUrlRow');
+    imgRow.innerHTML = '';
+    if (imageUrl){
+      imgRow.style.display = 'block';
+      const label = document.createElement('span');
+      label.textContent = 'Image for socials that need a manual upload: ';
+      label.style.cssText = 'font-size:12px;color:var(--muted);';
+      const link = document.createElement('a');
+      link.href = imageUrl; link.target = '_blank'; link.rel = 'noopener'; link.textContent = imageUrl;
+      link.style.fontSize = '12px';
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn btn-ghost';
+      copyBtn.style.cssText = 'margin-left:10px;padding:4px 10px;font-size:11.5px;';
+      copyBtn.textContent = 'Copy link';
+      copyBtn.addEventListener('click', async function(){
+        const ok = await copyToClipboard(imageUrl);
+        toast(ok ? 'Image link copied.' : 'Couldn’t copy automatically.');
+      });
+      imgRow.appendChild(label);
+      imgRow.appendChild(link);
+      imgRow.appendChild(copyBtn);
+    } else {
+      imgRow.style.display = 'none';
+    }
+    section.style.display = 'block';
+  }
+
+  function renderBlogHistory(){
+    const list = document.getElementById('blogHistoryList');
+    list.innerHTML = '';
+    const posts = data.blogPosts.slice().sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    if (!posts.length){
+      list.innerHTML = '<div class="empty-note">No posts sent through the Hub yet.</div>';
+      return;
+    }
+    posts.forEach(function(p){
+      const row = document.createElement('div');
+      row.className = 'post-row';
+      row.innerHTML =
+        '<div class="body"><div class="title"></div><div class="meta"></div></div>' +
+        '<button class="btn btn-ghost" style="padding:5px 10px;font-size:11.5px;flex-shrink:0;">View captions</button>';
+      const titleEl = row.querySelector('.title');
+      titleEl.appendChild(document.createTextNode(p.title));
+      const badge = document.createElement('span');
+      const statusKey = p.status === 'publish' ? 'publish' : (p.status === 'failed' ? 'failed' : 'draft');
+      badge.className = 'status-badge ' + statusKey;
+      badge.textContent = statusKey === 'publish' ? 'Published' : (statusKey === 'failed' ? 'Failed' : 'Draft');
+      titleEl.appendChild(badge);
+      const meta = row.querySelector('.meta');
+      meta.textContent = p.date + (p.wpUrl ? ' — ' : '');
+      if (p.wpUrl){
+        const a = document.createElement('a');
+        a.href = p.wpUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'View on WordPress';
+        meta.appendChild(a);
+      }
+      row.querySelector('button').addEventListener('click', function(){
+        if (p.captions){
+          renderCaptionSection(p.captions, p.imageUrl);
+          document.getElementById('captionSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('blogPublishBtn').addEventListener('click', async function(){
+    const titleEl = document.getElementById('blogTitle');
+    const bodyEl = document.getElementById('blogBody');
+    const imageEl = document.getElementById('blogImage');
+    const msgEl = document.getElementById('blogComposeMsg');
+    const btn = document.getElementById('blogPublishBtn');
+    const statusVal = document.querySelector('input[name="blogStatus"]:checked').value;
+
+    const title = titleEl.value.trim();
+    const bodyText = bodyEl.value.trim();
+    msgEl.innerHTML = '';
+
+    if (!data.wpConnection){
+      msgEl.innerHTML = '<div class="msg error">Connect WordPress above first.</div>';
+      return;
+    }
+    if (!title || !bodyText){
+      msgEl.innerHTML = '<div class="msg error">Title and body are both required.</div>';
+      return;
+    }
+
+    btn.disabled = true;
+    let imageId = null, imageUrl = null;
+    try {
+      const file = imageEl.files[0];
+      if (file){
+        msgEl.innerHTML = '<div class="msg info">Uploading image…</div>';
+        const media = await uploadWpMedia(data.wpConnection, file);
+        imageId = media.id;
+        imageUrl = media.source_url;
+      }
+      msgEl.innerHTML = '<div class="msg info">Creating post…</div>';
+      const payload = { title: title, content: textToHtml(bodyText), status: statusVal };
+      if (imageId) payload.featured_media = imageId;
+      const post = await createWpPost(data.wpConnection, payload);
+
+      const captions = generateCaptions(title, bodyText, post.link);
+      const record = {
+        id: randomId(),
+        date: (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })(),
+        title: title, wpPostId: post.id, wpUrl: post.link, status: post.status || statusVal,
+        imageUrl: imageUrl, captions: captions
+      };
+      data.blogPosts.push(record);
+      markDirty();
+      renderBlogHistory();
+      renderCaptionSection(captions, imageUrl);
+
+      titleEl.value = ''; bodyEl.value = ''; imageEl.value = '';
+      document.getElementById('blogImgPreview').style.display = 'none';
+      msgEl.innerHTML = '<div class="msg info">' + (statusVal === 'publish' ? 'Published' : 'Saved as draft') + ' on WordPress.</div>';
+    } catch (e){
+      msgEl.innerHTML = '<div class="msg error">' + escapeHtml(e.message) + '</div>';
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   // ---------------------------------------------------------------- links
