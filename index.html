@@ -140,16 +140,24 @@
     font-size:13px;font-family:inherit;}
   .task-add select{padding:9px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;
     font-family:inherit;color:var(--ink);background:#fff;}
-  .task-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+  .task-filter-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+    gap:10px 16px;margin-bottom:16px;}
+  .task-filter{display:flex;gap:6px;flex-wrap:wrap;}
   .task-filter button{background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;
     font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;}
   .task-filter button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .show-completed{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .show-completed .hint-count{font-size:11px;color:var(--muted);}
+  .show-completed button{background:none;border:1px solid var(--border);border-radius:20px;padding:5px 12px;
+    font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;}
+  .show-completed button.active{background:var(--good);color:#fff;border-color:var(--good);}
   .task-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--border);}
   .task-row:first-child{border-top:none;}
   .task-row input[type=checkbox]{margin-top:3px;width:16px;height:16px;accent-color:var(--good);flex-shrink:0;}
   .task-row .body{flex:1;font-size:13.5px;}
   .task-row.done .body .txt{color:var(--muted);text-decoration:line-through;}
   .task-row .due{font-size:11px;color:var(--muted);margin-top:2px;}
+  .task-row .completed-date{font-size:11px;color:var(--good);margin-top:2px;}
   .cat-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
     letter-spacing:.03em;padding:2px 7px;border-radius:5px;margin-right:6px;vertical-align:middle;}
   .cat-badge.cat-website{background:#fdf6e8;color:var(--gold-deep);}
@@ -187,6 +195,46 @@
   .cred-row button:hover{border-color:var(--navy);color:var(--navy-deep);}
   .doc-desc{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
 
+  /* --- Finance & Tax --- */
+  .finance-form{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:14px;}
+  .finance-form-col input,.finance-form-col textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;font-size:13.5px;font-family:inherit;margin-bottom:6px;}
+  .finance-form-col textarea{min-height:64px;resize:vertical;}
+  .finance-form-label{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;
+    letter-spacing:.04em;margin-bottom:8px;}
+  .finance-checkbox{display:flex;align-items:center;gap:6px;font-size:13px;margin:4px 0 8px;}
+  .finance-checkbox input{width:auto;margin:0;}
+  @media (max-width:640px){ .finance-form{grid-template-columns:1fr;} }
+  .deadline-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border);
+    flex-wrap:wrap;}
+  .deadline-row:first-child{border-top:none;}
+  .deadline-row .dl-label{flex:1;min-width:220px;font-size:13.5px;}
+  .deadline-row .dl-hint{display:block;font-size:11px;color:var(--muted);margin-top:2px;}
+  .deadline-row .dl-date{font-size:12.5px;font-weight:700;padding:4px 10px;border-radius:6px;
+    white-space:nowrap;background:#eef1fa;color:var(--navy);}
+  .deadline-row .dl-date.overdue{background:var(--warn-soft);color:var(--warn);}
+  .deadline-row .dl-date.soon{background:#fbf2df;color:var(--gold-deep);}
+  .finance-import{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px;}
+  .finance-import input[type=file]{font-size:12.5px;flex-basis:100%;}
+  .finance-import textarea{flex:1;min-width:220px;min-height:60px;padding:9px 11px;
+    border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,monospace;resize:vertical;}
+  .snapshot-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+  .snapshot-card .snap-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;}
+  .snapshot-card .snap-title{font-weight:700;font-size:13.5px;flex:1;}
+  .snapshot-card .snap-pulled{font-size:11px;color:var(--muted);}
+  .snapshot-card .snap-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;}
+  .snapshot-card .snap-del:hover{color:var(--warn);}
+  .snapshot-card .snap-totals{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0;font-size:13px;}
+  .snapshot-card .snap-totals b{display:block;font-size:15px;}
+  .snapshot-card table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;}
+  .snapshot-card table td{padding:4px 0;border-top:1px solid var(--border);}
+  .snapshot-card table td:last-child{text-align:right;}
+  .snapshot-card .snap-notes{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4;}
+  .snapshot-card .snap-actions{margin-top:10px;}
+  .snapshot-card .snap-actions button{background:none;border:1px solid var(--border);border-radius:6px;
+    padding:5px 10px;font-size:11.5px;cursor:pointer;color:var(--navy);font-family:inherit;}
+  .snapshot-card .snap-actions button:hover{border-color:var(--navy);}
+
   /* --- Alert banner --- */
   .alert-banner{background:var(--warn-soft);color:var(--warn);padding:10px 24px;font-size:13px;
     font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -219,6 +267,23 @@
     font-size:11px;font-weight:700;color:var(--navy);cursor:pointer;font-family:inherit;flex-shrink:0;}
   .action-item button:hover{border-color:var(--navy);}
   .action-item button.linked{color:var(--good);border-color:var(--good);cursor:default;background:var(--good-soft);}
+  .mtg-responses{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+  .mtg-responses .resp-label{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;
+    letter-spacing:.03em;margin-bottom:6px;}
+  .mtg-response{display:flex;gap:8px;padding:6px 0;font-size:12.5px;border-top:1px solid var(--border);}
+  .mtg-response:first-child{border-top:none;}
+  .mtg-response .resp-date{color:var(--muted);font-size:11px;flex-shrink:0;width:82px;padding-top:1px;}
+  .mtg-response .resp-text{flex:1;white-space:pre-wrap;line-height:1.4;}
+  .mtg-response .resp-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;flex-shrink:0;}
+  .mtg-response .resp-del:hover{color:var(--warn);}
+  .mtg-response-add{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:flex-start;}
+  .mtg-response-add input[type=date]{padding:6px 8px;border:1px solid var(--border);border-radius:6px;
+    font-size:12px;font-family:inherit;}
+  .mtg-response-add textarea{flex:1;min-width:160px;padding:6px 8px;border:1px solid var(--border);
+    border-radius:6px;font-size:12.5px;font-family:inherit;min-height:32px;resize:vertical;}
+  .mtg-response-add button{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;
+    font-size:12px;cursor:pointer;color:var(--navy);font-family:inherit;flex-shrink:0;}
+  .mtg-response-add button:hover{border-color:var(--navy);}
 
   /* --- Blog --- */
   .wp-status{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-bottom:14px;
@@ -393,6 +458,7 @@
     <button data-panel="tasks">Tasks</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
+    <button data-panel="finance">Finance &amp; Tax</button>
     <button data-panel="blog">Blog</button>
     <button data-panel="links">Site &amp; Hosting</button>
   </nav>
@@ -430,13 +496,19 @@
           <input type="date" id="taskDue">
           <button class="btn btn-primary" id="taskAddBtn" style="width:auto;">Add</button>
         </div>
-        <div class="task-filter" id="taskFilter">
-          <button data-cat="all" class="active">All</button>
-          <button data-cat="website">Website</button>
-          <button data-cat="client">Client work</button>
-          <button data-cat="compliance">Compliance</button>
-          <button data-cat="equipment">Equipment</button>
-          <button data-cat="none">No category</button>
+        <div class="task-filter-row">
+          <div class="task-filter" id="taskFilter">
+            <button data-cat="all" class="active">All</button>
+            <button data-cat="website">Website</button>
+            <button data-cat="client">Client work</button>
+            <button data-cat="compliance">Compliance</button>
+            <button data-cat="equipment">Equipment</button>
+            <button data-cat="none">No category</button>
+          </div>
+          <div class="show-completed">
+            <span class="hint-count" id="completedHintCount"></span>
+            <button id="showCompletedBtn" type="button">Show completed</button>
+          </div>
         </div>
         <div id="taskList"></div>
       </div>
@@ -468,6 +540,78 @@
           <button class="btn btn-primary" id="docAddBtn" style="width:auto;">Add document</button>
         </div>
         <div class="link-grid" id="docGrid"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-finance">
+      <div class="card">
+        <h2>Business &amp; personal tax details</h2>
+        <div class="sub">Reference details used to work out filing deadlines below, and to label financial snapshots. Nothing here is sent anywhere — it's just encrypted data in the vault, same as everything else.</div>
+        <div class="finance-form">
+          <div class="finance-form-col">
+            <div class="finance-form-label">Company (Companies House / Corporation Tax)</div>
+            <input type="text" id="finCompanyName" placeholder="Legal company name (as registered)">
+            <input type="text" id="finCompanyNumber" placeholder="Companies House company number">
+            <input type="date" id="finIncorporationDate" title="Incorporation date">
+            <div class="hint">Incorporation date</div>
+            <input type="date" id="finFyEnd" title="Current financial year end">
+            <div class="hint">Financial year end (accounting reference date) for the current/most recent year</div>
+            <input type="date" id="finConfirmationDate" title="Last confirmation statement date">
+            <div class="hint">Date of last confirmation statement (or incorporation date, if none filed yet)</div>
+            <input type="text" id="finCompanyUtr" placeholder="Company UTR (Corporation Tax)">
+            <label class="finance-checkbox"><input type="checkbox" id="finVatRegistered"> VAT registered</label>
+          </div>
+          <div class="finance-form-col">
+            <div class="finance-form-label">Personal (Self Assessment)</div>
+            <input type="text" id="finPersonalName" placeholder="Your name">
+            <input type="text" id="finPersonalUtr" placeholder="Personal UTR">
+            <input type="text" id="finPersonalNi" placeholder="National Insurance number (optional)">
+            <textarea id="finPersonalNotes" placeholder="Notes — income sources, accountant contact, anything worth remembering at filing time…"></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="finSaveBtn" style="width:auto;">Save tax details</button>
+        <span id="finSaveMsg" class="hint" style="margin-left:10px;"></span>
+      </div>
+
+      <div class="card">
+        <h2>Key deadlines</h2>
+        <div class="sub">Worked out from the financial year end and confirmation statement date above, plus the fixed UK Self Assessment dates. This is a reminder tracker, not a filing service — each deadline still needs filing directly with HMRC or Companies House (or via your accountant).</div>
+        <div id="finDeadlineList"></div>
+      </div>
+
+      <div class="card">
+        <h2>Financial snapshots</h2>
+        <div class="sub">Zoho Books can't be reached directly from this page (it doesn't support cross-origin browser calls the way WordPress does), so snapshots are imported instead: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
+        <div class="finance-import">
+          <input type="file" id="finImportFile" accept=".json,application/json">
+          <textarea id="finImportText" placeholder="…or paste the snapshot JSON here"></textarea>
+          <button class="btn btn-ghost" id="finImportBtn" style="width:auto;">Import snapshot</button>
+          <span id="finImportMsg" class="hint"></span>
+        </div>
+        <div id="finSnapshotList"></div>
+      </div>
+
+      <div class="card">
+        <h2>Proactive reminders</h2>
+        <div class="sub">Whenever you save, this sends a small, unencrypted copy of open tasks' due dates and the deadlines above to a Google Apps Script you control — a daily check there pushes a notification via ntfy.sh if anything's overdue or coming up. Nothing else (notes, credentials, financial figures, meeting content) ever leaves the vault. See SETUP.md section 8 for the one-time Apps Script setup.</div>
+        <div class="wp-status">
+          <span class="pill disconnected" id="remStatusPill"><span class="dot"></span><span id="remStatusText">Not connected</span></span>
+          <button class="btn btn-ghost" id="remEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
+        </div>
+        <div class="wp-connect-fields" id="remConnectFields">
+          <div class="hint">Deploy the Apps Script as a Web App (see SETUP.md section 8), then paste its URL and the shared secret you set in the script's Project Settings → Script Properties here.</div>
+          <input type="text" id="remWebAppUrl" placeholder="Apps Script Web App URL (ends in /exec)">
+          <input type="password" id="remSharedSecret" placeholder="Shared secret" autocomplete="off">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="remSaveBtn" style="width:auto;">Save connection</button>
+            <button class="btn btn-ghost" id="remDisconnectBtn" style="width:auto;">Remove connection</button>
+          </div>
+        </div>
+        <div style="margin-top:4px;">
+          <button class="btn btn-ghost" id="remSyncNowBtn" style="width:auto;">Sync now</button>
+          <span id="remSyncStatus" class="hint" style="margin-left:8px;"></span>
+        </div>
+        <div class="hint" style="margin-top:10px;">Because of how Apps Script's cross-origin handling works, the Hub can't confirm the sync actually succeeded — only that it was sent. The first time you connect, click <strong>Sync now</strong>, then check the Reminders folder in Drive directly to confirm <code>reminders.json</code> appeared and updated.</div>
       </div>
     </div>
 
@@ -636,21 +780,47 @@
       meetings: [],
       documents: [],
       blogPosts: [],
-      wpConnection: null
+      wpConnection: null,
+      financeProfile: {
+        companyLegalName: 'SkySight Ltd',
+        companyNumber: '',
+        incorporationDate: '',
+        companyFyEnd: '',
+        confirmationStatementDate: '',
+        companyUtr: '',
+        isVatRegistered: false,
+        personalName: '',
+        personalUtr: '',
+        personalNi: '',
+        personalNotes: ''
+      },
+      financeSnapshots: [],
+      remindersConnection: null
     };
   }
 
-  // Older vaults (saved before Meetings/Documents/Blog existed) won't have
-  // these fields at all - back them in so every render function below can
-  // assume they're always arrays (or null, for wpConnection), never undefined.
+  // Older vaults (saved before Meetings/Documents/Blog/Finance existed) won't
+  // have these fields at all - back them in so every render function below
+  // can assume they're always arrays (or null/objects), never undefined.
   function normalizeData(d){
     d.events = d.events || [];
     d.tasks = d.tasks || [];
     d.links = d.links || [];
     d.meetings = d.meetings || [];
+    d.meetings.forEach(function(m){
+      m.actionItems = m.actionItems || [];
+      m.responses = m.responses || [];
+    });
     d.documents = d.documents || [];
     d.blogPosts = d.blogPosts || [];
     d.wpConnection = d.wpConnection || null;
+    d.financeProfile = Object.assign({
+      companyLegalName: '', companyNumber: '', incorporationDate: '', companyFyEnd: '',
+      confirmationStatementDate: '', companyUtr: '', isVatRegistered: false,
+      personalName: '', personalUtr: '', personalNi: '', personalNotes: ''
+    }, d.financeProfile || {});
+    d.financeSnapshots = d.financeSnapshots || [];
+    d.remindersConnection = d.remindersConnection || null;
     return d;
   }
 
@@ -898,6 +1068,7 @@
     renderTasks();
     renderMeetings();
     renderDocuments();
+    renderFinance();
     renderLinks();
     renderWpStatus();
     renderBlogHistory();
@@ -945,6 +1116,7 @@
     const newVault = await encryptData(password, data);
     const sha = await pushVaultFile(newVault, currentSha);
     currentSha = sha;
+    syncReminders(); // best-effort side channel — never awaited, never blocks or fails a save
     return sha;
   }
 
@@ -1202,6 +1374,9 @@
   // ---------------------------------------------------------------- tasks
   const CATEGORY_LABELS = { website: 'Website', client: 'Client work', compliance: 'Compliance', equipment: 'Equipment' };
   let taskFilter = 'all';
+  // View-only preference, not saved to the vault - each device/session starts
+  // with completed tasks hidden, same as the app's default.
+  let showCompleted = false;
 
   document.querySelectorAll('#taskFilter button').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -1212,20 +1387,45 @@
     });
   });
 
+  document.getElementById('showCompletedBtn').addEventListener('click', function(){
+    showCompleted = !showCompleted;
+    renderTasks();
+  });
+
   function renderTasks(){
     const list = document.getElementById('taskList');
     list.innerHTML = '';
-    const visible = data.tasks.filter(function(t){
+
+    const categoryMatch = function(t){
       if (taskFilter === 'all') return true;
       if (taskFilter === 'none') return !t.category;
       return t.category === taskFilter;
+    };
+    const completedInCategory = data.tasks.filter(function(t){ return t.done && categoryMatch(t); });
+    const visible = data.tasks.filter(function(t){
+      if (!categoryMatch(t)) return false;
+      if (t.done && !showCompleted) return false;
+      return true;
     });
+
+    const toggleBtn = document.getElementById('showCompletedBtn');
+    toggleBtn.textContent = showCompleted ? 'Hide completed' : 'Show completed';
+    toggleBtn.classList.toggle('active', showCompleted);
+    const hintEl = document.getElementById('completedHintCount');
+    hintEl.textContent = (!showCompleted && completedInCategory.length)
+      ? (completedInCategory.length + (completedInCategory.length === 1 ? ' completed hidden' : ' completed hidden'))
+      : '';
+
     if (!data.tasks.length){
       list.innerHTML = '<div class="empty-note">No tasks yet.</div>';
+      renderAlerts();
       return;
     }
     if (!visible.length){
-      list.innerHTML = '<div class="empty-note">No tasks in this category.</div>';
+      list.innerHTML = '<div class="empty-note">' +
+        (completedInCategory.length && !showCompleted ? 'All tasks in this category are completed — click "Show completed" to see them.' : 'No tasks in this category.') +
+        '</div>';
+      renderAlerts();
       return;
     }
     const todayIso = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
@@ -1238,12 +1438,21 @@
         '<div class="body"><div class="txt">' +
         (t.category ? '<span class="cat-badge cat-' + t.category + '">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
         '</div>' +
-        (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '') +
+        (t.done ? '<div class="completed-date"></div>' : (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '')) +
         '</div><button class="del" title="Delete">✕</button>';
       row.querySelector('.txt').appendChild(document.createTextNode(t.text));
-      if (t.due) row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
+      if (t.done){
+        row.querySelector('.completed-date').textContent = t.completedAt ? ('Completed ' + t.completedAt) : 'Completed';
+      } else if (t.due){
+        row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
+      }
       row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
         t.done = e.target.checked;
+        if (t.done){
+          t.completedAt = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
+        } else {
+          t.completedAt = '';
+        }
         markDirty(); renderTasks();
       });
       row.querySelector('.del').addEventListener('click', function(){
@@ -1319,7 +1528,16 @@
       row.innerHTML =
         '<div class="mtg-head"><span class="mtg-date"></span><span class="mtg-attendees"></span><button class="mtg-del" title="Delete">✕</button></div>' +
         '<div class="mtg-notes"></div>' +
-        '<div class="mtg-actionwrap"></div>';
+        '<div class="mtg-actionwrap"></div>' +
+        '<div class="mtg-responses">' +
+          '<div class="resp-label">Responses / follow-up</div>' +
+          '<div class="resp-list"></div>' +
+          '<div class="mtg-response-add">' +
+            '<input type="date" class="resp-date-input">' +
+            '<textarea class="resp-text-input" placeholder="Add a follow-up note on what was raised…"></textarea>' +
+            '<button type="button" class="resp-add-btn">Add response</button>' +
+          '</div>' +
+        '</div>';
       row.querySelector('.mtg-date').textContent = m.date;
       row.querySelector('.mtg-attendees').textContent = m.attendees ? ('Attendees: ' + m.attendees) : '';
       row.querySelector('.mtg-notes').textContent = m.notes || '';
@@ -1348,6 +1566,29 @@
         }
         actionsWrap.appendChild(aRow);
       });
+      const respList = row.querySelector('.resp-list');
+      (m.responses || []).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); }).forEach(function(r){
+        const rRow = document.createElement('div');
+        rRow.className = 'mtg-response';
+        rRow.innerHTML = '<span class="resp-date"></span><span class="resp-text"></span><button class="resp-del" title="Delete">✕</button>';
+        rRow.querySelector('.resp-date').textContent = r.date || '';
+        rRow.querySelector('.resp-text').textContent = r.text;
+        rRow.querySelector('.resp-del').addEventListener('click', function(){
+          m.responses = m.responses.filter(function(x){ return x.id !== r.id; });
+          markDirty(); renderMeetings();
+        });
+        respList.appendChild(rRow);
+      });
+      const respDateInput = row.querySelector('.resp-date-input');
+      const respTextInput = row.querySelector('.resp-text-input');
+      respDateInput.value = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
+      row.querySelector('.resp-add-btn').addEventListener('click', function(){
+        const text = respTextInput.value.trim();
+        if (!text) return;
+        m.responses = m.responses || [];
+        m.responses.push({ id: randomId(), date: respDateInput.value || '', text: text });
+        markDirty(); renderMeetings();
+      });
       row.querySelector('.mtg-del').addEventListener('click', function(){
         data.meetings = data.meetings.filter(function(x){ return x.id !== m.id; });
         markDirty(); renderMeetings();
@@ -1370,7 +1611,7 @@
       return;
     }
     const actionItems = actionLines.map(function(text){ return { id: randomId(), text: text, taskId: null }; });
-    data.meetings.push({ id: randomId(), date: date, attendees: attendees, notes: notes, actionItems: actionItems });
+    data.meetings.push({ id: randomId(), date: date, attendees: attendees, notes: notes, actionItems: actionItems, responses: [] });
     dateEl.value = ''; attEl.value = ''; notesEl.value = ''; actionsEl.value = '';
     markDirty(); renderMeetings();
   });
@@ -1415,6 +1656,339 @@
     data.documents.push({ id: randomId(), label: label, url: url, description: description });
     labelEl.value = ''; urlEl.value = ''; descEl.value = '';
     markDirty(); renderDocuments();
+  });
+
+  // ---------------------------------------------------------------- finance & tax
+  function fmtGBP(n){ return '£' + (Number(n) || 0).toFixed(2); }
+
+  function addDaysIso(dateStr, n){
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function addMonthsIso(dateStr, n){
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setMonth(d.getMonth() + n);
+    return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  // Next upcoming occurrence of a fixed UK date (e.g. 31 Jan), rolling to next year if already passed.
+  function nextAnnualDate(month, day){
+    const now = new Date();
+    const todayIso = isoDate(now.getFullYear(), now.getMonth(), now.getDate());
+    let candidate = isoDate(now.getFullYear(), month, day);
+    if (candidate < todayIso) candidate = isoDate(now.getFullYear() + 1, month, day);
+    return candidate;
+  }
+
+  function computeDeadlines(){
+    const p = data.financeProfile;
+    const items = [];
+    if (p.companyFyEnd){
+      items.push({ label: 'Corporation Tax payment due', hint: 'Pay HMRC — due 9 months + 1 day after the financial year end', date: addDaysIso(addMonthsIso(p.companyFyEnd, 9), 1) });
+      items.push({ label: 'Corporation Tax return (CT600) due', hint: 'File with HMRC — due 12 months after the financial year end', date: addMonthsIso(p.companyFyEnd, 12) });
+      items.push({ label: 'Companies House annual accounts due', hint: 'File with Companies House — due 9 months after the year end (a company’s first accounts instead run 21 months from incorporation — check if this applies)', date: addMonthsIso(p.companyFyEnd, 9) });
+    }
+    if (p.confirmationStatementDate){
+      items.push({ label: 'Confirmation statement due', hint: 'File with Companies House — due within 14 days of the statement date (one year on from the last one)', date: addDaysIso(addMonthsIso(p.confirmationStatementDate, 12), 14) });
+    }
+    items.push({ label: 'Self Assessment — file online & pay balancing amount', hint: 'HMRC deadline for the previous UK tax year (6 Apr – 5 Apr)', date: nextAnnualDate(0, 31) });
+    items.push({ label: 'Self Assessment — second payment on account', hint: 'Only applies if HMRC has asked for payments on account', date: nextAnnualDate(6, 31) });
+    items.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    return items;
+  }
+
+  function renderDeadlines(){
+    const wrap = document.getElementById('finDeadlineList');
+    wrap.innerHTML = '';
+    const items = computeDeadlines();
+    const now = new Date();
+    const todayIso = isoDate(now.getFullYear(), now.getMonth(), now.getDate());
+    const in45 = addDaysIso(todayIso, 45);
+    items.forEach(function(it){
+      const row = document.createElement('div');
+      row.className = 'deadline-row';
+      row.innerHTML = '<div class="dl-label"><span class="dl-label-txt"></span><span class="dl-hint"></span></div><span class="dl-date"></span>';
+      row.querySelector('.dl-label-txt').textContent = it.label;
+      row.querySelector('.dl-hint').textContent = it.hint;
+      const dateEl = row.querySelector('.dl-date');
+      dateEl.textContent = it.date;
+      let cls = '';
+      if (it.date < todayIso) cls = ' overdue'; else if (it.date <= in45) cls = ' soon';
+      dateEl.className = 'dl-date' + cls;
+      wrap.appendChild(row);
+    });
+    if (!data.financeProfile.companyFyEnd && !data.financeProfile.confirmationStatementDate){
+      const note = document.createElement('div');
+      note.className = 'hint';
+      note.style.marginTop = '8px';
+      note.textContent = 'Add a financial year end and confirmation statement date above to see the company deadlines too.';
+      wrap.appendChild(note);
+    }
+  }
+
+  function renderFinanceProfile(){
+    const p = data.financeProfile;
+    document.getElementById('finCompanyName').value = p.companyLegalName || '';
+    document.getElementById('finCompanyNumber').value = p.companyNumber || '';
+    document.getElementById('finIncorporationDate').value = p.incorporationDate || '';
+    document.getElementById('finFyEnd').value = p.companyFyEnd || '';
+    document.getElementById('finConfirmationDate').value = p.confirmationStatementDate || '';
+    document.getElementById('finCompanyUtr').value = p.companyUtr || '';
+    document.getElementById('finVatRegistered').checked = !!p.isVatRegistered;
+    document.getElementById('finPersonalName').value = p.personalName || '';
+    document.getElementById('finPersonalUtr').value = p.personalUtr || '';
+    document.getElementById('finPersonalNi').value = p.personalNi || '';
+    document.getElementById('finPersonalNotes').value = p.personalNotes || '';
+  }
+
+  document.getElementById('finSaveBtn').addEventListener('click', function(){
+    data.financeProfile = {
+      companyLegalName: document.getElementById('finCompanyName').value.trim(),
+      companyNumber: document.getElementById('finCompanyNumber').value.trim(),
+      incorporationDate: document.getElementById('finIncorporationDate').value,
+      companyFyEnd: document.getElementById('finFyEnd').value,
+      confirmationStatementDate: document.getElementById('finConfirmationDate').value,
+      companyUtr: document.getElementById('finCompanyUtr').value.trim(),
+      isVatRegistered: document.getElementById('finVatRegistered').checked,
+      personalName: document.getElementById('finPersonalName').value.trim(),
+      personalUtr: document.getElementById('finPersonalUtr').value.trim(),
+      personalNi: document.getElementById('finPersonalNi').value.trim(),
+      personalNotes: document.getElementById('finPersonalNotes').value.trim()
+    };
+    markDirty();
+    renderDeadlines();
+    const msg = document.getElementById('finSaveMsg');
+    msg.textContent = 'Saved.';
+    setTimeout(function(){ if (msg.textContent === 'Saved.') msg.textContent = ''; }, 2500);
+  });
+
+  function parseSnapshotJson(text){
+    let obj;
+    try { obj = JSON.parse(text); } catch (e){ throw new Error('That doesn’t look like valid JSON.'); }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)){
+      throw new Error('Expected a single snapshot object, not a list or plain value.');
+    }
+    const expensesByCategory = Array.isArray(obj.expensesByCategory)
+      ? obj.expensesByCategory.filter(function(e){ return e && e.category; }).map(function(e){
+          return { category: String(e.category), total: Number(e.total) || 0 };
+        })
+      : [];
+    const income = Number(obj.income) || 0;
+    const expensesTotal = obj.expensesTotal != null
+      ? (Number(obj.expensesTotal) || 0)
+      : expensesByCategory.reduce(function(sum, e){ return sum + e.total; }, 0);
+    const now = new Date();
+    return {
+      id: randomId(),
+      label: obj.label ? String(obj.label) : 'Snapshot',
+      periodStart: obj.periodStart ? String(obj.periodStart) : '',
+      periodEnd: obj.periodEnd ? String(obj.periodEnd) : '',
+      pulledDate: obj.pulledDate ? String(obj.pulledDate) : isoDate(now.getFullYear(), now.getMonth(), now.getDate()),
+      source: obj.source ? String(obj.source) : '',
+      income: income,
+      expensesTotal: expensesTotal,
+      expensesByCategory: expensesByCategory,
+      net: income - expensesTotal,
+      notes: obj.notes ? String(obj.notes) : ''
+    };
+  }
+
+  document.getElementById('finImportFile').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(){ document.getElementById('finImportText').value = reader.result; };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('finImportBtn').addEventListener('click', function(){
+    const msg = document.getElementById('finImportMsg');
+    const text = document.getElementById('finImportText').value.trim();
+    if (!text){
+      msg.textContent = 'Paste or choose a snapshot file first.'; msg.style.color = 'var(--warn)';
+      return;
+    }
+    try {
+      const snap = parseSnapshotJson(text);
+      data.financeSnapshots.push(snap);
+      document.getElementById('finImportText').value = '';
+      document.getElementById('finImportFile').value = '';
+      msg.textContent = 'Imported “' + snap.label + '”.'; msg.style.color = 'var(--good)';
+      markDirty();
+      renderSnapshots();
+      toast('Snapshot imported.');
+    } catch (err){
+      msg.textContent = err.message; msg.style.color = 'var(--warn)';
+    }
+  });
+
+  function downloadSnapshotCsv(s){
+    const lines = [['Category', 'Amount (GBP)']];
+    s.expensesByCategory.forEach(function(e){ lines.push([e.category, e.total.toFixed(2)]); });
+    lines.push(['Income', s.income.toFixed(2)]);
+    lines.push(['Expenses total', s.expensesTotal.toFixed(2)]);
+    lines.push(['Net', s.net.toFixed(2)]);
+    const csv = lines.map(function(row){
+      return row.map(function(v){
+        const str = String(v);
+        return /[",\n]/.test(str) ? ('"' + str.replace(/"/g, '""') + '"') : str;
+      }).join(',');
+    }).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (s.label || 'snapshot').replace(/[^a-z0-9\-_ ]/gi, '_') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function renderSnapshots(){
+    const wrap = document.getElementById('finSnapshotList');
+    wrap.innerHTML = '';
+    const snaps = data.financeSnapshots.slice().sort(function(a,b){
+      return a.pulledDate < b.pulledDate ? 1 : (a.pulledDate > b.pulledDate ? -1 : 0);
+    });
+    if (!snaps.length){
+      wrap.innerHTML = '<div class="empty-note">No snapshots imported yet.</div>';
+      return;
+    }
+    snaps.forEach(function(s){
+      const card = document.createElement('div');
+      card.className = 'snapshot-card';
+      let rows = '';
+      s.expensesByCategory.forEach(function(e){
+        rows += '<tr><td>' + escapeHtml(e.category) + '</td><td>' + fmtGBP(e.total) + '</td></tr>';
+      });
+      card.innerHTML =
+        '<div class="snap-head"><span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Delete">✕</button></div>' +
+        '<div class="snap-period"></div>' +
+        '<div class="snap-totals"><div>Income<b></b></div><div>Expenses<b></b></div><div>Net<b></b></div></div>' +
+        (rows ? ('<table>' + rows + '</table>') : '') +
+        '<div class="snap-notes"></div>' +
+        '<div class="snap-actions"><button type="button" class="snap-csv-btn">Download CSV</button></div>';
+      card.querySelector('.snap-title').textContent = s.label + (s.source ? (' — ' + s.source) : '');
+      card.querySelector('.snap-pulled').textContent = 'Pulled ' + s.pulledDate;
+      const periodEl = card.querySelector('.snap-period');
+      if (s.periodStart || s.periodEnd){
+        periodEl.textContent = 'Period: ' + (s.periodStart || '?') + ' → ' + (s.periodEnd || '?');
+      } else {
+        periodEl.style.display = 'none';
+      }
+      const totalsBs = card.querySelectorAll('.snap-totals b');
+      totalsBs[0].textContent = fmtGBP(s.income);
+      totalsBs[1].textContent = fmtGBP(s.expensesTotal);
+      totalsBs[2].textContent = fmtGBP(s.net);
+      const notesEl = card.querySelector('.snap-notes');
+      if (s.notes) notesEl.textContent = s.notes; else notesEl.style.display = 'none';
+      card.querySelector('.snap-del').addEventListener('click', function(){
+        data.financeSnapshots = data.financeSnapshots.filter(function(x){ return x.id !== s.id; });
+        markDirty(); renderSnapshots();
+      });
+      card.querySelector('.snap-csv-btn').addEventListener('click', function(){ downloadSnapshotCsv(s); });
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderFinance(){
+    renderFinanceProfile();
+    renderDeadlines();
+    renderSnapshots();
+    renderRemindersStatus();
+  }
+
+  function renderRemindersStatus(){
+    const pill = document.getElementById('remStatusPill');
+    const text = document.getElementById('remStatusText');
+    if (data.remindersConnection && data.remindersConnection.webAppUrl){
+      pill.className = 'pill connected';
+      text.textContent = 'Connected';
+    } else {
+      pill.className = 'pill disconnected';
+      text.textContent = 'Not connected';
+    }
+  }
+
+  document.getElementById('remEditBtn').addEventListener('click', function(){
+    const fields = document.getElementById('remConnectFields');
+    fields.classList.toggle('open');
+    if (fields.classList.contains('open') && data.remindersConnection){
+      document.getElementById('remWebAppUrl').value = data.remindersConnection.webAppUrl || '';
+      document.getElementById('remSharedSecret').value = data.remindersConnection.sharedSecret || '';
+    }
+  });
+
+  document.getElementById('remSaveBtn').addEventListener('click', function(){
+    const urlEl = document.getElementById('remWebAppUrl');
+    const secretEl = document.getElementById('remSharedSecret');
+    const webAppUrl = urlEl.value.trim();
+    const sharedSecret = secretEl.value.trim();
+    if (!webAppUrl || !sharedSecret){
+      toast('Web App URL and shared secret are both required.');
+      return;
+    }
+    data.remindersConnection = { webAppUrl: webAppUrl, sharedSecret: sharedSecret };
+    markDirty();
+    renderRemindersStatus();
+    document.getElementById('remConnectFields').classList.remove('open');
+    toast('Reminders connection saved. Try "Sync now", then check the Reminders folder in Drive.');
+  });
+
+  document.getElementById('remDisconnectBtn').addEventListener('click', function(){
+    data.remindersConnection = null;
+    markDirty();
+    renderRemindersStatus();
+    document.getElementById('remWebAppUrl').value = '';
+    document.getElementById('remSharedSecret').value = '';
+    document.getElementById('remConnectFields').classList.remove('open');
+  });
+
+  // Open tasks' due dates + Finance & Tax deadlines only — never notes, credentials,
+  // financial figures, or meeting content. Keep this list short and deliberate.
+  function buildRemindersPayload(){
+    const now = new Date();
+    const tasks = (data.tasks || [])
+      .filter(function(t){ return !t.done && t.due; })
+      .map(function(t){ return { text: t.text, due: t.due }; });
+    const deadlines = computeDeadlines().map(function(d){ return { label: d.label, date: d.date }; });
+    return {
+      generatedAt: isoDate(now.getFullYear(), now.getMonth(), now.getDate()),
+      tasks: tasks,
+      deadlines: deadlines
+    };
+  }
+
+  // Fire-and-forget: Apps Script Web Apps can't reliably answer real CORS preflight
+  // requests, so this uses mode:'no-cors' with a preflight-exempt Content-Type. That
+  // means the request reaches the script and doPost() runs, but the browser can never
+  // read whether it actually succeeded (wrong secret, script not deployed, etc. all
+  // look identical to success from here) — the status line below reflects that honestly.
+  async function syncReminders(){
+    const conn = data.remindersConnection;
+    if (!conn || !conn.webAppUrl) return;
+    const statusEl = document.getElementById('remSyncStatus');
+    const now = new Date();
+    const stamp = isoDate(now.getFullYear(), now.getMonth(), now.getDate()) + ' ' +
+      pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    try {
+      const payload = buildRemindersPayload();
+      await fetch(conn.webAppUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ secret: conn.sharedSecret, data: payload })
+      });
+      if (statusEl){ statusEl.textContent = 'Sync sent ' + stamp + ' (not confirmed — see note below).'; statusEl.style.color = ''; }
+    } catch (e){
+      if (statusEl){ statusEl.textContent = 'Sync request failed to send: ' + e.message; statusEl.style.color = 'var(--warn)'; }
+    }
+  }
+
+  document.getElementById('remSyncNowBtn').addEventListener('click', function(){
+    if (!data.remindersConnection){ toast('Connect a reminders destination first.'); return; }
+    syncReminders();
   });
 
   // ---------------------------------------------------------------- blog / WordPress
