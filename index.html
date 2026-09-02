@@ -439,6 +439,7 @@
     <div class="actions">
       <button class="btn btn-ghost gh-badge" id="driveBadgeBtn" title="Change Google Drive connection">⇄ <span id="driveBadgeLabel"></span></button>
       <button class="btn btn-ghost" id="changePwBtn">Change password</button>
+      <button class="btn btn-ghost" id="backupBtn">Backup / Restore</button>
       <button class="btn btn-ghost" id="saveBtn"><span id="dirtyDot" class="dirty-dot" style="display:none;"></span>Save</button>
       <button class="btn btn-ghost" id="lockBtn" title="Also auto-locks after 15 minutes of inactivity">Lock</button>
     </div>
@@ -1343,6 +1344,47 @@
           toast('Could not save the new password to Drive (' + e.message + ') — still using your old password.');
         }
       }
+    });
+  });
+
+  // ---------------------------------------------------------------- backup / restore (plain JSON)
+  document.getElementById('backupBtn').addEventListener('click', function(){
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Backup / Restore</h3>' +
+        '<p>Export everything currently loaded as a plain JSON file — this is a DECRYPTED copy, so store it somewhere as safe as you\'d store the password itself. Or paste JSON back in to replace what\'s currently loaded. Nothing here touches Drive until you click the header Save button afterward.</p>' +
+        '<div id="bkMsg"></div>' +
+        '<div class="row"><button class="btn btn-primary" id="bkExport" style="width:auto;">Download current vault as JSON</button></div>' +
+        '<div class="field" style="margin-top:18px;"><label>Paste JSON to restore</label><textarea id="bkImportText" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--border);border-radius:8px;"></textarea></div>' +
+        '<div class="row"><button class="btn btn-ghost" id="bkCancel">Close</button><button class="btn btn-primary" id="bkImport" style="width:auto;">Replace loaded data with this JSON</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#bkCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#bkExport').addEventListener('click', function(){
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'imagescape-hub-vault-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    });
+    backdrop.querySelector('#bkImport').addEventListener('click', function(){
+      const msg = backdrop.querySelector('#bkMsg');
+      const text = backdrop.querySelector('#bkImportText').value.trim();
+      if (!text){ msg.innerHTML = '<div class="msg error">Paste JSON first.</div>'; return; }
+      let parsed;
+      try { parsed = JSON.parse(text); } catch (e){ msg.innerHTML = '<div class="msg error">That isn’t valid JSON (' + e.message + ').</div>'; return; }
+      if (!confirm('This replaces everything currently loaded (in memory only) with the pasted JSON. Nothing is saved to Drive until you click Save afterward. Continue?')) return;
+      data = normalizeData(parsed);
+      markDirty();
+      renderCalendar(); renderTasks(); renderMeetings(); renderDocuments(); renderFinance(); renderLinks(); renderWpStatus(); renderBlogHistory();
+      backdrop.remove();
+      toast('Loaded from JSON — review it, then click Save to write it to Drive.');
     });
   });
 
