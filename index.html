@@ -10,25 +10,28 @@
   PUBLIC repo. It carries no business data at all — view-source shows only
   generic app logic, same as any other web-based password manager's client
   code being open. All calendar/task/link/credential content lives as ONE
-  AES-256-GCM encrypted file (vault.json) in a SEPARATE PRIVATE GitHub repo,
-  reached via the GitHub REST API using a fine-grained personal access token
-  scoped to just that one repo's contents. The key that decrypts it is your
+  AES-256-GCM encrypted file (vault.json) in Google Drive, under the
+  imagescapestudios@gmail.com account, reached via the Drive REST API with
+  each device signing in as that Google account itself (drive.file scope
+  only — this app can reach only the files it creates or you explicitly
+  pick, nothing else in the Drive). The key that decrypts the file is your
   password alone, derived via PBKDF2 (600,000 rounds) — never sent anywhere,
   never stored anywhere, no recovery if it's forgotten.
 
-  HOW SYNC WORKS: every save is a PUT to GitHub's contents API carrying the
-  SHA of the version you last loaded. If someone/something else has saved a
-  newer version since (another device, another tab), GitHub rejects the
-  write instead of silently overwriting it — you're told to reload first.
-  Every save is also a real commit, so full history/rollback comes free via
-  the repo itself.
+  HOW SYNC WORKS: every save writes the encrypted file to Google Drive
+  (imagescapestudios@gmail.com), carrying the Drive revision ID of the
+  version you last loaded. If someone/something else has saved a newer
+  version since (another device, another tab), the save is rejected instead
+  of silently overwriting it — you're told to reload first. Drive's own
+  version history (right-click the file in Drive → "Manage versions") gives
+  history/rollback for free, the role GitHub commits used to play.
 
-  CONNECTING A DEVICE: the access token + repo location are entered once per
-  browser and kept in that browser's local storage — never inside vault.json,
-  since the token has to exist before there's anything to decrypt. It's a
-  much lower-stakes secret than your master password (scoped to one private
-  repo, contents only, nothing else in the GitHub account reachable, easily
-  revoked), but it is a real credential and should be treated like one.
+  CONNECTING A DEVICE: each device signs in with Google itself (via Google
+  Identity Services — no server, no stored password, no long-lived token).
+  Only the Drive file's ID is kept in that browser's local storage, never
+  inside vault.json. Access is scoped to just the files this app creates or
+  you explicitly pick (the `drive.file` scope) — nothing else in the Google
+  account is reachable.
 -->
 <style>
   :root{
@@ -354,26 +357,19 @@
 </head>
 <body>
 
-<!-- ============================= CONNECT screen (no GitHub connection stored on this device yet) ============================= -->
+<!-- ============================= CONNECT screen (no Google Drive connection stored on this device yet) ============================= -->
 <div id="connectScreen" class="center-screen" style="display:none;">
   <div class="auth-card">
     <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
     <h1>Connect this device</h1>
-    <p class="lead">This app holds no data of its own — everything lives as one encrypted file in a private GitHub repo you control. Paste in a fine-grained access token scoped to just that repo (Contents: Read and write, nothing else) and where to find it. The token is stored only in this browser, on this device.</p>
+    <p class="lead">This app holds no data of its own — everything lives as one encrypted file in Google Drive, under imagescapestudios@gmail.com. Sign in with Google to connect this device; nothing is stored anywhere except that Drive.</p>
     <div id="connectMsg"></div>
-    <div class="field">
-      <label for="cnToken">Personal access token</label>
-      <input type="password" id="cnToken" autocomplete="off" placeholder="github_pat_…">
+    <button class="btn btn-primary" id="googleSignInBtn" style="width:100%;">Sign in with Google</button>
+    <div id="vaultChooser" style="display:none;margin-top:18px;">
+      <div class="hint" style="margin-bottom:10px;">Signed in. On almost every device this should be "Locate" — there should only ever be one vault file, ever. Pick it from Drive below.</div>
+      <button class="btn btn-primary" id="locateVaultBtn" style="width:100%;margin-bottom:10px;">Locate existing vault…</button>
+      <button class="btn btn-ghost" id="createVaultBtn" style="width:100%;">This is genuinely the very first device, ever — create a new vault</button>
     </div>
-    <div class="field">
-      <label for="cnRepo">Data repository</label>
-      <input type="text" id="cnRepo" autocomplete="off" placeholder="yourname/imagescape-hub-data">
-    </div>
-    <div class="field">
-      <label for="cnPath">File name</label>
-      <input type="text" id="cnPath" autocomplete="off" value="vault.json">
-    </div>
-    <button class="btn btn-primary" id="connectBtn">Connect</button>
   </div>
 </div>
 
@@ -393,7 +389,7 @@
     <h1>Couldn't reach your data</h1>
     <div id="connErrorMsg" class="msg error"></div>
     <button class="btn btn-primary" id="retryBtn">Retry</button>
-    <button class="btn btn-ghost" id="reconnectBtn" style="margin-top:10px;width:100%;">Change connection details</button>
+    <button class="btn btn-ghost" id="reconnectBtn" style="margin-top:10px;width:100%;">Sign in with a different Google account / file</button>
   </div>
 </div>
 
@@ -441,7 +437,7 @@
       <div><strong>ImageScape Studios</strong><span>Management Hub</span></div>
     </div>
     <div class="actions">
-      <button class="btn btn-ghost gh-badge" id="ghBadgeBtn" title="Change GitHub connection">⇄ <span id="ghBadgeLabel"></span></button>
+      <button class="btn btn-ghost gh-badge" id="driveBadgeBtn" title="Change Google Drive connection">⇄ <span id="driveBadgeLabel"></span></button>
       <button class="btn btn-ghost" id="changePwBtn">Change password</button>
       <button class="btn btn-ghost" id="saveBtn"><span id="dirtyDot" class="dirty-dot" style="display:none;"></span>Save</button>
       <button class="btn btn-ghost" id="lockBtn" title="Also auto-locks after 15 minutes of inactivity">Lock</button>
@@ -715,8 +711,10 @@
     return 'id-' + Array.from(crypto.getRandomValues(new Uint8Array(10))).map(b => b.toString(16).padStart(2,'0')).join('');
   }
   // Separate from the crypto b64 helpers above (those move raw ArrayBuffers of
-  // ciphertext bytes) - these move UTF-8 TEXT (the vault's JSON, base64-encoded
-  // the way GitHub's contents API expects file bodies to be transported).
+  // ciphertext bytes) - these move UTF-8 TEXT. Not currently used by the Drive
+  // storage layer (Drive's media upload takes the JSON text directly, no base64
+  // wrapping needed) — kept around as a small, harmless utility in case anything
+  // else needs it later.
   function utf8ToB64(str){ return btoa(unescape(encodeURIComponent(str))); }
   function b64ToUtf8(str){ return decodeURIComponent(escape(atob(str.replace(/\s/g, '')))); }
 
@@ -824,9 +822,19 @@
     return d;
   }
 
-  // ---------------------------------------------------------------- GitHub connection + sync
-  const CONN_KEY = 'imagescapeHub.ghConnection.v1';
-  const GITHUB_API = 'https://api.github.com';
+  // ---------------------------------------------------------------- Google Drive connection + sync
+  const CONN_KEY = 'imagescapeHub.driveConnection.v1';
+  const DRIVE_API = 'https://www.googleapis.com/drive/v3';
+  const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+  const DRIVE_FOLDER_NAME = 'ImageScape Hub';
+  // OAuth Client ID — a public identifier, safe to ship in client-side source. This app
+  // never holds a client secret: it's a static site with no server, so it only ever uses
+  // the token (implicit-style) OAuth flow, which has no secret in it at all.
+  const GOOGLE_CLIENT_ID = '392855109922-j4ibjmvaui1pknpc1m1aagf07c1bvit5.apps.googleusercontent.com';
+  // API key for the Google Picker widget — restricted in Cloud Console to this exact
+  // origin and to the Picker API only, so it's also safe to ship here.
+  const GOOGLE_API_KEY = 'AIzaSyBN6-vLcYQbEHjyokoFGKAl4p-iVr8WcNA';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
   function loadConnection(){
     try {
@@ -836,8 +844,8 @@
   }
   function persistConnection(c){ localStorage.setItem(CONN_KEY, JSON.stringify(c)); }
 
-  let conn = null;          // {token, owner, repo, path}
-  let currentSha = null;    // sha of the vault.json version currently loaded; null = file doesn't exist yet
+  let conn = null;          // {fileId, fileName} — which Drive file this device points at
+  let currentSha = null;    // Drive's headRevisionId for the version currently loaded; null = file doesn't exist yet
   let pendingVaultJson = null; // vault object fetched but not yet decrypted
   let currentPassword = null;
   let data = null;          // decrypted working copy, only ever in memory
@@ -849,83 +857,213 @@
   function ConflictError(message){ this.name = 'ConflictError'; this.message = message; }
   ConflictError.prototype = Object.create(Error.prototype);
 
-  async function ghFetch(path, opts){
+  // ---- Google auth (Google Identity Services token client). No server and no refresh
+  // token: an access token is held only in memory for this tab and re-requested as
+  // needed — that's the tradeoff for this being a static site with nothing to hold a
+  // client secret safely. ----
+  let tokenClient = null;
+  let accessToken = null;
+  let tokenExpiresAt = 0;
+
+  function loadScriptOnce(src){
+    return new Promise(function(resolve, reject){
+      const existing = document.querySelector('script[src="' + src + '"]');
+      if (existing){
+        if (existing.dataset.loaded === '1'){ resolve(); return; }
+        existing.addEventListener('load', function(){ resolve(); });
+        existing.addEventListener('error', function(){ reject(new Error('Failed to load ' + src)); });
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.addEventListener('load', function(){ s.dataset.loaded = '1'; resolve(); });
+      s.addEventListener('error', function(){ reject(new Error('Failed to load ' + src)); });
+      document.head.appendChild(s);
+    });
+  }
+
+  let gisReadyPromise = null;
+  function ensureGis(){
+    if (!gisReadyPromise) gisReadyPromise = loadScriptOnce('https://accounts.google.com/gsi/client');
+    return gisReadyPromise;
+  }
+  let gapiReadyPromise = null;
+  function ensureGapi(){
+    if (!gapiReadyPromise) gapiReadyPromise = loadScriptOnce('https://apis.google.com/js/api.js');
+    return gapiReadyPromise;
+  }
+
+  function requestAccessToken(promptMode){
+    return ensureGis().then(function(){
+      return new Promise(function(resolve, reject){
+        if (!tokenClient){
+          tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: DRIVE_SCOPE,
+            callback: function(){}
+          });
+        }
+        tokenClient.callback = function(resp){
+          if (resp.error){ reject(new Error(resp.error)); return; }
+          accessToken = resp.access_token;
+          tokenExpiresAt = Date.now() + (Number(resp.expires_in || 3600) * 1000) - 60000;
+          resolve(accessToken);
+        };
+        tokenClient.error_callback = function(err){
+          reject(new Error((err && err.type) || 'Google sign-in was closed or blocked.'));
+        };
+        tokenClient.requestAccessToken({ prompt: promptMode });
+      });
+    });
+  }
+
+  // Silent by default — never opens a popup. Only escalates to a visible Google
+  // sign-in popup when `interactive` is true, which must only ever be set from inside
+  // a real click handler; browsers block popups opened any other way.
+  async function getAccessToken(interactive){
+    if (accessToken && Date.now() < tokenExpiresAt) return accessToken;
+    try {
+      return await requestAccessToken('');
+    } catch (e){
+      if (interactive) return await requestAccessToken('consent');
+      throw new Error('Your Google sign-in needs to be renewed — click Retry to sign in again.');
+    }
+  }
+
+  async function showDrivePicker(){
+    await ensureGapi();
+    await new Promise(function(resolve){ gapi.load('picker', resolve); });
+    return new Promise(function(resolve){
+      const view = new google.picker.View(google.picker.ViewId.DOCS);
+      view.setMimeTypes('application/json');
+      const picker = new google.picker.PickerBuilder()
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(GOOGLE_API_KEY)
+        .addView(view)
+        .setCallback(function(pickerData){
+          if (pickerData.action === google.picker.Action.PICKED){
+            resolve({ id: pickerData.docs[0].id, name: pickerData.docs[0].name });
+          } else if (pickerData.action === google.picker.Action.CANCEL){
+            resolve(null);
+          }
+        })
+        .build();
+      picker.setVisible(true);
+    });
+  }
+
+  async function driveApiFetch(path, opts){
     opts = opts || {};
-    const headers = Object.assign({
-      'Authorization': 'Bearer ' + conn.token,
-      'Accept': 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28'
-    }, opts.headers || {});
-    return fetch(GITHUB_API + path, Object.assign({}, opts, { headers }));
+    const token = await getAccessToken(true);
+    const headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opts.headers || {});
+    return fetch(DRIVE_API + path, Object.assign({}, opts, { headers: headers }));
+  }
+  async function driveUploadFetch(path, opts){
+    opts = opts || {};
+    const token = await getAccessToken(true);
+    const headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opts.headers || {});
+    return fetch(DRIVE_UPLOAD_API + path, Object.assign({}, opts, { headers: headers }));
   }
 
-  function contentsPath(){
-    return '/repos/' + conn.owner + '/' + conn.repo + '/contents/' + conn.path;
-  }
-
-  async function checkRepoAccess(){
-    const res = await ghFetch('/repos/' + conn.owner + '/' + conn.repo);
-    if (res.status === 404){
-      throw new Error('Repository "' + conn.owner + '/' + conn.repo + '" wasn’t found, or this token can’t see it. Check the name and that the token has access to it.');
+  async function ensureDriveFolder(){
+    const q = "name = '" + DRIVE_FOLDER_NAME.replace(/'/g, "\\'") + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
+    if (res.ok){
+      const body = await res.json();
+      if (body.files && body.files.length) return body.files[0].id;
     }
-    if (res.status === 401){
-      throw new Error('GitHub rejected the token as invalid or expired. Generate a fresh one and reconnect.');
-    }
-    if (!res.ok){
-      const body = await res.json().catch(function(){ return {}; });
-      throw new Error(body.message || ('GitHub request failed (' + res.status + ').'));
-    }
+    const createRes = await driveApiFetch('/files?fields=id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+    });
+    if (!createRes.ok) throw new Error('Could not create the "' + DRIVE_FOLDER_NAME + '" folder in Drive.');
+    const created = await createRes.json();
+    return created.id;
   }
 
   async function fetchVaultFile(){
-    const res = await ghFetch(contentsPath());
-    if (res.status === 404){
+    const metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=id,name,headRevisionId,trashed');
+    if (metaRes.status === 404){
       return { exists: false, sha: null, obj: null };
     }
-    if (res.status === 401){
-      throw new Error('GitHub rejected the token as invalid or expired. Generate a fresh one and reconnect.');
+    if (metaRes.status === 401){
+      throw new Error('Google rejected this sign-in as invalid or expired. Click Retry to sign in again.');
     }
-    if (!res.ok){
-      const body = await res.json().catch(function(){ return {}; });
-      throw new Error(body.message || ('GitHub request failed (' + res.status + ').'));
+    if (!metaRes.ok){
+      const body = await metaRes.json().catch(function(){ return {}; });
+      throw new Error((body.error && body.error.message) || ('Google Drive request failed (' + metaRes.status + ').'));
     }
-    const body = await res.json();
+    const meta = await metaRes.json();
+    if (meta.trashed){
+      return { exists: false, sha: null, obj: null };
+    }
+    const contentRes = await driveApiFetch('/files/' + conn.fileId + '?alt=media');
+    if (!contentRes.ok){
+      throw new Error('Could not read the vault file’s contents from Drive (status ' + contentRes.status + ').');
+    }
     let obj;
     try {
-      obj = JSON.parse(b64ToUtf8(body.content));
+      obj = await contentRes.json();
     } catch (e){
-      throw new Error('The file at that path doesn’t look like a vault this app created (couldn’t parse it).');
+      throw new Error('The file in Drive doesn’t look like a vault this app created (couldn’t parse it).');
     }
-    return { exists: true, sha: body.sha, obj: obj };
+    return { exists: true, sha: meta.headRevisionId, obj: obj };
   }
 
   async function pushVaultFile(vaultObj, sha){
-    const payload = {
-      message: 'Update ImageScape Hub vault — ' + new Date().toISOString(),
-      content: utf8ToB64(JSON.stringify(vaultObj))
-    };
-    if (sha) payload.sha = sha;
-    const res = await ghFetch(contentsPath(), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (res.status === 409){
-      const body = await res.json().catch(function(){ return {}; });
-      throw new ConflictError(body.message || 'This file changed elsewhere since it was loaded.');
-    }
-    if (!res.ok){
-      const body = await res.json().catch(function(){ return {}; });
-      if (res.status === 422 && /sha/i.test(body.message || '')){
-        throw new ConflictError(body.message || 'This file changed elsewhere since it was loaded.');
+    const content = JSON.stringify(vaultObj);
+
+    if (!sha){
+      // First-ever save for this connection (or the previous file has gone missing):
+      // create a fresh file, and point this device at it.
+      const folderId = await ensureDriveFolder();
+      const boundary = 'imagescapehub-' + Math.random().toString(16).slice(2);
+      const metadata = { name: (conn && conn.fileName) || 'vault.json', parents: [folderId], mimeType: 'application/json' };
+      const body =
+        '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n' +
+        '--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + content + '\r\n' +
+        '--' + boundary + '--';
+      const res = await driveUploadFetch('/files?uploadType=multipart&fields=id,headRevisionId', {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+        body: body
+      });
+      if (!res.ok){
+        const b = await res.json().catch(function(){ return {}; });
+        throw new Error((b.error && b.error.message) || ('Google Drive request failed (' + res.status + ').'));
       }
-      throw new Error(body.message || ('GitHub request failed (' + res.status + ').'));
+      const created = await res.json();
+      conn.fileId = created.id;
+      persistConnection(conn);
+      return created.headRevisionId || null;
     }
-    const body = await res.json();
-    return body.content.sha;
+
+    const metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=headRevisionId,trashed');
+    if (metaRes.ok){
+      const meta = await metaRes.json();
+      if (meta.trashed){
+        throw new Error('This file was moved to Drive’s trash elsewhere — restore it in Drive, or change connection to create a new one.');
+      }
+      if (meta.headRevisionId && meta.headRevisionId !== sha){
+        throw new ConflictError('This file changed elsewhere since it was loaded.');
+      }
+    }
+
+    const res = await driveUploadFetch('/files/' + conn.fileId + '?uploadType=media&fields=id,headRevisionId', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: content
+    });
+    if (!res.ok){
+      const b = await res.json().catch(function(){ return {}; });
+      throw new Error((b.error && b.error.message) || ('Google Drive request failed (' + res.status + ').'));
+    }
+    const updated = await res.json();
+    return updated.headRevisionId;
   }
 
-  function repoLabel(){ return conn ? (conn.owner + '/' + conn.repo + ' → ' + conn.path) : ''; }
+  function repoLabel(){ return (conn && conn.fileName) ? ('Google Drive → ' + conn.fileName) : 'Google Drive'; }
 
   function showScreen(id){
     ['connectScreen','loadingScreen','connErrorScreen','setupScreen','unlockScreen','dashboard'].forEach(function(s){
@@ -934,10 +1072,16 @@
     document.getElementById(id).style.display = (id === 'dashboard') ? 'block' : 'flex';
   }
 
-  async function fetchFlow(){
+  // `interactive` must only ever be true when this runs inside a real click handler —
+  // it's the only case where escalating to a visible Google sign-in popup is allowed.
+  async function fetchFlow(interactive){
     showScreen('loadingScreen');
     try {
-      await checkRepoAccess();
+      await getAccessToken(!!interactive);
+      if (!conn || !conn.fileId){
+        showConnectScreen();
+        return;
+      }
       const result = await fetchVaultFile();
       if (!result.exists){
         document.getElementById('setupRepoLabel').textContent = repoLabel();
@@ -952,54 +1096,72 @@
         showScreen('unlockScreen');
       }
     } catch (e){
-      document.getElementById('connErrorMsg').textContent = e.message || 'Something went wrong reaching GitHub.';
+      document.getElementById('connErrorMsg').textContent = e.message || 'Something went wrong reaching Google Drive.';
       showScreen('connErrorScreen');
     }
   }
 
-  function fillConnectFormFromStored(){
-    const c = loadConnection();
-    if (!c) return;
-    document.getElementById('cnToken').value = c.token || '';
-    document.getElementById('cnRepo').value = (c.owner && c.repo) ? (c.owner + '/' + c.repo) : '';
-    document.getElementById('cnPath').value = c.path || 'vault.json';
+  // Shows the connect screen. If we already have a live token (i.e. we're only here to
+  // pick a different vault/account), skip straight to the chooser instead of asking the
+  // user to click "Sign in with Google" again.
+  function showConnectScreen(){
+    showScreen('connectScreen');
+    const signedIn = accessToken && Date.now() < tokenExpiresAt;
+    document.getElementById('googleSignInBtn').style.display = signedIn ? 'none' : '';
+    document.getElementById('vaultChooser').style.display = signedIn ? 'block' : 'none';
   }
 
-  document.getElementById('connectBtn').addEventListener('click', function(){
-    const token = document.getElementById('cnToken').value.trim();
-    const repoField = document.getElementById('cnRepo').value.trim();
-    const path = document.getElementById('cnPath').value.trim() || 'vault.json';
+  document.getElementById('googleSignInBtn').addEventListener('click', async function(){
     const msg = document.getElementById('connectMsg');
+    const btn = this;
     msg.innerHTML = '';
-    if (!token || !repoField){
-      msg.innerHTML = '<div class="msg error">Token and repository are both required.</div>';
-      return;
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+      await requestAccessToken('consent');
+      if (conn && conn.fileId){
+        fetchFlow(true);
+      } else {
+        btn.style.display = 'none';
+        document.getElementById('vaultChooser').style.display = 'block';
+      }
+    } catch (e){
+      msg.innerHTML = '<div class="msg error">Google sign-in failed or was cancelled.</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Sign in with Google';
     }
-    const parts = repoField.split('/').map(function(s){ return s.trim(); }).filter(Boolean);
-    if (parts.length !== 2){
-      msg.innerHTML = '<div class="msg error">Repository should look like owner/repo-name.</div>';
-      return;
-    }
-    conn = { token: token, owner: parts[0], repo: parts[1], path: path };
-    persistConnection(conn);
-    fetchFlow();
   });
 
-  document.getElementById('retryBtn').addEventListener('click', function(){ fetchFlow(); });
-  document.getElementById('reconnectBtn').addEventListener('click', function(){
-    fillConnectFormFromStored();
-    showScreen('connectScreen');
+  document.getElementById('locateVaultBtn').addEventListener('click', async function(){
+    const msg = document.getElementById('connectMsg');
+    msg.innerHTML = '';
+    try {
+      const picked = await showDrivePicker();
+      if (!picked) return;
+      conn = { fileId: picked.id, fileName: picked.name };
+      persistConnection(conn);
+      fetchFlow(true);
+    } catch (e){
+      msg.innerHTML = '<div class="msg error">Could not open the Drive file picker (' + e.message + ').</div>';
+    }
   });
+
+  document.getElementById('createVaultBtn').addEventListener('click', function(){
+    conn = { fileId: null, fileName: 'vault.json' };
+    persistConnection(conn);
+    document.getElementById('setupRepoLabel').textContent = repoLabel();
+    showScreen('setupScreen');
+  });
+
+  document.getElementById('retryBtn').addEventListener('click', function(){ fetchFlow(true); });
+  document.getElementById('reconnectBtn').addEventListener('click', function(){ showConnectScreen(); });
   document.getElementById('unlockChangeConn').addEventListener('click', function(e){
     e.preventDefault();
-    fillConnectFormFromStored();
-    showScreen('connectScreen');
+    showConnectScreen();
   });
-  document.getElementById('ghBadgeBtn').addEventListener('click', function(){
+  document.getElementById('driveBadgeBtn').addEventListener('click', function(){
     if (dirty && !confirm('You have unsaved changes that will be lost if you switch connections. Continue?')) return;
     doLock();
-    fillConnectFormFromStored();
-    showScreen('connectScreen');
+    showConnectScreen();
   });
 
   // ---------------------------------------------------------------- setup flow (first run for this repo)
@@ -1026,11 +1188,11 @@
       currentSha = sha;
       showDashboard();
       markClean();
-      toast('Vault created and saved to GitHub.');
+      toast('Vault created and saved to Google Drive.');
     } catch (e){
       showDashboard();
       markDirty();
-      toast('Password set, but the first save to GitHub failed (' + e.message + '). Use Save to retry.');
+      toast('Password set, but the first save to Drive failed (' + e.message + '). Use Save to retry.');
     } finally {
       btn.disabled = false; btn.textContent = 'Create & continue';
     }
@@ -1060,7 +1222,7 @@
 
   // ---------------------------------------------------------------- dashboard shell
   function showDashboard(){
-    document.getElementById('ghBadgeLabel').textContent = conn.owner + '/' + conn.repo;
+    document.getElementById('driveBadgeLabel').textContent = (conn && conn.fileName) || 'Drive';
     showScreen('dashboard');
     const now = new Date();
     viewYear = now.getFullYear(); viewMonth = now.getMonth();
@@ -1109,10 +1271,10 @@
   document.getElementById('lockBtn').addEventListener('click', function(){
     if (dirty && !confirm('You have unsaved changes that will be lost. Lock anyway?')) return;
     doLock();
-    fetchFlow(); // re-fetch fresh on every re-unlock, in case another device/session saved since
+    fetchFlow(true); // re-fetch fresh on every re-unlock, in case another device/session saved since
   });
 
-  async function saveToGitHub(password){
+  async function saveToDrive(password){
     const newVault = await encryptData(password, data);
     const sha = await pushVaultFile(newVault, currentSha);
     currentSha = sha;
@@ -1125,7 +1287,7 @@
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
     try {
-      await saveToGitHub(currentPassword);
+      await saveToDrive(currentPassword);
       markClean();
       toast('Saved.');
     } catch (e){
@@ -1164,21 +1326,21 @@
       okBtn.disabled = true; okBtn.textContent = 'Saving…';
       markDirty();
       try {
-        await saveToGitHub(p1);
+        await saveToDrive(p1);
         currentPassword = p1;
         markClean();
         backdrop.remove();
         toast('Password changed and saved.');
       } catch (e){
         backdrop.remove();
-        // Deliberately NOT switching currentPassword on failure: the vault on GitHub
+        // Deliberately NOT switching currentPassword on failure: the vault on Drive
         // still only decrypts with the OLD password until a save actually succeeds,
         // so keep using that until it does - otherwise a later lock/unlock cycle
         // would silently fail with the "new" password that was never really saved.
         if (e instanceof ConflictError){
           toast('This was updated elsewhere since you loaded it — lock and unlock again, then retry.');
         } else {
-          toast('Could not save the new password to GitHub (' + e.message + ') — still using your old password.');
+          toast('Could not save the new password to Drive (' + e.message + ') — still using your old password.');
         }
       }
     });
@@ -1243,7 +1405,7 @@
     let note = 'Locked automatically after ' + Math.round(AUTO_LOCK_MS / 60000) + ' minutes of inactivity.';
     if (dirty && currentPassword){
       try {
-        await saveToGitHub(currentPassword);
+        await saveToDrive(currentPassword);
         note += ' Unsaved changes were saved first.';
       } catch (e){
         note += ' Unsaved changes could not be saved automatically (' + e.message + ') and were discarded.';
@@ -2394,10 +2556,10 @@
 
   // ---------------------------------------------------------------- boot
   conn = loadConnection();
-  if (!conn){
+  if (!conn || !conn.fileId){
     showScreen('connectScreen');
   } else {
-    fetchFlow();
+    fetchFlow(); // silent-only on boot — no popup without a click; falls back to connErrorScreen if reauth is needed
   }
 })();
 </script>
