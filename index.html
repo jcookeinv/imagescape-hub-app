@@ -57,9 +57,9 @@
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px;
     text-transform:uppercase;letter-spacing:.04em;}
-  .field input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;
     font-size:14px;font-family:inherit;}
-  .field input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold-deep);}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold-deep);}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;
     border-radius:8px;border:none;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;}
   .btn-primary{background:var(--navy);color:#fff;width:100%;}
@@ -167,6 +167,32 @@
   .cat-badge.cat-client{background:#eef1fa;color:var(--navy);}
   .cat-badge.cat-compliance{background:var(--warn-soft);color:var(--warn);}
   .cat-badge.cat-equipment{background:var(--good-soft);color:var(--good);}
+  .cat-badge.client-badge{background:#eef1fa;color:var(--navy);margin-left:6px;}
+  .client-status-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.03em;padding:3px 8px;border-radius:20px;}
+  .client-status-badge.status-lead{background:var(--warn-soft);color:var(--warn);}
+  .client-status-badge.status-active{background:var(--good-soft);color:var(--good);}
+  .client-status-badge.status-past{background:#eef0f3;color:var(--muted);}
+  .client-card{cursor:pointer;}
+  .clickable-card{cursor:pointer;}
+  .client-status-badge.status-draft{background:#eef0f3;color:var(--muted);}
+  .client-status-badge.status-sent{background:var(--warn-soft);color:var(--warn);}
+  .client-status-badge.status-accepted{background:var(--good-soft);color:var(--good);}
+  .client-status-badge.status-declined{background:#fbe9e9;color:#c0392b;}
+  .line-item-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
+  .line-item-row input[type=text]{flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+  .line-item-row input[type=number]{width:80px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+  .line-item-row .amount{width:80px;text-align:right;font-weight:700;font-size:13px;}
+  .quote-totals{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:13px;}
+  .quote-totals .qt-row{display:flex;justify-content:space-between;padding:2px 0;}
+  .quote-totals .qt-row.total{font-weight:700;font-size:14.5px;border-top:1px solid var(--border);margin-top:4px;padding-top:6px;}
+  .client-card .name{font-weight:700;font-size:14px;color:var(--navy);}
+  .client-card .company{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .client-card .meta-row{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .client-card .counts{font-size:11.5px;color:var(--muted);}
+  .zoho-snapshot{margin-top:14px;padding:14px;background:#f8f9fb;border-radius:10px;font-size:13px;}
+  .zoho-snapshot .zoho-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);}
+  .zoho-snapshot .zoho-row:last-child{border-bottom:none;}
   .task-row .due.overdue{color:var(--warn);font-weight:700;}
   .task-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;}
   .task-row .del:hover{color:var(--warn);}
@@ -186,6 +212,8 @@
   .link-add{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
   .link-add input{padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;
     font-family:inherit;flex:1;min-width:160px;}
+  .link-add select{padding:9px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;
+    font-family:inherit;background:#fff;}
   .link-add .optional-hint{flex-basis:100%;font-size:11px;color:var(--muted);margin:-6px 0 2px;}
   .cred-block{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);}
   .cred-row{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:5px;}
@@ -249,8 +277,8 @@
   .alert-banner.alert-info button:hover{background:var(--navy);color:#fff;}
 
   /* --- Meetings --- */
-  .meeting-add input,.meeting-add textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
-    border-radius:8px;font-size:13.5px;font-family:inherit;margin-bottom:8px;}
+  .meeting-add input,.meeting-add textarea,.meeting-add select{width:100%;padding:9px 11px;border:1px solid var(--border);
+    border-radius:8px;font-size:13.5px;font-family:inherit;margin-bottom:8px;background:#fff;}
   .meeting-add textarea{min-height:64px;resize:vertical;}
   .meeting-row{border-top:1px solid var(--border);padding:14px 0;}
   .meeting-row:first-child{border-top:none;}
@@ -452,10 +480,13 @@
 
   <nav class="tabs">
     <button data-panel="cal" class="active">Calendar</button>
+    <button data-panel="clients">Clients</button>
     <button data-panel="tasks">Tasks</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
     <button data-panel="finance">Finance &amp; Tax</button>
+    <button data-panel="quotes">Quotes</button>
+    <button data-panel="emails">Email Templates</button>
     <button data-panel="blog">Blog</button>
     <button data-panel="links">Site &amp; Hosting</button>
   </nav>
@@ -477,6 +508,58 @@
       </div>
     </div>
 
+    <div class="panel" id="panel-clients">
+      <div class="card">
+        <h2>Clients</h2>
+        <div class="sub">Client records live here, with their documents, tasks and meeting notes linked to them — click a client to see everything in one place.</div>
+        <div class="link-add">
+          <input type="text" id="clientName" placeholder="Client / company contact name">
+          <input type="text" id="clientCompany" placeholder="Company (optional)">
+          <input type="text" id="clientEmail" placeholder="Email (optional)">
+          <input type="text" id="clientPhone" placeholder="Phone (optional)">
+          <select id="clientStatus">
+            <option value="lead">Lead</option>
+            <option value="active" selected>Active</option>
+            <option value="past">Past</option>
+          </select>
+          <button class="btn btn-primary" id="clientAddBtn" style="width:auto;">Add client</button>
+        </div>
+        <div class="task-filter-row">
+          <div class="task-filter" id="clientFilter">
+            <button data-status="all" class="active">All</button>
+            <button data-status="lead">Leads</button>
+            <button data-status="active">Active</button>
+            <button data-status="past">Past</button>
+          </div>
+          <input type="text" id="clientSearch" placeholder="Search name, company, email…" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;min-width:200px;">
+        </div>
+        <div class="link-grid" id="clientGrid"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Zoho Books connection</h2>
+        <div class="sub">Lets client records show live balance and recent invoices from Zoho Books, via a small Google Apps Script proxy you control (Zoho's API can't be called directly from a static page). See the setup guide for the one-time Apps Script deployment.</div>
+        <div class="wp-status">
+          <span class="pill disconnected" id="zohoStatusPill"><span class="dot"></span><span id="zohoStatusText">Not connected</span></span>
+          <button class="btn btn-ghost" id="zohoEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
+        </div>
+        <div class="wp-connect-fields" id="zohoConnectFields">
+          <div class="hint">Paste the Apps Script Web App URL (ends in /exec) and the shared secret you set in the script's Project Settings → Script Properties.</div>
+          <input type="text" id="zohoWebAppUrl" placeholder="Apps Script Web App URL (ends in /exec)">
+          <input type="password" id="zohoSharedSecret" placeholder="Shared secret" autocomplete="off">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="zohoSaveBtn" style="width:auto;">Save connection</button>
+            <button class="btn btn-ghost" id="zohoDisconnectBtn" style="width:auto;">Remove connection</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;align-items:center;gap:10px;">
+          <button class="btn btn-ghost" id="zohoSyncBtn" style="width:auto;">Sync now</button>
+          <span class="hint" id="zohoSyncedLabel"></span>
+        </div>
+        <div class="hint" style="margin-top:10px;">"Sync now" just asks the Apps Script to run — the script also refreshes itself on its own schedule (see setup guide). Because of how Apps Script's cross-origin handling works, the Hub can't confirm the request landed; check the "last synced" time above after a minute to know it worked.</div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-tasks">
       <div class="card">
         <h2>Ongoing tasks</h2>
@@ -491,6 +574,7 @@
             <option value="equipment">Equipment</option>
           </select>
           <input type="date" id="taskDue">
+          <select id="taskClient"><option value="">No client</option></select>
           <button class="btn btn-primary" id="taskAddBtn" style="width:auto;">Add</button>
         </div>
         <div class="task-filter-row">
@@ -520,6 +604,7 @@
           <input type="text" id="mtgAttendees" placeholder="Attendees (optional)">
           <textarea id="mtgNotes" placeholder="Notes…"></textarea>
           <textarea id="mtgActions" placeholder="Action items — one per line (optional)"></textarea>
+          <select id="mtgClient"><option value="">No client</option></select>
           <button class="btn btn-primary" id="mtgAddBtn" style="width:auto;">Add meeting note</button>
         </div>
         <div id="meetingList"></div>
@@ -534,6 +619,7 @@
           <input type="text" id="docLabel" placeholder="Label (e.g. 2026 Insurance policy)">
           <input type="text" id="docUrl" placeholder="https://…">
           <input type="text" id="docDesc" placeholder="Description (optional)">
+          <select id="docClient"><option value="">No client</option></select>
           <button class="btn btn-primary" id="docAddBtn" style="width:auto;">Add document</button>
         </div>
         <div class="link-grid" id="docGrid"></div>
@@ -609,6 +695,50 @@
           <span id="remSyncStatus" class="hint" style="margin-left:8px;"></span>
         </div>
         <div class="hint" style="margin-top:10px;">Because of how Apps Script's cross-origin handling works, the Hub can't confirm the sync actually succeeded — only that it was sent. The first time you connect, click <strong>Sync now</strong>, then check the Reminders folder in Drive directly to confirm <code>reminders.json</code> appeared and updated.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-quotes">
+      <div class="card">
+        <h2>Quotes</h2>
+        <div class="sub">Build a quote from your rate presets below — pick a client (optional), add line items, get a total (VAT added automatically if you're VAT registered, per Finance &amp; Tax).</div>
+        <button class="btn btn-primary" id="quoteNewBtn" style="width:auto;margin-bottom:14px;">+ New quote</button>
+        <div class="link-grid" id="quoteGrid"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Rate presets</h2>
+        <div class="sub">Reusable rates you can drop straight into any quote as a line item.</div>
+        <div class="link-add">
+          <input type="text" id="rateLabel" placeholder="Label (e.g. Drone footage)">
+          <input type="number" id="rateAmount" placeholder="Rate (£)" step="0.01" style="max-width:110px;">
+          <input type="text" id="rateUnit" placeholder="Unit (hour, mile, flat…)" style="max-width:150px;">
+          <button class="btn btn-primary" id="rateAddBtn" style="width:auto;">Add preset</button>
+        </div>
+        <div id="rateList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-emails">
+      <div class="card">
+        <h2>Email templates</h2>
+        <div class="sub">Reusable subject/body templates with merge fields. Fill one in against a client, a quote, and/or a synced Zoho invoice, then copy the result or open it in your own email client — nothing is ever sent from here.</div>
+        <div class="hint" style="margin-bottom:12px;">Available tokens: {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{date}}, {{quoteTitle}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDueDate}}</div>
+        <button class="btn btn-primary" id="templateNewBtn" style="width:auto;margin-bottom:14px;">+ New template</button>
+        <div class="link-grid" id="templateGrid"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Use a template</h2>
+        <div class="sub">Pick a template, and optionally a client, saved quote, and/or one of that client's synced Zoho invoices to fill it in.</div>
+        <div class="link-add">
+          <select id="useTemplateSelect"><option value="">Choose a template…</option></select>
+          <select id="useTemplateClient"><option value="">No client</option></select>
+          <select id="useTemplateQuote"><option value="">No quote</option></select>
+          <select id="useTemplateInvoice"><option value="">No invoice</option></select>
+          <button class="btn btn-primary" id="useTemplateGenerateBtn" style="width:auto;">Generate</button>
+        </div>
+        <div id="useTemplateResult"></div>
       </div>
     </div>
 
@@ -794,7 +924,28 @@
         personalNotes: ''
       },
       financeSnapshots: [],
-      remindersConnection: null
+      remindersConnection: null,
+      clients: [],
+      zohoConnection: null,
+      quoteRates: [
+        { id: randomId(), label: 'Site visit / consultation', rate: 45, unit: 'hour' },
+        { id: randomId(), label: 'Video editing', rate: 35, unit: 'hour' },
+        { id: randomId(), label: 'Photo editing', rate: 30, unit: 'hour' },
+        { id: randomId(), label: 'Travel', rate: 0.45, unit: 'mile' }
+      ],
+      quotes: [],
+      emailTemplates: [
+        {
+          id: randomId(), name: 'Invoice attached',
+          subject: 'Invoice {{invoiceNumber}} from {{companyName}}',
+          body: 'Hi {{clientName}},\n\nPlease find attached invoice {{invoiceNumber}} for {{invoiceAmount}}, due {{invoiceDueDate}}.\n\nLet me know if you have any questions.\n\nThanks,\n{{senderName}}\n{{companyName}}'
+        },
+        {
+          id: randomId(), name: 'Cold outreach',
+          subject: 'Photography / video for {{clientCompany}}',
+          body: 'Hi {{clientName}},\n\nI\'m {{senderName}} from {{companyName}} — we work with businesses like {{clientCompany}} on photography and video. I\'d love to have a quick chat about what you\'ve got coming up and how we could help.\n\nDo you have 15 minutes this week?\n\nBest,\n{{senderName}}'
+        }
+      ]
     };
   }
 
@@ -804,13 +955,16 @@
   function normalizeData(d){
     d.events = d.events || [];
     d.tasks = d.tasks || [];
+    d.tasks.forEach(function(t){ t.clientId = t.clientId || ''; });
     d.links = d.links || [];
     d.meetings = d.meetings || [];
     d.meetings.forEach(function(m){
       m.actionItems = m.actionItems || [];
       m.responses = m.responses || [];
+      m.clientId = m.clientId || '';
     });
     d.documents = d.documents || [];
+    d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; });
     d.blogPosts = d.blogPosts || [];
     d.wpConnection = d.wpConnection || null;
     d.financeProfile = Object.assign({
@@ -820,8 +974,33 @@
     }, d.financeProfile || {});
     d.financeSnapshots = d.financeSnapshots || [];
     d.remindersConnection = d.remindersConnection || null;
+    d.clients = d.clients || [];
+    d.clients.forEach(function(c){
+      c.status = c.status || 'active';
+      c.zohoContactId = c.zohoContactId || '';
+      c.company = c.company || '';
+      c.email = c.email || '';
+      c.phone = c.phone || '';
+      c.notes = c.notes || '';
+    });
+    d.zohoConnection = d.zohoConnection || null;
+    d.quoteRates = d.quoteRates || [];
+    d.quoteRates.forEach(function(r){ r.unit = r.unit || 'hour'; });
+    d.quotes = d.quotes || [];
+    d.quotes.forEach(function(q){
+      q.clientId = q.clientId || '';
+      q.lineItems = q.lineItems || [];
+      q.discountPct = q.discountPct || 0;
+      q.status = q.status || 'draft';
+      q.notes = q.notes || '';
+      q.title = q.title || 'Untitled quote';
+    });
+    d.emailTemplates = d.emailTemplates || [];
     return d;
   }
+
+  const CLIENT_STATUS_LABELS = { lead: 'Lead', active: 'Active', past: 'Past' };
+  const QUOTE_STATUS_LABELS = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', declined: 'Declined' };
 
   // ---------------------------------------------------------------- Google Drive connection + sync
   const CONN_KEY = 'imagescapeHub.driveConnection.v1';
@@ -1228,16 +1407,22 @@
     const now = new Date();
     viewYear = now.getFullYear(); viewMonth = now.getMonth();
     renderCalendar();
+    renderClients();
     renderTasks();
     renderMeetings();
     renderDocuments();
     renderFinance();
+    renderRatePresets();
+    renderQuotes();
+    renderTemplates();
+    populateUseTemplateSelects();
     renderLinks();
     renderWpStatus();
     renderBlogHistory();
     const mtgDateEl = document.getElementById('mtgDate');
     if (mtgDateEl && !mtgDateEl.value) mtgDateEl.value = lastFridayIso();
     resetAutoLockTimer();
+    if (data.zohoConnection){ fetchZohoSnapshot().then(function(){ renderZohoStatus(); renderUseTemplateQuoteAndInvoiceOptions(); }); }
   }
 
   document.querySelectorAll('nav.tabs button').forEach(function(btn){
@@ -1382,7 +1567,7 @@
       if (!confirm('This replaces everything currently loaded (in memory only) with the pasted JSON. Nothing is saved to Drive until you click Save afterward. Continue?')) return;
       data = normalizeData(parsed);
       markDirty();
-      renderCalendar(); renderTasks(); renderMeetings(); renderDocuments(); renderFinance(); renderLinks(); renderWpStatus(); renderBlogHistory();
+      renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderLinks(); renderWpStatus(); renderBlogHistory();
       backdrop.remove();
       toast('Loaded from JSON — review it, then click Save to write it to Drive.');
     });
@@ -1641,6 +1826,7 @@
         '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
         '<div class="body"><div class="txt">' +
         (t.category ? '<span class="cat-badge cat-' + t.category + '">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
+        (t.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientName(t.clientId)) + '</span>' : '') +
         '</div>' +
         (t.done ? '<div class="completed-date"></div>' : (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '')) +
         '</div><button class="del" title="Delete">✕</button>';
@@ -1698,12 +1884,13 @@
     const textEl = document.getElementById('taskText');
     const dueEl = document.getElementById('taskDue');
     const catEl = document.getElementById('taskCategory');
+    const clientEl = document.getElementById('taskClient');
     const text = textEl.value.trim();
     if (!text) return;
-    const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '' };
+    const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: clientEl.value || '' };
     if (catEl.value) entry.category = catEl.value;
     data.tasks.push(entry);
-    textEl.value = ''; dueEl.value = '';
+    textEl.value = ''; dueEl.value = ''; clientEl.value = '';
     markDirty(); renderTasks();
   });
   document.getElementById('taskText').addEventListener('keydown', function(e){
@@ -1743,7 +1930,8 @@
           '</div>' +
         '</div>';
       row.querySelector('.mtg-date').textContent = m.date;
-      row.querySelector('.mtg-attendees').textContent = m.attendees ? ('Attendees: ' + m.attendees) : '';
+      row.querySelector('.mtg-attendees').textContent =
+        (m.attendees ? ('Attendees: ' + m.attendees) : '') + (m.clientId ? ('  ·  ' + clientName(m.clientId)) : '');
       row.querySelector('.mtg-notes').textContent = m.notes || '';
       const actionsWrap = row.querySelector('.mtg-actionwrap');
       (m.actionItems || []).forEach(function(ai){
@@ -1806,6 +1994,7 @@
     const attEl = document.getElementById('mtgAttendees');
     const notesEl = document.getElementById('mtgNotes');
     const actionsEl = document.getElementById('mtgActions');
+    const clientEl = document.getElementById('mtgClient');
     const date = dateEl.value;
     const attendees = attEl.value.trim();
     const notes = notesEl.value.trim();
@@ -1815,8 +2004,8 @@
       return;
     }
     const actionItems = actionLines.map(function(text){ return { id: randomId(), text: text, taskId: null }; });
-    data.meetings.push({ id: randomId(), date: date, attendees: attendees, notes: notes, actionItems: actionItems, responses: [] });
-    dateEl.value = ''; attEl.value = ''; notesEl.value = ''; actionsEl.value = '';
+    data.meetings.push({ id: randomId(), date: date, attendees: attendees, notes: notes, actionItems: actionItems, responses: [], clientId: clientEl.value || '' });
+    dateEl.value = ''; attEl.value = ''; notesEl.value = ''; actionsEl.value = ''; clientEl.value = '';
     markDirty(); renderMeetings();
   });
 
@@ -1835,7 +2024,8 @@
         '<button class="del" title="Remove">✕</button>' +
         '<a target="_blank" rel="noopener"></a>' +
         '<div class="url"></div>' +
-        '<div class="doc-desc"></div>';
+        '<div class="doc-desc"></div>' +
+        (d.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientName(d.clientId)) + '</span>' : '');
       const a = card.querySelector('a');
       a.href = d.url; a.textContent = d.label;
       card.querySelector('.url').textContent = d.url;
@@ -1852,15 +2042,880 @@
     const labelEl = document.getElementById('docLabel');
     const urlEl = document.getElementById('docUrl');
     const descEl = document.getElementById('docDesc');
+    const clientEl = document.getElementById('docClient');
     const label = labelEl.value.trim();
     let url = urlEl.value.trim();
     const description = descEl.value.trim();
     if (!label || !url) return;
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    data.documents.push({ id: randomId(), label: label, url: url, description: description });
-    labelEl.value = ''; urlEl.value = ''; descEl.value = '';
+    data.documents.push({ id: randomId(), label: label, url: url, description: description, clientId: clientEl.value || '' });
+    labelEl.value = ''; urlEl.value = ''; descEl.value = ''; clientEl.value = '';
     markDirty(); renderDocuments();
   });
+
+  // ---------------------------------------------------------------- clients
+  let clientFilterStatus = 'all';
+  let clientSearchTerm = '';
+  let zohoSnapshotCache = null;   // { syncedAt, contacts: { [zohoContactId]: {balance, currency, invoices:[...]} } }
+  let zohoSnapshotFileId = null;
+
+  function clientName(id){
+    const c = (data.clients || []).find(function(x){ return x.id === id; });
+    if (!c) return '';
+    return c.company ? (c.name + ' (' + c.company + ')') : c.name;
+  }
+
+  function populateClientSelects(){
+    ['taskClient', 'docClient', 'mtgClient'].forEach(function(selId){
+      const sel = document.getElementById(selId);
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">No client</option>';
+      data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+        sel.appendChild(opt);
+      });
+      sel.value = prev;
+    });
+  }
+
+  function clientMatchesSearch(c, term){
+    if (!term) return true;
+    const hay = [c.name, c.company, c.email, c.phone].filter(Boolean).join(' ').toLowerCase();
+    return hay.indexOf(term) !== -1;
+  }
+
+  function todayIso_(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+  function renderClients(){
+    populateClientSelects();
+    const grid = document.getElementById('clientGrid');
+    grid.innerHTML = '';
+    const term = clientSearchTerm.trim().toLowerCase();
+    const visible = data.clients.filter(function(c){
+      return (clientFilterStatus === 'all' || c.status === clientFilterStatus) && clientMatchesSearch(c, term);
+    });
+    if (!data.clients.length){
+      grid.innerHTML = '<div class="empty-note">No clients yet — add one above.</div>';
+    } else if (!visible.length){
+      grid.innerHTML = '<div class="empty-note">No clients match.</div>';
+    } else {
+      const todayIso = todayIso_();
+      visible.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+        const clientTasks = data.tasks.filter(function(t){ return t.clientId === c.id; });
+        const openTasks = clientTasks.filter(function(t){ return !t.done; });
+        const overdueTasks = openTasks.filter(function(t){ return t.due && t.due < todayIso; });
+        const docCount = data.documents.filter(function(d){ return d.clientId === c.id; }).length;
+        const card = document.createElement('div');
+        card.className = 'link-card client-card';
+        card.innerHTML =
+          '<button class="del" title="Remove">✕</button>' +
+          '<div class="name"></div>' +
+          '<div class="company"></div>' +
+          '<div class="meta-row"><span class="client-status-badge status-' + c.status + '"></span>' +
+          '<span class="counts"></span></div>' +
+          (overdueTasks.length ? '<div class="hint" style="color:var(--warn);margin-top:4px;font-weight:700;"></div>' : '');
+        card.querySelector('.name').textContent = c.name;
+        card.querySelector('.company').textContent = c.company || [c.email, c.phone].filter(Boolean).join(' · ');
+        card.querySelector('.client-status-badge').textContent = CLIENT_STATUS_LABELS[c.status] || c.status;
+        card.querySelector('.counts').textContent =
+          openTasks.length + ' open task' + (openTasks.length === 1 ? '' : 's') + ' · ' + docCount + ' doc' + (docCount === 1 ? '' : 's');
+        if (overdueTasks.length){
+          card.querySelector('.hint').textContent = overdueTasks.length + ' overdue';
+        }
+        card.querySelector('.del').addEventListener('click', function(e){
+          e.stopPropagation();
+          if (!confirm('Delete ' + c.name + '? Linked tasks/documents/meeting notes keep their data but lose the client link.')) return;
+          data.clients = data.clients.filter(function(x){ return x.id !== c.id; });
+          markDirty(); renderClients();
+        });
+        card.addEventListener('click', function(){ openClientDetail(c.id); });
+        grid.appendChild(card);
+      });
+    }
+    renderZohoStatus();
+    if (document.getElementById('quoteGrid')) renderQuotes();
+    if (document.getElementById('useTemplateSelect')) populateUseTemplateSelects();
+  }
+
+  document.querySelectorAll('#clientFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#clientFilter button').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      clientFilterStatus = btn.dataset.status;
+      renderClients();
+    });
+  });
+
+  document.getElementById('clientSearch').addEventListener('input', function(e){
+    clientSearchTerm = e.target.value;
+    renderClients();
+  });
+
+  document.getElementById('clientAddBtn').addEventListener('click', function(){
+    const nameEl = document.getElementById('clientName');
+    const companyEl = document.getElementById('clientCompany');
+    const emailEl = document.getElementById('clientEmail');
+    const phoneEl = document.getElementById('clientPhone');
+    const statusEl = document.getElementById('clientStatus');
+    const name = nameEl.value.trim();
+    if (!name) return;
+    data.clients.push({
+      id: randomId(), name: name, company: companyEl.value.trim(), email: emailEl.value.trim(),
+      phone: phoneEl.value.trim(), status: statusEl.value || 'active', notes: '', zohoContactId: '',
+      createdAt: (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })()
+    });
+    nameEl.value = ''; companyEl.value = ''; emailEl.value = ''; phoneEl.value = ''; statusEl.value = 'active';
+    markDirty(); renderClients();
+  });
+
+  function openClientDetail(id){
+    const c = data.clients.find(function(x){ return x.id === id; });
+    if (!c) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:600px;max-height:88vh;overflow:auto;">' +
+        '<h3>Client details</h3>' +
+        '<div class="field"><label>Name</label><input type="text" id="cdName"></div>' +
+        '<div class="field"><label>Company</label><input type="text" id="cdCompany"></div>' +
+        '<div class="field"><label>Email</label><input type="text" id="cdEmail"></div>' +
+        '<div class="field"><label>Phone</label><input type="text" id="cdPhone"></div>' +
+        '<div class="field"><label>Status</label><select id="cdStatus"><option value="lead">Lead</option><option value="active">Active</option><option value="past">Past</option></select></div>' +
+        '<div class="field"><label>Notes</label><textarea id="cdNotes" rows="3"></textarea></div>' +
+        '<div class="field"><label>Zoho Books contact ID (optional)</label><input type="text" id="cdZoho" placeholder="e.g. 460000000123456"></div>' +
+        '<div id="cdZohoSnapshot"></div>' +
+        '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="cdCancel">Close</button><button class="btn btn-primary" id="cdSave">Save</button></div>' +
+
+        '<h3 style="margin-top:22px;font-size:14px;">Tasks</h3>' +
+        '<div id="cdTaskList"></div>' +
+        '<div class="task-add" style="margin-top:8px;">' +
+          '<input type="text" id="cdTaskText" placeholder="New task for this client…">' +
+          '<input type="date" id="cdTaskDue">' +
+          '<button class="btn btn-primary" id="cdTaskAddBtn" style="width:auto;">Add</button>' +
+        '</div>' +
+
+        '<h3 style="margin-top:18px;font-size:14px;">Documents</h3>' +
+        '<div id="cdDocList"></div>' +
+        '<div class="link-add" style="margin-top:8px;">' +
+          '<input type="text" id="cdDocLabel" placeholder="Label">' +
+          '<input type="text" id="cdDocUrl" placeholder="https://…">' +
+          '<button class="btn btn-primary" id="cdDocAddBtn" style="width:auto;">Add</button>' +
+        '</div>' +
+
+        '<h3 style="margin-top:18px;font-size:14px;">Meeting notes</h3>' +
+        '<div id="cdMtgList"></div>' +
+        '<div class="hint">Add new meeting notes from the Meeting Notes tab — pick this client from the dropdown there.</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#cdName').value = c.name;
+    backdrop.querySelector('#cdCompany').value = c.company || '';
+    backdrop.querySelector('#cdEmail').value = c.email || '';
+    backdrop.querySelector('#cdPhone').value = c.phone || '';
+    backdrop.querySelector('#cdStatus').value = c.status || 'active';
+    backdrop.querySelector('#cdNotes').value = c.notes || '';
+    backdrop.querySelector('#cdZoho').value = c.zohoContactId || '';
+
+    const todayIso = todayIso_();
+
+    function renderModalTasks(){
+      const wrap = backdrop.querySelector('#cdTaskList');
+      const linked = data.tasks.filter(function(t){ return t.clientId === id; });
+      if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No tasks linked yet.</div>'; return; }
+      wrap.innerHTML = '';
+      linked.forEach(function(t){
+        const overdue = t.due && !t.done && t.due < todayIso;
+        const row = document.createElement('div');
+        row.className = 'task-row' + (t.done ? ' done' : '');
+        row.innerHTML =
+          '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
+          '<div class="body"><div class="txt"></div>' +
+          (t.done ? '' : (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '')) +
+          '</div><button class="del" title="Delete">✕</button>';
+        row.querySelector('.txt').textContent = t.text;
+        if (!t.done && t.due) row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
+        row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
+          t.done = e.target.checked;
+          t.completedAt = t.done ? todayIso_() : '';
+          markDirty(); renderModalTasks(); renderTasks(); renderClients();
+        });
+        row.querySelector('.del').addEventListener('click', function(){
+          data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
+          markDirty(); renderModalTasks(); renderTasks(); renderClients();
+        });
+        wrap.appendChild(row);
+      });
+    }
+    renderModalTasks();
+    backdrop.querySelector('#cdTaskAddBtn').addEventListener('click', function(){
+      const textEl = backdrop.querySelector('#cdTaskText');
+      const dueEl = backdrop.querySelector('#cdTaskDue');
+      const text = textEl.value.trim();
+      if (!text) return;
+      data.tasks.push({ id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: id });
+      textEl.value = ''; dueEl.value = '';
+      markDirty(); renderModalTasks(); renderTasks(); renderClients();
+    });
+
+    function renderModalDocs(){
+      const wrap = backdrop.querySelector('#cdDocList');
+      const linked = data.documents.filter(function(d){ return d.clientId === id; });
+      if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No documents linked yet.</div>'; return; }
+      wrap.innerHTML = '';
+      linked.forEach(function(d){
+        const row = document.createElement('div');
+        row.className = 'task-row';
+        row.innerHTML = '<div class="body"><a target="_blank" rel="noopener" style="font-weight:700;color:var(--navy);text-decoration:none;"></a></div><button class="del" title="Delete">✕</button>';
+        const a = row.querySelector('a');
+        a.href = d.url; a.textContent = d.label;
+        row.querySelector('.del').addEventListener('click', function(){
+          data.documents = data.documents.filter(function(x){ return x.id !== d.id; });
+          markDirty(); renderModalDocs(); renderDocuments(); renderClients();
+        });
+        wrap.appendChild(row);
+      });
+    }
+    renderModalDocs();
+    backdrop.querySelector('#cdDocAddBtn').addEventListener('click', function(){
+      const labelEl = backdrop.querySelector('#cdDocLabel');
+      const urlEl = backdrop.querySelector('#cdDocUrl');
+      const label = labelEl.value.trim();
+      let url = urlEl.value.trim();
+      if (!label || !url) return;
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      data.documents.push({ id: randomId(), label: label, url: url, description: '', clientId: id });
+      labelEl.value = ''; urlEl.value = '';
+      markDirty(); renderModalDocs(); renderDocuments(); renderClients();
+    });
+
+    function renderModalMeetings(){
+      const wrap = backdrop.querySelector('#cdMtgList');
+      const linked = data.meetings.filter(function(m){ return m.clientId === id; })
+        .slice().sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+      if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No meeting notes linked yet.</div>'; return; }
+      wrap.innerHTML = '';
+      linked.forEach(function(m){
+        const row = document.createElement('div');
+        row.className = 'task-row';
+        row.innerHTML = '<div class="body"><div class="txt" style="font-weight:700;"></div><div class="preview" style="color:var(--muted);font-size:12.5px;"></div></div>';
+        row.querySelector('.txt').textContent = m.date;
+        row.querySelector('.preview').textContent = (m.notes || '').slice(0, 140);
+        wrap.appendChild(row);
+      });
+    }
+    renderModalMeetings();
+
+    function renderSnapshotBlock(){
+      const wrap = backdrop.querySelector('#cdZohoSnapshot');
+      if (!wrap) return;
+      if (!data.zohoConnection){ wrap.innerHTML = ''; return; }
+      if (!c.zohoContactId){
+        wrap.innerHTML = '<div class="hint">Add a Zoho contact ID above, save, then use "Sync now" on the Zoho Books connection (Clients tab) to pull their balance and invoices here.</div>';
+        return;
+      }
+      const snap = zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
+      if (!snap){
+        wrap.innerHTML = '<div class="hint">No synced Zoho data yet for this contact — try "Sync now" on the Zoho Books connection.</div>';
+        return;
+      }
+      const cur = snap.currency || '£';
+      let html = '<div class="zoho-snapshot"><div class="zoho-row"><strong>Balance</strong><strong>' +
+        escapeHtml(cur) + (Number(snap.balance || 0)).toFixed(2) + '</strong></div>';
+      (snap.invoices || []).slice(0, 6).forEach(function(inv){
+        html += '<div class="zoho-row"><span>' + escapeHtml((inv.number || '') + ' — ' + (inv.status || '')) + '</span><span>' +
+          escapeHtml(cur) + (Number(inv.total || 0)).toFixed(2) + '</span></div>';
+      });
+      html += '</div>';
+      wrap.innerHTML = html;
+    }
+    renderSnapshotBlock();
+    if (data.zohoConnection && !zohoSnapshotCache){
+      fetchZohoSnapshot().then(renderSnapshotBlock);
+    }
+
+    backdrop.querySelector('#cdCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#cdSave').addEventListener('click', function(){
+      c.name = backdrop.querySelector('#cdName').value.trim() || c.name;
+      c.company = backdrop.querySelector('#cdCompany').value.trim();
+      c.email = backdrop.querySelector('#cdEmail').value.trim();
+      c.phone = backdrop.querySelector('#cdPhone').value.trim();
+      c.status = backdrop.querySelector('#cdStatus').value;
+      c.notes = backdrop.querySelector('#cdNotes').value.trim();
+      c.zohoContactId = backdrop.querySelector('#cdZoho').value.trim();
+      markDirty(); renderClients();
+      backdrop.remove();
+      toast('Client updated.');
+    });
+  }
+
+  // ---------------------------------------------------------------- Zoho Books connection
+  // Zoho's API can't be called directly from a static page (no CORS support outside
+  // Zoho CRM's own JS SDK), and Apps Script Web App responses can't be read back
+  // reliably cross-origin either (see the reminders integration below) — so this
+  // works the same way as reminders for the *outbound* trigger (fire-and-forget),
+  // but for getting data *back*, the Apps Script writes a small unencrypted
+  // "zoho-snapshot.json" file into the same Drive folder as the vault, and the Hub
+  // reads that back using the Drive access it already has (proven reliable — it's
+  // the same mechanism the vault itself uses). The Hub creates the file itself first
+  // (so it's within its drive.file grant) — the script only ever updates its content.
+  const ZOHO_SNAPSHOT_FILENAME = 'zoho-snapshot.json';
+
+  async function findZohoSnapshotFile(){
+    const folderId = await ensureDriveFolder();
+    const q = "name = '" + ZOHO_SNAPSHOT_FILENAME + "' and '" + folderId + "' in parents and trashed = false";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,modifiedTime)&spaces=drive');
+    if (!res.ok) return null;
+    const body = await res.json();
+    return (body.files && body.files[0]) || null;
+  }
+
+  async function ensureZohoSnapshotFile(){
+    const existing = await findZohoSnapshotFile();
+    if (existing) return existing.id;
+    const folderId = await ensureDriveFolder();
+    const boundary = 'imagescapehub-' + Math.random().toString(16).slice(2);
+    const metadata = { name: ZOHO_SNAPSHOT_FILENAME, parents: [folderId], mimeType: 'application/json' };
+    const content = JSON.stringify({ syncedAt: null, contacts: {} });
+    const body =
+      '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n' +
+      '--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + content + '\r\n' +
+      '--' + boundary + '--';
+    const res = await driveUploadFetch('/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+      body: body
+    });
+    if (!res.ok) throw new Error('Could not create the Zoho snapshot file in Drive.');
+    const created = await res.json();
+    return created.id;
+  }
+
+  async function fetchZohoSnapshot(){
+    if (!data.zohoConnection) return null;
+    try {
+      const file = await findZohoSnapshotFile();
+      if (!file){ zohoSnapshotCache = null; return null; }
+      const res = await driveApiFetch('/files/' + file.id + '?alt=media');
+      if (!res.ok) return null;
+      const obj = await res.json();
+      zohoSnapshotCache = obj;
+      zohoSnapshotFileId = file.id;
+      return obj;
+    } catch (e){
+      return null;
+    }
+  }
+
+  function renderZohoStatus(){
+    const pill = document.getElementById('zohoStatusPill');
+    const text = document.getElementById('zohoStatusText');
+    if (!pill || !text) return;
+    if (data.zohoConnection && data.zohoConnection.webAppUrl){
+      pill.className = 'pill connected';
+      text.textContent = 'Connected';
+    } else {
+      pill.className = 'pill disconnected';
+      text.textContent = 'Not connected';
+    }
+    const label = document.getElementById('zohoSyncedLabel');
+    if (label){
+      label.textContent = (zohoSnapshotCache && zohoSnapshotCache.syncedAt) ? ('Last synced: ' + zohoSnapshotCache.syncedAt) : '';
+    }
+  }
+
+  document.getElementById('zohoEditBtn').addEventListener('click', function(){
+    const fields = document.getElementById('zohoConnectFields');
+    fields.classList.toggle('open');
+    if (fields.classList.contains('open') && data.zohoConnection){
+      document.getElementById('zohoWebAppUrl').value = data.zohoConnection.webAppUrl || '';
+      document.getElementById('zohoSharedSecret').value = data.zohoConnection.sharedSecret || '';
+    }
+  });
+
+  document.getElementById('zohoSaveBtn').addEventListener('click', async function(){
+    const urlEl = document.getElementById('zohoWebAppUrl');
+    const secretEl = document.getElementById('zohoSharedSecret');
+    const webAppUrl = urlEl.value.trim();
+    const sharedSecret = secretEl.value.trim();
+    if (!webAppUrl || !sharedSecret){
+      toast('Web App URL and shared secret are both required.');
+      return;
+    }
+    data.zohoConnection = { webAppUrl: webAppUrl, sharedSecret: sharedSecret };
+    markDirty();
+    renderZohoStatus();
+    document.getElementById('zohoConnectFields').classList.remove('open');
+    toast('Zoho connection saved — click Save (top right) to keep it, then try "Sync now".');
+    try { await ensureZohoSnapshotFile(); } catch (e){ /* surfaced when Sync now is tried */ }
+  });
+
+  document.getElementById('zohoDisconnectBtn').addEventListener('click', function(){
+    data.zohoConnection = null;
+    markDirty();
+    renderZohoStatus();
+    document.getElementById('zohoWebAppUrl').value = '';
+    document.getElementById('zohoSharedSecret').value = '';
+    document.getElementById('zohoConnectFields').classList.remove('open');
+  });
+
+  // Fire-and-forget, same reasoning as syncReminders() below: the request reaches
+  // the script, but the browser can't read back whether it actually succeeded.
+  async function syncZohoNow(){
+    const conn = data.zohoConnection;
+    if (!conn || !conn.webAppUrl) return;
+    const label = document.getElementById('zohoSyncedLabel');
+    try {
+      await ensureZohoSnapshotFile();
+      const contactIds = data.clients.filter(function(c){ return c.zohoContactId; }).map(function(c){ return c.zohoContactId; });
+      await fetch(conn.webAppUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ secret: conn.sharedSecret, contactIds: contactIds })
+      });
+      if (label){ label.textContent = 'Sync requested — check back in a minute, then reopen a client to see it.'; }
+    } catch (e){
+      if (label){ label.textContent = 'Sync request failed to send: ' + e.message; }
+    }
+  }
+
+  document.getElementById('zohoSyncBtn').addEventListener('click', function(){
+    if (!data.zohoConnection){ toast('Connect a Zoho Books destination first.'); return; }
+    syncZohoNow();
+  });
+
+  // ---------------------------------------------------------------- quotes
+  function computeQuoteTotals(q){
+    const subtotal = (q.lineItems || []).reduce(function(sum, li){ return sum + (Number(li.qty) || 0) * (Number(li.rate) || 0); }, 0);
+    const discount = subtotal * ((Number(q.discountPct) || 0) / 100);
+    const afterDiscount = subtotal - discount;
+    const vat = data.financeProfile.isVatRegistered ? afterDiscount * 0.2 : 0;
+    const total = afterDiscount + vat;
+    return { subtotal: subtotal, discount: discount, vat: vat, total: total };
+  }
+
+  function renderRatePresets(){
+    const wrap = document.getElementById('rateList');
+    wrap.innerHTML = '';
+    if (!data.quoteRates.length){ wrap.innerHTML = '<div class="empty-note">No rate presets yet.</div>'; return; }
+    data.quoteRates.forEach(function(r){
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      row.innerHTML = '<div class="body"><div class="txt"></div></div><button class="del" title="Delete">✕</button>';
+      row.querySelector('.txt').textContent = r.label + ' — ' + fmtGBP(r.rate) + ' / ' + r.unit;
+      row.querySelector('.del').addEventListener('click', function(){
+        data.quoteRates = data.quoteRates.filter(function(x){ return x.id !== r.id; });
+        markDirty(); renderRatePresets();
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  document.getElementById('rateAddBtn').addEventListener('click', function(){
+    const labelEl = document.getElementById('rateLabel');
+    const amountEl = document.getElementById('rateAmount');
+    const unitEl = document.getElementById('rateUnit');
+    const label = labelEl.value.trim();
+    const rate = parseFloat(amountEl.value);
+    if (!label || isNaN(rate)) return;
+    data.quoteRates.push({ id: randomId(), label: label, rate: rate, unit: unitEl.value.trim() || 'hour' });
+    labelEl.value = ''; amountEl.value = ''; unitEl.value = '';
+    markDirty(); renderRatePresets();
+  });
+
+  function renderQuotes(){
+    const grid = document.getElementById('quoteGrid');
+    grid.innerHTML = '';
+    if (!data.quotes.length){
+      grid.innerHTML = '<div class="empty-note">No quotes yet — click "+ New quote".</div>';
+      return;
+    }
+    data.quotes.slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); }).forEach(function(q){
+      const totals = computeQuoteTotals(q);
+      const card = document.createElement('div');
+      card.className = 'link-card clickable-card';
+      card.innerHTML =
+        '<button class="del" title="Remove">✕</button>' +
+        '<div class="name" style="font-weight:700;font-size:14px;color:var(--navy);"></div>' +
+        '<div class="company" style="font-size:12.5px;color:var(--muted);margin-top:2px;"></div>' +
+        '<div class="meta-row" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">' +
+          '<span class="client-status-badge status-' + q.status + '"></span><span style="font-weight:700;"></span>' +
+        '</div>';
+      card.querySelector('.name').textContent = q.title;
+      card.querySelector('.company').textContent = q.clientId ? (clientName(q.clientId) || 'Client removed') : 'No client';
+      card.querySelector('.client-status-badge').textContent = QUOTE_STATUS_LABELS[q.status] || q.status;
+      card.querySelector('.meta-row span:last-child').textContent = fmtGBP(totals.total);
+      card.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete quote "' + q.title + '"?')) return;
+        data.quotes = data.quotes.filter(function(x){ return x.id !== q.id; });
+        markDirty(); renderQuotes();
+      });
+      card.addEventListener('click', function(){ openQuoteEditor(q.id); });
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('quoteNewBtn').addEventListener('click', function(){
+    const q = { id: randomId(), title: 'New quote', clientId: '', status: 'draft', lineItems: [], discountPct: 0, notes: '', createdAt: new Date().toISOString() };
+    data.quotes.push(q);
+    markDirty(); renderQuotes();
+    openQuoteEditor(q.id);
+  });
+
+  function openQuoteEditor(id){
+    const q = data.quotes.find(function(x){ return x.id === id; });
+    if (!q) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:620px;max-height:88vh;overflow:auto;">' +
+        '<h3>Quote</h3>' +
+        '<div class="field"><label>Title</label><input type="text" id="qTitle"></div>' +
+        '<div class="field"><label>Client</label><select id="qClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Status</label><select id="qStatus">' +
+          Object.keys(QUOTE_STATUS_LABELS).map(function(k){ return '<option value="' + k + '">' + QUOTE_STATUS_LABELS[k] + '</option>'; }).join('') +
+        '</select></div>' +
+        '<h3 style="margin-top:14px;font-size:14px;">Line items</h3>' +
+        '<div id="qLineItems"></div>' +
+        '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center;">' +
+          '<select id="qPresetSelect" style="flex:1;min-width:160px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;"><option value="">Add from preset…</option></select>' +
+          '<button class="btn btn-ghost" id="qAddPresetBtn" style="width:auto;">Add</button>' +
+          '<button class="btn btn-ghost" id="qAddBlankBtn" style="width:auto;">+ Blank line</button>' +
+        '</div>' +
+        '<div class="field" style="margin-top:12px;max-width:160px;"><label>Discount %</label><input type="number" id="qDiscount" step="0.1"></div>' +
+        '<div class="quote-totals" id="qTotals"></div>' +
+        '<div class="field" style="margin-top:12px;"><label>Notes</label><textarea id="qNotes" rows="2"></textarea></div>' +
+        '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button class="btn btn-ghost" id="qClose">Close</button>' +
+          '<button class="btn btn-ghost" id="qDelete">Delete quote</button>' +
+          '<button class="btn btn-primary" id="qEmailBtn" style="width:auto;">Generate email…</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+
+    const clientSel = backdrop.querySelector('#qClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#qTitle').value = q.title;
+    clientSel.value = q.clientId || '';
+    backdrop.querySelector('#qStatus').value = q.status;
+    backdrop.querySelector('#qDiscount').value = q.discountPct;
+    backdrop.querySelector('#qNotes').value = q.notes;
+
+    const presetSel = backdrop.querySelector('#qPresetSelect');
+    data.quoteRates.forEach(function(r){
+      const opt = document.createElement('option');
+      opt.value = r.id; opt.textContent = r.label + ' (' + fmtGBP(r.rate) + '/' + r.unit + ')';
+      presetSel.appendChild(opt);
+    });
+
+    function renderTotals(){
+      const t = computeQuoteTotals(q);
+      const wrap = backdrop.querySelector('#qTotals');
+      let html = '<div class="qt-row"><span>Subtotal</span><span>' + fmtGBP(t.subtotal) + '</span></div>';
+      if (t.discount) html += '<div class="qt-row"><span>Discount</span><span>-' + fmtGBP(t.discount) + '</span></div>';
+      if (data.financeProfile.isVatRegistered) html += '<div class="qt-row"><span>VAT (20%)</span><span>' + fmtGBP(t.vat) + '</span></div>';
+      html += '<div class="qt-row total"><span>Total</span><span>' + fmtGBP(t.total) + '</span></div>';
+      wrap.innerHTML = html;
+    }
+
+    function renderLineItems(){
+      const wrap = backdrop.querySelector('#qLineItems');
+      wrap.innerHTML = '';
+      if (!q.lineItems.length){ wrap.innerHTML = '<div class="empty-note">No line items yet.</div>'; }
+      q.lineItems.forEach(function(li){
+        const row = document.createElement('div');
+        row.className = 'line-item-row';
+        row.innerHTML =
+          '<input type="text" class="li-label" placeholder="Description">' +
+          '<input type="number" class="li-qty" step="0.25" placeholder="Qty">' +
+          '<input type="number" class="li-rate" step="0.01" placeholder="Rate">' +
+          '<span class="amount"></span>' +
+          '<button class="del" title="Delete">✕</button>';
+        row.querySelector('.li-label').value = li.label;
+        row.querySelector('.li-qty').value = li.qty;
+        row.querySelector('.li-rate').value = li.rate;
+        row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
+        row.querySelector('.li-label').addEventListener('input', function(e){ li.label = e.target.value; markDirty(); });
+        row.querySelector('.li-qty').addEventListener('input', function(e){
+          li.qty = e.target.value; markDirty();
+          row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
+          renderTotals();
+        });
+        row.querySelector('.li-rate').addEventListener('input', function(e){
+          li.rate = e.target.value; markDirty();
+          row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
+          renderTotals();
+        });
+        row.querySelector('.del').addEventListener('click', function(){
+          q.lineItems = q.lineItems.filter(function(x){ return x.id !== li.id; });
+          markDirty(); renderLineItems(); renderTotals(); renderQuotes();
+        });
+        wrap.appendChild(row);
+      });
+    }
+    renderLineItems();
+    renderTotals();
+
+    backdrop.querySelector('#qAddBlankBtn').addEventListener('click', function(){
+      q.lineItems.push({ id: randomId(), label: '', qty: 1, rate: 0 });
+      markDirty(); renderLineItems(); renderTotals(); renderQuotes();
+    });
+    backdrop.querySelector('#qAddPresetBtn').addEventListener('click', function(){
+      const presetId = presetSel.value;
+      if (!presetId) return;
+      const preset = data.quoteRates.find(function(x){ return x.id === presetId; });
+      if (!preset) return;
+      q.lineItems.push({ id: randomId(), label: preset.label, qty: 1, rate: preset.rate });
+      markDirty(); renderLineItems(); renderTotals(); renderQuotes();
+    });
+
+    backdrop.querySelector('#qTitle').addEventListener('input', function(e){ q.title = e.target.value; markDirty(); });
+    clientSel.addEventListener('change', function(e){ q.clientId = e.target.value; markDirty(); renderQuotes(); });
+    backdrop.querySelector('#qStatus').addEventListener('change', function(e){ q.status = e.target.value; markDirty(); renderQuotes(); });
+    backdrop.querySelector('#qDiscount').addEventListener('input', function(e){ q.discountPct = e.target.value; markDirty(); renderTotals(); });
+    backdrop.querySelector('#qNotes').addEventListener('input', function(e){ q.notes = e.target.value; markDirty(); });
+
+    backdrop.querySelector('#qClose').addEventListener('click', function(){
+      q.title = q.title || 'Untitled quote';
+      renderQuotes();
+      backdrop.remove();
+    });
+    backdrop.querySelector('#qDelete').addEventListener('click', function(){
+      if (!confirm('Delete this quote?')) return;
+      data.quotes = data.quotes.filter(function(x){ return x.id !== q.id; });
+      markDirty(); renderQuotes();
+      backdrop.remove();
+    });
+    backdrop.querySelector('#qEmailBtn').addEventListener('click', function(){
+      backdrop.remove();
+      jumpToEmailTemplateForQuote(q.id);
+    });
+  }
+
+  // ---------------------------------------------------------------- email templates
+  function renderTemplates(){
+    const grid = document.getElementById('templateGrid');
+    grid.innerHTML = '';
+    if (!data.emailTemplates.length){
+      grid.innerHTML = '<div class="empty-note">No templates yet.</div>';
+      return;
+    }
+    data.emailTemplates.forEach(function(t){
+      const card = document.createElement('div');
+      card.className = 'link-card clickable-card';
+      card.innerHTML =
+        '<button class="del" title="Remove">✕</button>' +
+        '<div class="name" style="font-weight:700;font-size:14px;color:var(--navy);"></div>' +
+        '<div class="company" style="font-size:12.5px;color:var(--muted);margin-top:2px;"></div>';
+      card.querySelector('.name').textContent = t.name;
+      card.querySelector('.company').textContent = t.subject;
+      card.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete template "' + t.name + '"?')) return;
+        data.emailTemplates = data.emailTemplates.filter(function(x){ return x.id !== t.id; });
+        markDirty(); renderTemplates(); populateUseTemplateSelects();
+      });
+      card.addEventListener('click', function(){ openTemplateEditor(t.id); });
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('templateNewBtn').addEventListener('click', function(){
+    const t = { id: randomId(), name: 'New template', subject: '', body: '' };
+    data.emailTemplates.push(t);
+    markDirty(); renderTemplates(); populateUseTemplateSelects();
+    openTemplateEditor(t.id);
+  });
+
+  function openTemplateEditor(id){
+    const t = data.emailTemplates.find(function(x){ return x.id === id; });
+    if (!t) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:560px;max-height:85vh;overflow:auto;">' +
+        '<h3>Email template</h3>' +
+        '<div class="field"><label>Name</label><input type="text" id="tName"></div>' +
+        '<div class="field"><label>Subject</label><input type="text" id="tSubject"></div>' +
+        '<div class="field"><label>Body</label><textarea id="tBody" rows="10" style="font-family:inherit;"></textarea></div>' +
+        '<div class="hint">Tokens: {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{date}}, {{quoteTitle}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDueDate}}</div>' +
+        '<div style="margin-top:16px;display:flex;gap:8px;">' +
+          '<button class="btn btn-ghost" id="tCancel">Close</button>' +
+          '<button class="btn btn-primary" id="tSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#tName').value = t.name;
+    backdrop.querySelector('#tSubject').value = t.subject;
+    backdrop.querySelector('#tBody').value = t.body;
+    backdrop.querySelector('#tCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#tSave').addEventListener('click', function(){
+      t.name = backdrop.querySelector('#tName').value.trim() || t.name;
+      t.subject = backdrop.querySelector('#tSubject').value;
+      t.body = backdrop.querySelector('#tBody').value;
+      markDirty(); renderTemplates(); populateUseTemplateSelects();
+      backdrop.remove();
+      toast('Template saved.');
+    });
+  }
+
+  function fmtQuoteLines(q){
+    return (q.lineItems || []).map(function(li){
+      const amt = (Number(li.qty) || 0) * (Number(li.rate) || 0);
+      return '- ' + (li.label || '') + ' (' + (li.qty || 0) + ' x ' + fmtGBP(li.rate || 0) + ' = ' + fmtGBP(amt) + ')';
+    }).join('\n');
+  }
+
+  function renderTemplateString(str, ctx){
+    return (str || '').replace(/\{\{\s*(\w+)\s*\}\}/g, function(match, key){
+      return (ctx[key] !== undefined && ctx[key] !== null) ? String(ctx[key]) : '';
+    });
+  }
+
+  function buildMergeContext(clientId, quoteId, invoiceIdx){
+    const now = new Date();
+    const ctx = {
+      date: isoDate(now.getFullYear(), now.getMonth(), now.getDate()),
+      companyName: data.financeProfile.companyLegalName || 'ImageScape Studios',
+      senderName: data.financeProfile.personalName || ''
+    };
+    if (clientId){
+      const c = data.clients.find(function(x){ return x.id === clientId; });
+      if (c){
+        ctx.clientName = c.name;
+        ctx.clientCompany = c.company || '';
+        ctx.clientEmail = c.email || '';
+        if (invoiceIdx !== '' && invoiceIdx != null && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts){
+          const snap = zohoSnapshotCache.contacts[c.zohoContactId];
+          const inv = snap && snap.invoices && snap.invoices[invoiceIdx];
+          if (inv){
+            ctx.invoiceNumber = inv.number || '';
+            ctx.invoiceAmount = (snap.currency || '£') + (Number(inv.total || 0)).toFixed(2);
+            ctx.invoiceDueDate = inv.dueDate || '';
+          }
+        }
+      }
+    }
+    if (quoteId){
+      const q = data.quotes.find(function(x){ return x.id === quoteId; });
+      if (q){
+        const t = computeQuoteTotals(q);
+        ctx.quoteTitle = q.title;
+        ctx.quoteTotal = fmtGBP(t.total);
+        ctx.quoteLines = fmtQuoteLines(q);
+      }
+    }
+    return ctx;
+  }
+
+  function populateUseTemplateSelects(){
+    const tplSel = document.getElementById('useTemplateSelect');
+    const prevTpl = tplSel.value;
+    tplSel.innerHTML = '<option value="">Choose a template…</option>';
+    data.emailTemplates.forEach(function(t){
+      const opt = document.createElement('option'); opt.value = t.id; opt.textContent = t.name;
+      tplSel.appendChild(opt);
+    });
+    tplSel.value = prevTpl;
+
+    const clientSel = document.getElementById('useTemplateClient');
+    const prevClient = clientSel.value;
+    clientSel.innerHTML = '<option value="">No client</option>';
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    clientSel.value = prevClient;
+    renderUseTemplateQuoteAndInvoiceOptions();
+  }
+
+  function renderUseTemplateQuoteAndInvoiceOptions(){
+    const clientId = document.getElementById('useTemplateClient').value;
+    const quoteSel = document.getElementById('useTemplateQuote');
+    const prevQuote = quoteSel.value;
+    quoteSel.innerHTML = '<option value="">No quote</option>';
+    data.quotes.filter(function(q){ return !clientId || q.clientId === clientId; }).forEach(function(q){
+      const opt = document.createElement('option'); opt.value = q.id; opt.textContent = q.title;
+      quoteSel.appendChild(opt);
+    });
+    quoteSel.value = prevQuote;
+
+    const invSel = document.getElementById('useTemplateInvoice');
+    invSel.innerHTML = '<option value="">No invoice</option>';
+    const c = clientId && data.clients.find(function(x){ return x.id === clientId; });
+    if (c && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts){
+      const snap = zohoSnapshotCache.contacts[c.zohoContactId];
+      ((snap && snap.invoices) || []).forEach(function(inv, idx){
+        const opt = document.createElement('option'); opt.value = idx; opt.textContent = (inv.number || '') + ' — ' + (inv.status || '');
+        invSel.appendChild(opt);
+      });
+    }
+  }
+
+  document.getElementById('useTemplateClient').addEventListener('change', renderUseTemplateQuoteAndInvoiceOptions);
+
+  function copyTextToClipboard(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).catch(function(){ fallbackCopy(text); });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function fallbackCopy(text){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); } catch (e){ /* best effort */ }
+    document.body.removeChild(ta);
+  }
+
+  document.getElementById('useTemplateGenerateBtn').addEventListener('click', function(){
+    const tplId = document.getElementById('useTemplateSelect').value;
+    if (!tplId){ toast('Pick a template first.'); return; }
+    const t = data.emailTemplates.find(function(x){ return x.id === tplId; });
+    if (!t) return;
+    const clientId = document.getElementById('useTemplateClient').value;
+    const quoteId = document.getElementById('useTemplateQuote').value;
+    const invoiceIdx = document.getElementById('useTemplateInvoice').value;
+    const ctx = buildMergeContext(clientId, quoteId, invoiceIdx);
+    const subject = renderTemplateString(t.subject, ctx);
+    const body = renderTemplateString(t.body, ctx);
+    const c = clientId && data.clients.find(function(x){ return x.id === clientId; });
+    const mailto = 'mailto:' + (c && c.email ? encodeURIComponent(c.email) : '') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    const wrap = document.getElementById('useTemplateResult');
+    wrap.innerHTML =
+      '<div class="field"><label>Subject</label><input type="text" id="resultSubject" readonly></div>' +
+      '<div class="field"><label>Body</label><textarea id="resultBody" rows="9" readonly style="font-family:inherit;"></textarea></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button class="btn btn-ghost" id="copySubjectBtn" type="button">Copy subject</button>' +
+        '<button class="btn btn-ghost" id="copyBodyBtn" type="button">Copy body</button>' +
+        '<a class="btn btn-primary" id="openMailBtn" style="width:auto;text-decoration:none;text-align:center;display:inline-block;padding:10px 16px;">Open in email client</a>' +
+      '</div>';
+    wrap.querySelector('#resultSubject').value = subject;
+    wrap.querySelector('#resultBody').value = body;
+    wrap.querySelector('#openMailBtn').href = mailto;
+    wrap.querySelector('#copySubjectBtn').addEventListener('click', function(){ copyTextToClipboard(subject); toast('Subject copied.'); });
+    wrap.querySelector('#copyBodyBtn').addEventListener('click', function(){ copyTextToClipboard(body); toast('Body copied.'); });
+  });
+
+  function jumpToEmailTemplateForQuote(quoteId){
+    const q = data.quotes.find(function(x){ return x.id === quoteId; });
+    document.querySelector('nav.tabs button[data-panel="emails"]').click();
+    populateUseTemplateSelects();
+    if (q){
+      document.getElementById('useTemplateClient').value = q.clientId || '';
+      renderUseTemplateQuoteAndInvoiceOptions();
+      document.getElementById('useTemplateQuote').value = q.id;
+    }
+    toast('Pick a template, then Generate.');
+  }
 
   // ---------------------------------------------------------------- finance & tax
   function fmtGBP(n){ return '£' + (Number(n) || 0).toFixed(2); }
