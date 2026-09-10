@@ -1178,7 +1178,7 @@
       if (attempt < 2) await sleep_(900);
     }
     if (metaRes.status === 404){
-      return { exists: false, sha: null, obj: null };
+      return { exists: false, sha: null, obj: null, reason: 'not_found' };
     }
     if (metaRes.status === 401){
       throw new Error('Google rejected this sign-in as invalid or expired. Click Retry to sign in again.');
@@ -1189,7 +1189,7 @@
     }
     const meta = await metaRes.json();
     if (meta.trashed){
-      return { exists: false, sha: null, obj: null };
+      return { exists: false, sha: null, obj: null, reason: 'trashed' };
     }
     const contentRes = await driveApiFetch('/files/' + conn.fileId + '?alt=media');
     if (!contentRes.ok){
@@ -1332,8 +1332,37 @@
       if (!picked) return;
       conn = { fileId: picked.id, fileName: picked.name };
       persistConnection(conn);
-      fetchFlow(true);
+      // Deliberately NOT delegating to fetchFlow()'s generic "not found -> offer setup"
+      // handling here. You just explicitly told us this exact file IS your existing
+      // vault by picking it, so a "not found" result at this point is always suspicious
+      // (most likely Google's per-file access grant still propagating) and must never
+      // silently fall through to "let's create a brand new one" — that would leave your
+      // real vault untouched but bury it behind a second, empty file.
+      showScreen('loadingScreen');
+      let result;
+      try {
+        result = await fetchVaultFile();
+      } catch (e){
+        showConnectScreen();
+        msg.innerHTML = '<div class="msg error">Google Drive error while opening "' + escapeHtml(picked.name) + '": ' + escapeHtml(e.message) + '</div>';
+        return;
+      }
+      if (!result.exists){
+        showConnectScreen();
+        if (result.reason === 'trashed'){
+          msg.innerHTML = '<div class="msg error">"' + escapeHtml(picked.name) + '" is in this Drive account’s Trash. Restore it in Google Drive (right-click the file → Restore), then try "Locate existing vault…" again.</div>';
+        } else {
+          msg.innerHTML = '<div class="msg error">Google still isn’t returning "' + escapeHtml(picked.name) + '" (status: not_found) even though you just picked it from your own Drive — this is not the "no vault yet" case, so this button will NOT offer to create a new one. This is usually Google’s per-file access grant still catching up; wait 15–20 seconds and click "Locate existing vault…" again. If it keeps happening after several tries, screenshot this message and send it over — that "not_found" detail is exactly what I need to dig further.</div>';
+        }
+        return;
+      }
+      currentSha = result.sha;
+      pendingVaultJson = result.obj;
+      document.getElementById('unlockRepoLabel').textContent = repoLabel();
+      document.getElementById('unlockMsg').innerHTML = '';
+      showScreen('unlockScreen');
     } catch (e){
+      showConnectScreen();
       msg.innerHTML = '<div class="msg error">Could not open the Drive file picker (' + escapeHtml(e.message) + ').</div>';
     }
   });
