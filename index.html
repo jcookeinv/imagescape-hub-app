@@ -1088,6 +1088,19 @@
     return gapiReadyPromise;
   }
 
+  // Random per-attempt value echoed back by Google in the token response. This is the
+  // `state` parameter Cloud Console's "Use secure flows" check looks for. It matters
+  // most for the redirect/code flow (where a token could otherwise arrive via a URL an
+  // attacker steered the browser to); this app uses the popup token flow instead, where
+  // GIS delivers the result back to this exact page via an in-memory callback rather
+  // than a URL, so the classic CSRF-via-redirect vector it protects against doesn't
+  // apply the same way. Still cheap and correct to check, so we do.
+  function randomState_(){
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
   function requestAccessToken(promptMode){
     return ensureGis().then(function(){
       return new Promise(function(resolve, reject){
@@ -1098,8 +1111,13 @@
             callback: function(){}
           });
         }
+        const expectedState = randomState_();
         tokenClient.callback = function(resp){
           if (resp.error){ reject(new Error(resp.error)); return; }
+          if (resp.state !== expectedState){
+            reject(new Error('Google sign-in response did not match this request — please try again.'));
+            return;
+          }
           accessToken = resp.access_token;
           tokenExpiresAt = Date.now() + (Number(resp.expires_in || 3600) * 1000) - 60000;
           resolve(accessToken);
@@ -1107,7 +1125,7 @@
         tokenClient.error_callback = function(err){
           reject(new Error((err && err.type) || 'Google sign-in was closed or blocked.'));
         };
-        tokenClient.requestAccessToken({ prompt: promptMode });
+        tokenClient.requestAccessToken({ prompt: promptMode, state: expectedState });
       });
     });
   }
