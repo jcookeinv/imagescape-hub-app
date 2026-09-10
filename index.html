@@ -1277,8 +1277,15 @@
       }
       const result = await fetchVaultFile();
       if (!result.exists){
-        document.getElementById('setupRepoLabel').textContent = repoLabel();
-        showScreen('setupScreen');
+        // This is a remembered connection (conn.fileId was already set above, or we'd
+        // have bailed to showConnectScreen already) that Google now says it can't find —
+        // never silently treat that as "must be a brand new vault, let's set one up".
+        // Surface it clearly and let the person choose what to do next instead.
+        document.getElementById('connErrorMsg').innerHTML =
+          (result.reason === 'trashed')
+            ? ('<div class="msg error">"' + escapeHtml(repoLabel()) + '" is in this Drive account’s Trash. Restore it in Google Drive (right-click the file → Restore), then click Retry.</div>')
+            : ('<div class="msg error">Google can’t find "' + escapeHtml(repoLabel()) + '" right now (status: not_found). This device remembers connecting to that file before, so this is unexpected — it does NOT mean no vault exists. Click Retry in case this is temporary, or "Sign in with a different Google account / file" to re-pick it. Only use "create a new vault" if you\'re certain this one is gone for good.</div>');
+        showScreen('connErrorScreen');
       } else {
         currentSha = result.sha;
         pendingVaultJson = result.obj;
