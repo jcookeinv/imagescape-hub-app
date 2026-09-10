@@ -11,8 +11,8 @@
   PUBLIC repo. It carries no business data at all — view-source shows only
   generic app logic, same as any other web-based password manager's client
   code being open. All calendar/task/link/credential content lives as ONE
-  AES-256-GCM encrypted file (vault.json) in Google Drive, under the
-  imagescapestudios@gmail.com account, reached via the Drive REST API with
+  AES-256-GCM encrypted file (vault.json) in Google Drive, under whichever
+  Google account each device connects with, reached via the Drive REST API with
   each device signing in as that Google account itself (drive.file scope
   only — this app can reach only the files it creates or you explicitly
   pick, nothing else in the Drive). The key that decrypts the file is your
@@ -20,7 +20,7 @@
   never stored anywhere, no recovery if it's forgotten.
 
   HOW SYNC WORKS: every save writes the encrypted file to Google Drive
-  (imagescapestudios@gmail.com), carrying the Drive revision ID of the
+  (whichever account is connected), carrying the Drive revision ID of the
   version you last loaded. If someone/something else has saved a newer
   version since (another device, another tab), the save is rejected instead
   of silently overwriting it — you're told to reload first. Drive's own
@@ -391,7 +391,7 @@
   <div class="auth-card">
     <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
     <h1>Connect this device</h1>
-    <p class="lead">This app holds no data of its own — everything lives as one encrypted file in Google Drive, under imagescapestudios@gmail.com. Sign in with Google to connect this device; nothing is stored anywhere except that Drive.</p>
+    <p class="lead">This app holds no data of its own — everything lives as one encrypted file in Google Drive, under whichever Google account you connect. Sign in with Google to connect this device; nothing is stored anywhere except that Drive.</p>
     <div id="connectMsg"></div>
     <button class="btn btn-primary" id="googleSignInBtn" style="width:100%;">Sign in with Google</button>
     <div id="vaultChooser" style="display:none;margin-top:18px;">
@@ -1163,8 +1163,20 @@
     return created.id;
   }
 
+  function sleep_(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
+
   async function fetchVaultFile(){
-    const metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=id,name,headRevisionId,trashed');
+    // A file just picked via the Drive picker (or freshly created elsewhere) can briefly
+    // 404 here even though it genuinely exists — Google's per-file access grant to this
+    // app can take a moment to propagate after selection. Retry a couple of times before
+    // concluding the file is really missing, since jumping straight to "set up a new vault"
+    // on a false negative would be a scary, misleading dead end for an existing vault.
+    let metaRes;
+    for (let attempt = 0; attempt < 3; attempt++){
+      metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=id,name,headRevisionId,trashed');
+      if (metaRes.status !== 404) break;
+      if (attempt < 2) await sleep_(900);
+    }
     if (metaRes.status === 404){
       return { exists: false, sha: null, obj: null };
     }
