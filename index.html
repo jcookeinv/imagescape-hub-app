@@ -13,9 +13,9 @@
   code being open. All calendar/task/link/credential content lives as ONE
   AES-256-GCM encrypted file (vault.json) in Google Drive, under whichever
   Google account each device connects with, reached via the Drive REST API with
-  each device signing in as that Google account itself (drive.file scope
-  only — this app can reach only the files it creates or you explicitly
-  pick, nothing else in the Drive). The key that decrypts the file is your
+  each device signing in as that Google account itself (full `drive` scope,
+  so the app can find vault.json by name on its own — see the note on
+  DRIVE_SCOPE below for why). The key that decrypts the file is your
   password alone, derived via PBKDF2 (600,000 rounds) — never sent anywhere,
   never stored anywhere, no recovery if it's forgotten.
 
@@ -30,9 +30,11 @@
   CONNECTING A DEVICE: each device signs in with Google itself (via Google
   Identity Services — no server, no stored password, no long-lived token).
   Only the Drive file's ID is kept in that browser's local storage, never
-  inside vault.json. Access is scoped to just the files this app creates or
-  you explicitly pick (the `drive.file` scope) — nothing else in the Google
-  account is reachable.
+  inside vault.json. The app uses the full `drive` scope so it can search
+  your Drive for a file literally named vault.json and connect straight to
+  it — no per-file picker step, no waiting for Google's access grant to
+  propagate. The app still only ever looks for and touches files it manages
+  (vault.json); it doesn't read or change anything else in your Drive.
 -->
 <style>
   :root{
@@ -395,8 +397,9 @@
     <div id="connectMsg"></div>
     <button class="btn btn-primary" id="googleSignInBtn" style="width:100%;">Sign in with Google</button>
     <div id="vaultChooser" style="display:none;margin-top:18px;">
-      <div class="hint" style="margin-bottom:10px;">Signed in. On almost every device this should be "Locate" — there should only ever be one vault file, ever. Pick it from Drive below.</div>
+      <div class="hint" style="margin-bottom:10px;">Signed in. On almost every device this should be "Locate" — there should only ever be one vault file, ever. This searches your Drive for it directly, no picking required.</div>
       <button class="btn btn-primary" id="locateVaultBtn" style="width:100%;margin-bottom:10px;">Locate existing vault…</button>
+      <button class="btn btn-ghost" id="browseVaultBtn" style="width:100%;margin-bottom:10px;display:none;">Browse Drive manually…</button>
       <button class="btn btn-ghost" id="createVaultBtn" style="width:100%;">This is genuinely the very first device, ever — create a new vault</button>
     </div>
   </div>
@@ -1008,6 +1011,7 @@
   const DRIVE_API = 'https://www.googleapis.com/drive/v3';
   const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
   const DRIVE_FOLDER_NAME = 'ImageScape Hub';
+  const VAULT_FILE_NAME = 'vault.json';
   // OAuth Client ID — a public identifier, safe to ship in client-side source. This app
   // never holds a client secret: it's a static site with no server, so it only ever uses
   // the token (implicit-style) OAuth flow, which has no secret in it at all.
@@ -1015,7 +1019,17 @@
   // API key for the Google Picker widget — restricted in Cloud Console to this exact
   // origin and to the Picker API only, so it's also safe to ship here.
   const GOOGLE_API_KEY = 'AIzaSyCKzK9mMTYbkbmK8hWIuesXNCt4xtHKg_o';
-  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  // Full Drive scope, not the narrower `drive.file`. `drive.file` only lets this app
+  // see files it created itself, or files the user just granted it via the Picker in
+  // this exact browser session — and that per-file grant can take a while (sometimes
+  // a very long while) to actually propagate on Google's side, which is what caused
+  // repeated "Google still isn't returning vault.json (not_found)" errors even right
+  // after picking the correct file. Full `drive` scope removes that entire failure
+  // mode: once signed in, the app can search Drive for a file named vault.json and
+  // connect straight to it, every time, with no picker step and no propagation delay.
+  // The tradeoff is a broader OAuth grant (this app *could* technically reach anything
+  // in the Drive) — but the code below only ever searches for and touches vault.json.
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 
   function loadConnection(){
     try {
@@ -1163,6 +1177,23 @@
     return created.id;
   }
 
+  // Finds file(s) named vault.json anywhere in this Drive account (not just files the
+  // app already knows about). Requires the full `drive` scope above — this is what lets
+  // "Locate existing vault" work with a single click and no file picker at all, since
+  // there's no per-file access grant to wait on. Returns an array (usually 0 or 1 item;
+  // more than 1 means there's genuinely more than one vault.json in this Drive and the
+  // caller needs to disambiguate) of { id, name, modifiedTime, trashed }.
+  async function findVaultByName(){
+    const q = "name = '" + VAULT_FILE_NAME.replace(/'/g, "\\'") + "' and trashed = false";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,modifiedTime,trashed)&spaces=drive');
+    if (!res.ok){
+      const body = await res.json().catch(function(){ return {}; });
+      throw new Error((body.error && body.error.message) || ('Google Drive search failed (' + res.status + ').'));
+    }
+    const body = await res.json();
+    return body.files || [];
+  }
+
   function sleep_(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
 
   async function fetchVaultFile(){
@@ -1176,6 +1207,22 @@
       metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=id,name,headRevisionId,trashed');
       if (metaRes.status !== 404) break;
       if (attempt < 2) await sleep_(900);
+    }
+    if (metaRes.status === 404){
+      // The remembered fileId is genuinely not resolving (wrong account, a stale ID
+      // from before the account swap, whatever) — before giving up, use the full
+      // `drive` scope to search for a file actually named vault.json in this Drive
+      // account and, if there's exactly one, self-heal by pointing this device at it.
+      let found = [];
+      try { found = await findVaultByName(); } catch (e){ found = []; }
+      const usable = found.filter(function(f){ return !f.trashed; });
+      if (usable.length === 1){
+        conn = { fileId: usable[0].id, fileName: usable[0].name };
+        persistConnection(conn);
+        metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=id,name,headRevisionId,trashed');
+      } else if (usable.length > 1){
+        return { exists: false, sha: null, obj: null, reason: 'ambiguous', candidates: usable };
+      }
     }
     if (metaRes.status === 404){
       return { exists: false, sha: null, obj: null, reason: 'not_found' };
@@ -1212,7 +1259,7 @@
       // create a fresh file, and point this device at it.
       const folderId = await ensureDriveFolder();
       const boundary = 'imagescapehub-' + Math.random().toString(16).slice(2);
-      const metadata = { name: (conn && conn.fileName) || 'vault.json', parents: [folderId], mimeType: 'application/json' };
+      const metadata = { name: (conn && conn.fileName) || VAULT_FILE_NAME, parents: [folderId], mimeType: 'application/json' };
       const body =
         '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n' +
         '--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + content + '\r\n' +
@@ -1284,7 +1331,9 @@
         document.getElementById('connErrorMsg').innerHTML =
           (result.reason === 'trashed')
             ? ('<div class="msg error">"' + escapeHtml(repoLabel()) + '" is in this Drive account’s Trash. Restore it in Google Drive (right-click the file → Restore), then click Retry.</div>')
-            : ('<div class="msg error">Google can’t find "' + escapeHtml(repoLabel()) + '" right now (status: not_found). This device remembers connecting to that file before, so this is unexpected — it does NOT mean no vault exists. Click Retry in case this is temporary, or "Sign in with a different Google account / file" to re-pick it. Only use "create a new vault" if you\'re certain this one is gone for good.</div>');
+            : (result.reason === 'ambiguous')
+            ? ('<div class="msg error">Found ' + result.candidates.length + ' files named "' + escapeHtml(VAULT_FILE_NAME) + '" in this Drive account — not sure which one is yours. Click "Sign in with a different Google account / file" and use "Locate existing vault…" to pick the right one manually.</div>')
+            : ('<div class="msg error">Google can’t find "' + escapeHtml(repoLabel()) + '" right now (status: not_found), and a Drive-wide search for "' + escapeHtml(VAULT_FILE_NAME) + '" didn’t turn up anything either. This device remembers connecting to that file before, so this is unexpected — it does NOT mean no vault exists. Click Retry in case this is temporary, or "Sign in with a different Google account / file" to check you’re on the right Google account. Only use "create a new vault" if you\'re certain this one is gone for good.</div>');
         showScreen('connErrorScreen');
       } else {
         currentSha = result.sha;
@@ -1331,51 +1380,103 @@
     }
   });
 
+  // Loads a specific Drive file straight into the unlock screen, given {id, name}.
+  // Shared by the auto-search path and the manual-picker fallback below.
+  async function connectToVaultFile(picked, msg){
+    conn = { fileId: picked.id, fileName: picked.name };
+    persistConnection(conn);
+    showScreen('loadingScreen');
+    let result;
+    try {
+      result = await fetchVaultFile();
+    } catch (e){
+      showConnectScreen();
+      msg.innerHTML = '<div class="msg error">Google Drive error while opening "' + escapeHtml(picked.name) + '": ' + escapeHtml(e.message) + '</div>';
+      return;
+    }
+    if (!result.exists){
+      showConnectScreen();
+      if (result.reason === 'trashed'){
+        msg.innerHTML = '<div class="msg error">"' + escapeHtml(picked.name) + '" is in this Drive account’s Trash. Restore it in Google Drive (right-click the file → Restore), then try again.</div>';
+      } else {
+        msg.innerHTML = '<div class="msg error">Google still isn’t returning "' + escapeHtml(picked.name) + '" (status: not_found) even though this looked reachable a moment ago. This is not the "no vault yet" case — try again in a moment, or use "Browse Drive manually…" below. If it keeps happening, screenshot this message and send it over.</div>';
+      }
+      return;
+    }
+    currentSha = result.sha;
+    pendingVaultJson = result.obj;
+    document.getElementById('unlockRepoLabel').textContent = repoLabel();
+    document.getElementById('unlockMsg').innerHTML = '';
+    showScreen('unlockScreen');
+  }
+
   document.getElementById('locateVaultBtn').addEventListener('click', async function(){
+    const msg = document.getElementById('connectMsg');
+    const btn = this;
+    msg.innerHTML = '';
+    btn.disabled = true; btn.textContent = 'Searching your Drive…';
+    try {
+      // Search this Drive account directly for a file named vault.json, rather than
+      // asking you to find and click it in a picker. This needs the full `drive` scope
+      // (see DRIVE_SCOPE above) but sidesteps the whole class of bugs where a file you
+      // just picked wasn't recognized yet by Google — there's no per-file grant to wait
+      // on here, so if it's in this Drive account, this finds it immediately.
+      const found = await findVaultByName();
+      const usable = found.filter(function(f){ return !f.trashed; });
+      if (usable.length === 1){
+        await connectToVaultFile(usable[0], msg);
+        return;
+      }
+      if (usable.length === 0){
+        msg.innerHTML = '<div class="msg info">No file named "' + escapeHtml(VAULT_FILE_NAME) + '" found in this Google account’s Drive. If you know it’s there under a different name, or want to pick it by hand, use "Browse Drive manually…" below.</div>';
+        document.getElementById('browseVaultBtn').style.display = '';
+        return;
+      }
+      // More than one vault.json in this Drive — don't guess, let the picker's visual
+      // list (with folder paths, thumbnails, last-modified) disambiguate.
+      msg.innerHTML = '<div class="msg info">Found ' + usable.length + ' files named "' + escapeHtml(VAULT_FILE_NAME) + '" in this Drive account. Use "Browse Drive manually…" below to pick the right one.</div>';
+      document.getElementById('browseVaultBtn').style.display = '';
+    } catch (e){
+      msg.innerHTML = '<div class="msg error">Could not search Google Drive (' + escapeHtml(e.message) + ').</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Locate existing vault…';
+    }
+  });
+
+  document.getElementById('browseVaultBtn').addEventListener('click', async function(){
     const msg = document.getElementById('connectMsg');
     msg.innerHTML = '';
     try {
       const picked = await showDrivePicker();
       if (!picked) return;
-      conn = { fileId: picked.id, fileName: picked.name };
-      persistConnection(conn);
-      // Deliberately NOT delegating to fetchFlow()'s generic "not found -> offer setup"
-      // handling here. You just explicitly told us this exact file IS your existing
-      // vault by picking it, so a "not found" result at this point is always suspicious
-      // (most likely Google's per-file access grant still propagating) and must never
-      // silently fall through to "let's create a brand new one" — that would leave your
-      // real vault untouched but bury it behind a second, empty file.
-      showScreen('loadingScreen');
-      let result;
-      try {
-        result = await fetchVaultFile();
-      } catch (e){
-        showConnectScreen();
-        msg.innerHTML = '<div class="msg error">Google Drive error while opening "' + escapeHtml(picked.name) + '": ' + escapeHtml(e.message) + '</div>';
-        return;
-      }
-      if (!result.exists){
-        showConnectScreen();
-        if (result.reason === 'trashed'){
-          msg.innerHTML = '<div class="msg error">"' + escapeHtml(picked.name) + '" is in this Drive account’s Trash. Restore it in Google Drive (right-click the file → Restore), then try "Locate existing vault…" again.</div>';
-        } else {
-          msg.innerHTML = '<div class="msg error">Google still isn’t returning "' + escapeHtml(picked.name) + '" (status: not_found) even though you just picked it from your own Drive — this is not the "no vault yet" case, so this button will NOT offer to create a new one. This is usually Google’s per-file access grant still catching up; wait 15–20 seconds and click "Locate existing vault…" again. If it keeps happening after several tries, screenshot this message and send it over — that "not_found" detail is exactly what I need to dig further.</div>';
-        }
-        return;
-      }
-      currentSha = result.sha;
-      pendingVaultJson = result.obj;
-      document.getElementById('unlockRepoLabel').textContent = repoLabel();
-      document.getElementById('unlockMsg').innerHTML = '';
-      showScreen('unlockScreen');
+      await connectToVaultFile(picked, msg);
     } catch (e){
-      showConnectScreen();
       msg.innerHTML = '<div class="msg error">Could not open the Drive file picker (' + escapeHtml(e.message) + ').</div>';
     }
   });
 
-  document.getElementById('createVaultBtn').addEventListener('click', function(){
-    conn = { fileId: null, fileName: 'vault.json' };
+  document.getElementById('createVaultBtn').addEventListener('click', async function(){
+    const msg = document.getElementById('connectMsg');
+    const btn = this;
+    msg.innerHTML = '';
+    // Safety check: search first, in case a vault genuinely already exists and this
+    // button was about to be clicked by mistake (exactly the scenario that caused
+    // real confusion earlier — a "not found" glitch nearly leading to a second,
+    // separate vault being created alongside the real one).
+    btn.disabled = true; btn.textContent = 'Checking Drive first…';
+    try {
+      const found = await findVaultByName();
+      const usable = found.filter(function(f){ return !f.trashed; });
+      if (usable.length >= 1){
+        msg.innerHTML = '<div class="msg error">Stop — a file named "' + escapeHtml(VAULT_FILE_NAME) + '" already exists in this Drive account. Use "Locate existing vault…" instead; creating a new one here would leave your real data untouched but hidden behind a second, empty file.</div>';
+        return;
+      }
+    } catch (e){
+      // Search failing shouldn't block a genuine first-time setup — just skip the check.
+    } finally {
+      btn.disabled = false; btn.textContent = 'This is genuinely the very first device, ever — create a new vault';
+    }
+    conn = { fileId: null, fileName: VAULT_FILE_NAME };
     persistConnection(conn);
     document.getElementById('setupRepoLabel').textContent = repoLabel();
     showScreen('setupScreen');
