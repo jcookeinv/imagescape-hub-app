@@ -488,6 +488,7 @@
     <button data-panel="tasks">Tasks</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
+    <button data-panel="paperwork">Paperwork</button>
     <button data-panel="finance">Finance &amp; Tax</button>
     <button data-panel="quotes">Quotes</button>
     <button data-panel="emails">Email Templates</button>
@@ -515,7 +516,7 @@
     <div class="panel" id="panel-clients">
       <div class="card">
         <h2>Clients</h2>
-        <div class="sub">Client records live here, with their documents, tasks and meeting notes linked to them — click a client to see everything in one place.</div>
+        <div class="sub">Client records live here, with their documents, tasks, paperwork and meeting notes linked to them — click a client to see everything in one place.</div>
         <div class="link-add">
           <input type="text" id="clientName" placeholder="Client / company contact name">
           <input type="text" id="clientCompany" placeholder="Company (optional)">
@@ -627,6 +628,37 @@
           <button class="btn btn-primary" id="docAddBtn" style="width:auto;">Add document</button>
         </div>
         <div class="link-grid" id="docGrid"></div>
+      </div>
+    </div>
+
+    <datalist id="pwLabelSuggestions"></datalist>
+
+    <div class="panel" id="panel-paperwork">
+      <div class="card">
+        <h2>Paperwork</h2>
+        <div class="sub">Contracts, releases, consent forms, anything that needs to go out or come back for a client. "Required by" and "Sent" dates mirror onto the Calendar automatically, so that's always the one place to see what's due and what's gone out.</div>
+        <div class="link-add">
+          <input type="text" id="pwLabel" list="pwLabelSuggestions" placeholder="What is it? (e.g. Model release)">
+          <select id="pwStatus">
+            <option value="required" selected>Required</option>
+            <option value="sent">Sent</option>
+            <option value="received">Received</option>
+            <option value="complete">Complete</option>
+          </select>
+          <input type="date" id="pwDue" title="Required by">
+          <select id="pwClient"><option value="">No client</option></select>
+          <button class="btn btn-primary" id="pwAddBtn" style="width:auto;">Add</button>
+        </div>
+        <div class="task-filter-row">
+          <div class="task-filter" id="pwFilter">
+            <button data-status="all" class="active">All</button>
+            <button data-status="required">Required</button>
+            <button data-status="sent">Sent</button>
+            <button data-status="received">Received</button>
+            <button data-status="complete">Complete</button>
+          </div>
+        </div>
+        <div id="pwList"></div>
       </div>
     </div>
 
@@ -930,6 +962,7 @@
       financeSnapshots: [],
       remindersConnection: null,
       clients: [],
+      paperwork: [],
       zohoConnection: null,
       quoteRates: [
         { id: randomId(), label: 'Site visit / consultation', rate: 45, unit: 'hour' },
@@ -958,6 +991,7 @@
   // can assume they're always arrays (or null/objects), never undefined.
   function normalizeData(d){
     d.events = d.events || [];
+    d.events.forEach(function(e){ e.paperworkId = e.paperworkId || ''; e.kind = e.kind || ''; });
     d.tasks = d.tasks || [];
     d.tasks.forEach(function(t){ t.clientId = t.clientId || ''; });
     d.links = d.links || [];
@@ -987,6 +1021,17 @@
       c.phone = c.phone || '';
       c.notes = c.notes || '';
     });
+    d.paperwork = d.paperwork || [];
+    d.paperwork.forEach(function(p){
+      p.clientId = p.clientId || '';
+      p.label = p.label || '';
+      p.status = p.status || 'required';
+      p.dueDate = p.dueDate || '';
+      p.sentDate = p.sentDate || '';
+      p.receivedDate = p.receivedDate || '';
+      p.notes = p.notes || '';
+      p.documentId = p.documentId || '';
+    });
     d.zohoConnection = d.zohoConnection || null;
     d.quoteRates = d.quoteRates || [];
     d.quoteRates.forEach(function(r){ r.unit = r.unit || 'hour'; });
@@ -1005,6 +1050,21 @@
 
   const CLIENT_STATUS_LABELS = { lead: 'Lead', active: 'Active', past: 'Past' };
   const QUOTE_STATUS_LABELS = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', declined: 'Declined' };
+  const PAPERWORK_STATUS_LABELS = { required: 'Required', sent: 'Sent', received: 'Received', complete: 'Complete' };
+  const PAPERWORK_LABEL_SUGGESTIONS = [
+    'Client contract / agreement', 'Model release', 'Property release',
+    'GDPR consent / data processing', 'NDA', 'Deposit invoice sent', 'Final invoice sent',
+    'Insurance certificate provided', 'Usage / licensing terms signed', 'Delivery / handover confirmation'
+  ];
+  (function(){
+    const dl = document.getElementById('pwLabelSuggestions');
+    if (!dl) return;
+    PAPERWORK_LABEL_SUGGESTIONS.forEach(function(label){
+      const opt = document.createElement('option');
+      opt.value = label;
+      dl.appendChild(opt);
+    });
+  })();
 
   // ---------------------------------------------------------------- Google Drive connection + sync
   const CONN_KEY = 'imagescapeHub.driveConnection.v1';
@@ -1579,6 +1639,7 @@
     renderTasks();
     renderMeetings();
     renderDocuments();
+    renderPaperwork();
     renderFinance();
     renderRatePresets();
     renderQuotes();
@@ -1735,7 +1796,7 @@
       if (!confirm('This replaces everything currently loaded (in memory only) with the pasted JSON. Nothing is saved to Drive until you click Save afterward. Continue?')) return;
       data = normalizeData(parsed);
       markDirty();
-      renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderLinks(); renderWpStatus(); renderBlogHistory();
+      renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderLinks(); renderWpStatus(); renderBlogHistory();
       backdrop.remove();
       toast('Loaded from JSON — review it, then click Save to write it to Drive.');
     });
@@ -1882,12 +1943,55 @@
         '<button class="del" title="Delete">✕</button>';
       row.querySelector('.title').textContent = ev.title;
       row.querySelector('.notes').textContent = ev.notes || '';
+      if (ev.paperworkId){
+        const tag = document.createElement('div');
+        tag.className = 'hint';
+        tag.textContent = 'Linked to a paperwork item — edit it from Clients or the Paperwork tab.';
+        row.querySelector('.body').appendChild(tag);
+      }
       row.querySelector('.del').addEventListener('click', function(){
+        if (ev.paperworkId){
+          alert('This event is linked to a paperwork item, so it\'s kept in sync automatically. Edit or delete the paperwork item instead (client\'s Paperwork section, or the Paperwork tab) — that updates this event for you.');
+          return;
+        }
         data.events = data.events.filter(function(e){ return e.id !== ev.id; });
         markDirty(); renderCalendar();
       });
       list.appendChild(row);
     });
+  }
+
+  // ---------------------------------------------------------------- paperwork <-> calendar sync
+  // Paperwork items (see the Paperwork panel below) can carry a "required by" date and
+  // a "sent" date. Both are mirrored onto the Calendar automatically as read-only-ish
+  // events tagged with paperworkId/kind, so the calendar is always the single place to
+  // glance at "what's due" and "what went out" without maintaining two copies by hand.
+  function paperworkEventTitle(item, kind){
+    const client = data.clients.find(function(c){ return c.id === item.clientId; });
+    const who = client ? client.name : 'Unlinked client';
+    const label = item.label || 'Paperwork';
+    return '📄 ' + who + ' — ' + label + (kind === 'due' ? ' due' : ' sent');
+  }
+
+  function syncPaperworkEvents(item){
+    ['due', 'sent'].forEach(function(kind){
+      const dateVal = kind === 'due' ? item.dueDate : item.sentDate;
+      const existing = data.events.find(function(e){ return e.paperworkId === item.id && e.kind === kind; });
+      if (!dateVal){
+        if (existing) data.events = data.events.filter(function(e){ return e !== existing; });
+        return;
+      }
+      const title = paperworkEventTitle(item, kind);
+      if (existing){
+        existing.date = dateVal; existing.title = title;
+      } else {
+        data.events.push({ id: randomId(), date: dateVal, title: title, notes: item.notes || '', paperworkId: item.id, kind: kind });
+      }
+    });
+  }
+
+  function removePaperworkEvents(itemId){
+    data.events = data.events.filter(function(e){ return e.paperworkId !== itemId; });
   }
 
   function openEventForm(iso){
@@ -2234,7 +2338,7 @@
   }
 
   function populateClientSelects(){
-    ['taskClient', 'docClient', 'mtgClient'].forEach(function(selId){
+    ['taskClient', 'docClient', 'mtgClient', 'pwClient'].forEach(function(selId){
       const sel = document.getElementById(selId);
       if (!sel) return;
       const prev = sel.value;
@@ -2257,6 +2361,149 @@
 
   function todayIso_(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); }
 
+  // ---------------------------------------------------------------- paperwork
+  let pwFilterStatus = 'all';
+
+  function paperworkOverdue(p){
+    return p.status !== 'complete' && p.status !== 'received' && !!p.dueDate && p.dueDate < todayIso_();
+  }
+
+  function renderPaperwork(){
+    populateClientSelects();
+    const list = document.getElementById('pwList');
+    if (!list) return;
+    list.innerHTML = '';
+    const visible = data.paperwork.filter(function(p){ return pwFilterStatus === 'all' || p.status === pwFilterStatus; });
+    if (!data.paperwork.length){
+      list.innerHTML = '<div class="empty-note">No paperwork tracked yet — add something above.</div>';
+      return;
+    }
+    if (!visible.length){
+      list.innerHTML = '<div class="empty-note">Nothing matches this filter.</div>';
+      return;
+    }
+    visible.slice().sort(function(a, b){
+      const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
+      return ad < bd ? -1 : (ad > bd ? 1 : 0);
+    }).forEach(function(p){
+      const overdue = paperworkOverdue(p);
+      const row = document.createElement('div');
+      row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
+      row.style.cursor = 'pointer';
+      row.innerHTML =
+        '<div class="body"><div class="txt"></div><div class="due"></div></div>' +
+        '<button class="del" title="Delete">✕</button>';
+      const clientLabel = p.clientId ? (clientName(p.clientId) || 'Unlinked client') : 'No client';
+      row.querySelector('.txt').textContent =
+        (p.label || 'Untitled') + '  ·  ' + clientLabel + '  ·  ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status);
+      const dueBits = [];
+      if (p.dueDate) dueBits.push((overdue ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
+      if (p.sentDate) dueBits.push('Sent ' + p.sentDate);
+      if (p.receivedDate) dueBits.push('Received ' + p.receivedDate);
+      row.querySelector('.due').textContent = dueBits.join('  ·  ');
+      if (overdue) row.querySelector('.due').classList.add('overdue');
+      row.addEventListener('click', function(){ openPaperworkEditModal(p.id); });
+      row.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete "' + p.label + '"? Its linked calendar entries will be removed too.')) return;
+        data.paperwork = data.paperwork.filter(function(x){ return x.id !== p.id; });
+        removePaperworkEvents(p.id);
+        markDirty(); renderPaperwork(); renderCalendar(); renderClients();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll('#pwFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#pwFilter button').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      pwFilterStatus = btn.dataset.status;
+      renderPaperwork();
+    });
+  });
+
+  document.getElementById('pwAddBtn').addEventListener('click', function(){
+    const labelEl = document.getElementById('pwLabel');
+    const statusEl = document.getElementById('pwStatus');
+    const dueEl = document.getElementById('pwDue');
+    const clientEl = document.getElementById('pwClient');
+    const label = labelEl.value.trim();
+    if (!label) return;
+    const item = {
+      id: randomId(), clientId: clientEl.value || '', label: label, status: statusEl.value || 'required',
+      dueDate: dueEl.value || '', sentDate: '', receivedDate: '', notes: '', documentId: ''
+    };
+    data.paperwork.push(item);
+    syncPaperworkEvents(item);
+    labelEl.value = ''; dueEl.value = ''; statusEl.value = 'required'; clientEl.value = '';
+    markDirty(); renderPaperwork(); renderCalendar(); renderClients();
+  });
+
+  // Shared edit modal — used from both the global Paperwork tab and a client's own
+  // Paperwork subsection, so there's exactly one place that knows how to edit an item.
+  function openPaperworkEditModal(id){
+    const p = data.paperwork.find(function(x){ return x.id === id; });
+    if (!p) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Paperwork</h3>' +
+        '<div class="field"><label>What is it?</label><input type="text" id="pwEditLabel" list="pwLabelSuggestions"></div>' +
+        '<div class="field"><label>Client</label><select id="pwEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Status</label><select id="pwEditStatus">' +
+          '<option value="required">Required</option><option value="sent">Sent</option>' +
+          '<option value="received">Received</option><option value="complete">Complete</option>' +
+        '</select></div>' +
+        '<div class="field"><label>Required by</label><input type="date" id="pwEditDue"></div>' +
+        '<div class="field"><label>Sent</label><input type="date" id="pwEditSent"></div>' +
+        '<div class="field"><label>Received back</label><input type="date" id="pwEditReceived"></div>' +
+        '<div class="field"><label>Notes</label><textarea id="pwEditNotes" rows="2"></textarea></div>' +
+        '<div class="hint">"Required by" and "Sent" dates stay mirrored onto the Calendar automatically.</div>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="pwEditCancel">Close</button>' +
+          '<button class="btn btn-ghost" id="pwEditDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-primary" id="pwEditSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const clientSel = backdrop.querySelector('#pwEditClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#pwEditLabel').value = p.label || '';
+    clientSel.value = p.clientId || '';
+    backdrop.querySelector('#pwEditStatus').value = p.status || 'required';
+    backdrop.querySelector('#pwEditDue').value = p.dueDate || '';
+    backdrop.querySelector('#pwEditSent').value = p.sentDate || '';
+    backdrop.querySelector('#pwEditReceived').value = p.receivedDate || '';
+    backdrop.querySelector('#pwEditNotes').value = p.notes || '';
+
+    backdrop.querySelector('#pwEditCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#pwEditDelete').addEventListener('click', function(){
+      if (!confirm('Delete "' + p.label + '"? Its linked calendar entries will be removed too.')) return;
+      data.paperwork = data.paperwork.filter(function(x){ return x.id !== p.id; });
+      removePaperworkEvents(p.id);
+      markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients();
+      toast('Paperwork deleted.');
+    });
+    backdrop.querySelector('#pwEditSave').addEventListener('click', function(){
+      p.label = backdrop.querySelector('#pwEditLabel').value.trim() || p.label;
+      p.clientId = clientSel.value || '';
+      p.status = backdrop.querySelector('#pwEditStatus').value;
+      p.dueDate = backdrop.querySelector('#pwEditDue').value || '';
+      p.sentDate = backdrop.querySelector('#pwEditSent').value || '';
+      p.receivedDate = backdrop.querySelector('#pwEditReceived').value || '';
+      p.notes = backdrop.querySelector('#pwEditNotes').value.trim();
+      syncPaperworkEvents(p);
+      markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients();
+      toast('Paperwork updated.');
+    });
+  }
+
   function renderClients(){
     populateClientSelects();
     const grid = document.getElementById('clientGrid');
@@ -2276,6 +2523,10 @@
         const openTasks = clientTasks.filter(function(t){ return !t.done; });
         const overdueTasks = openTasks.filter(function(t){ return t.due && t.due < todayIso; });
         const docCount = data.documents.filter(function(d){ return d.clientId === c.id; }).length;
+        const clientPaperwork = data.paperwork.filter(function(p){ return p.clientId === c.id; });
+        const openPaperwork = clientPaperwork.filter(function(p){ return p.status !== 'complete'; });
+        const overduePaperwork = openPaperwork.filter(paperworkOverdue);
+        const overdueTotal = overdueTasks.length + overduePaperwork.length;
         const card = document.createElement('div');
         card.className = 'link-card client-card';
         card.innerHTML =
@@ -2284,19 +2535,23 @@
           '<div class="company"></div>' +
           '<div class="meta-row"><span class="client-status-badge status-' + c.status + '"></span>' +
           '<span class="counts"></span></div>' +
-          (overdueTasks.length ? '<div class="hint" style="color:var(--warn);margin-top:4px;font-weight:700;"></div>' : '');
+          (overdueTotal ? '<div class="hint" style="color:var(--warn);margin-top:4px;font-weight:700;"></div>' : '');
         card.querySelector('.name').textContent = c.name;
         card.querySelector('.company').textContent = c.company || [c.email, c.phone].filter(Boolean).join(' · ');
         card.querySelector('.client-status-badge').textContent = CLIENT_STATUS_LABELS[c.status] || c.status;
         card.querySelector('.counts').textContent =
-          openTasks.length + ' open task' + (openTasks.length === 1 ? '' : 's') + ' · ' + docCount + ' doc' + (docCount === 1 ? '' : 's');
-        if (overdueTasks.length){
-          card.querySelector('.hint').textContent = overdueTasks.length + ' overdue';
+          openTasks.length + ' open task' + (openTasks.length === 1 ? '' : 's') + ' · ' + docCount + ' doc' + (docCount === 1 ? '' : 's') +
+          ' · ' + openPaperwork.length + ' paperwork';
+        if (overdueTotal){
+          card.querySelector('.hint').textContent = overdueTotal + ' overdue';
         }
         card.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
-          if (!confirm('Delete ' + c.name + '? Linked tasks/documents/meeting notes keep their data but lose the client link.')) return;
+          if (!confirm('Delete ' + c.name + '? Linked tasks/documents/paperwork/meeting notes keep their data but lose the client link.')) return;
           data.clients = data.clients.filter(function(x){ return x.id !== c.id; });
+          data.paperwork.forEach(function(p){
+            if (p.clientId === c.id){ p.clientId = ''; syncPaperworkEvents(p); }
+          });
           markDirty(); renderClients();
         });
         card.addEventListener('click', function(){ openClientDetail(c.id); });
@@ -2371,6 +2626,19 @@
           '<input type="text" id="cdDocLabel" placeholder="Label">' +
           '<input type="text" id="cdDocUrl" placeholder="https://…">' +
           '<button class="btn btn-primary" id="cdDocAddBtn" style="width:auto;">Add</button>' +
+        '</div>' +
+
+        '<h3 style="margin-top:18px;font-size:14px;">Paperwork</h3>' +
+        '<div class="sub" style="margin:-4px 0 8px;">"Required by" and "sent" dates show up on the Calendar automatically.</div>' +
+        '<div id="cdPwList"></div>' +
+        '<div class="link-add" style="margin-top:8px;">' +
+          '<input type="text" id="cdPwLabel" list="pwLabelSuggestions" placeholder="What is it? (e.g. Model release)">' +
+          '<select id="cdPwStatus">' +
+            '<option value="required" selected>Required</option><option value="sent">Sent</option>' +
+            '<option value="received">Received</option><option value="complete">Complete</option>' +
+          '</select>' +
+          '<input type="date" id="cdPwDue" title="Required by">' +
+          '<button class="btn btn-primary" id="cdPwAddBtn" style="width:auto;">Add</button>' +
         '</div>' +
 
         '<h3 style="margin-top:18px;font-size:14px;">Meeting notes</h3>' +
@@ -2458,6 +2726,55 @@
       markDirty(); renderModalDocs(); renderDocuments(); renderClients();
     });
 
+    function renderModalPaperwork(){
+      const wrap = backdrop.querySelector('#cdPwList');
+      const linked = data.paperwork.filter(function(p){ return p.clientId === id; });
+      if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No paperwork linked yet.</div>'; return; }
+      wrap.innerHTML = '';
+      linked.slice().sort(function(a, b){
+        const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
+        return ad < bd ? -1 : (ad > bd ? 1 : 0);
+      }).forEach(function(p){
+        const overdue = paperworkOverdue(p);
+        const row = document.createElement('div');
+        row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
+        row.style.cursor = 'pointer';
+        row.innerHTML = '<div class="body"><div class="txt"></div><div class="due"></div></div><button class="del" title="Delete">✕</button>';
+        row.querySelector('.txt').textContent = (p.label || 'Untitled') + '  ·  ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status);
+        const dueBits = [];
+        if (p.dueDate) dueBits.push((overdue ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
+        if (p.sentDate) dueBits.push('Sent ' + p.sentDate);
+        if (p.receivedDate) dueBits.push('Received ' + p.receivedDate);
+        row.querySelector('.due').textContent = dueBits.join('  ·  ');
+        if (overdue) row.querySelector('.due').classList.add('overdue');
+        row.addEventListener('click', function(){ backdrop.remove(); openPaperworkEditModal(p.id); });
+        row.querySelector('.del').addEventListener('click', function(e){
+          e.stopPropagation();
+          if (!confirm('Delete "' + p.label + '"? Its linked calendar entries will be removed too.')) return;
+          data.paperwork = data.paperwork.filter(function(x){ return x.id !== p.id; });
+          removePaperworkEvents(p.id);
+          markDirty(); renderModalPaperwork(); renderPaperwork(); renderCalendar(); renderClients();
+        });
+        wrap.appendChild(row);
+      });
+    }
+    renderModalPaperwork();
+    backdrop.querySelector('#cdPwAddBtn').addEventListener('click', function(){
+      const labelEl = backdrop.querySelector('#cdPwLabel');
+      const statusEl = backdrop.querySelector('#cdPwStatus');
+      const dueEl = backdrop.querySelector('#cdPwDue');
+      const label = labelEl.value.trim();
+      if (!label) return;
+      const item = {
+        id: randomId(), clientId: id, label: label, status: statusEl.value || 'required',
+        dueDate: dueEl.value || '', sentDate: '', receivedDate: '', notes: '', documentId: ''
+      };
+      data.paperwork.push(item);
+      syncPaperworkEvents(item);
+      labelEl.value = ''; dueEl.value = ''; statusEl.value = 'required';
+      markDirty(); renderModalPaperwork(); renderPaperwork(); renderCalendar(); renderClients();
+    });
+
     function renderModalMeetings(){
       const wrap = backdrop.querySelector('#cdMtgList');
       const linked = data.meetings.filter(function(m){ return m.clientId === id; })
@@ -2512,7 +2829,10 @@
       c.status = backdrop.querySelector('#cdStatus').value;
       c.notes = backdrop.querySelector('#cdNotes').value.trim();
       c.zohoContactId = backdrop.querySelector('#cdZoho').value.trim();
-      markDirty(); renderClients();
+      // Paperwork calendar entries bake the client's name into their title, so if it
+      // just changed, refresh those entries rather than leaving them stale.
+      data.paperwork.filter(function(p){ return p.clientId === c.id; }).forEach(syncPaperworkEvents);
+      markDirty(); renderClients(); renderCalendar();
       backdrop.remove();
       toast('Client updated.');
     });
