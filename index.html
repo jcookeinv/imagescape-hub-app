@@ -41,6 +41,7 @@
     --navy:#4A5473; --navy-deep:#333c54; --gold:#CDB16D; --gold-deep:#a3833f;
     --bg:#f5f6f8; --card:#ffffff; --ink:#22262f; --muted:#6a7080; --border:#e2e4ea;
     --good:#1a8f5e; --good-soft:#e6f6ee; --warn:#b6541c; --warn-soft:#fdeee2;
+    --soon:#a3833f; --soon-soft:#fbf2df; --info:#3a6ea5; --info-soft:#e7eff7;
     --radius:12px;
   }
   *{box-sizing:border-box;}
@@ -99,6 +100,10 @@
   nav.tabs button{background:none;border:none;padding:14px 16px;font-size:13.5px;font-weight:700;
     color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;font-family:inherit;white-space:nowrap;}
   nav.tabs button.active{color:var(--navy);border-bottom-color:var(--gold);}
+  nav.tabs.tabs-sub{padding:0 24px;background:#fafbfd;}
+  nav.tabs.tabs-sub button{padding:9px 14px;font-size:12px;}
+  nav.tabs button.group-btn{display:flex;align-items:center;gap:4px;}
+  nav.tabs button.group-btn .chev{font-size:9px;opacity:.7;}
 
   main.hub-main{max-width:920px;margin:0 auto;padding:26px 24px 80px;}
   .panel{display:none;}
@@ -107,6 +112,36 @@
     padding:20px 22px;margin-bottom:16px;}
   .card h2{margin:0 0 4px;font-size:16px;}
   .card .sub{font-size:12.5px;color:var(--muted);margin-bottom:16px;}
+
+  /* --- Dashboard --- */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+  .stat-tile{border-radius:var(--radius);padding:16px 18px;cursor:pointer;border:1px solid transparent;
+    transition:transform .12s,box-shadow .12s;}
+  .stat-tile:hover{transform:translateY(-2px);box-shadow:0 8px 20px -12px rgba(30,35,55,.35);}
+  .stat-tile .stat-num{font-size:27px;font-weight:800;line-height:1;}
+  .stat-tile .stat-label{font-size:11.5px;font-weight:700;margin-top:7px;text-transform:uppercase;letter-spacing:.03em;opacity:.9;}
+  .stat-tile .stat-sub{font-size:11px;margin-top:3px;opacity:.75;}
+  .stat-tile.tile-overdue{background:var(--warn-soft);color:var(--warn);}
+  .stat-tile.tile-soon{background:var(--soon-soft);color:var(--soon);}
+  .stat-tile.tile-clients{background:#eef1fa;color:var(--navy);}
+  .stat-tile.tile-quotes{background:var(--good-soft);color:var(--good);}
+  .stat-tile.tile-paperwork{background:var(--info-soft);color:var(--info);}
+  .attention-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--border);
+    cursor:pointer;border-radius:6px;}
+  .attention-row:first-child{border-top:none;}
+  .attention-row:hover{background:#fafbfd;}
+  .attention-row .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--muted);}
+  .attention-row.lvl-overdue .dot{background:var(--warn);}
+  .attention-row.lvl-soon .dot{background:var(--soon);}
+  .attention-row .body{flex:1;font-size:13.5px;min-width:0;}
+  .attention-row .body .sub{font-size:11.5px;color:var(--muted);margin-top:1px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .attention-row .when{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+  .attention-row.lvl-overdue .when{color:var(--warn);}
+  .attention-row.lvl-soon .when{color:var(--soon);}
+  .dash-section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+  .dash-section-head .see-all{font-size:11.5px;font-weight:700;color:var(--navy);cursor:pointer;background:none;border:none;font-family:inherit;}
+  .dash-section-head .see-all:hover{text-decoration:underline;}
 
   /* --- Calendar --- */
   .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
@@ -126,6 +161,8 @@
     font-size:10px;font-weight:700;padding:1px 4px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;}
   .cal-cell .chip.more{background:none;color:var(--muted);font-weight:600;}
+  .cal-cell .chip.chip-due{background:var(--warn-soft);color:var(--warn);}
+  .cal-cell .chip.chip-sent{background:var(--info-soft);color:var(--info);}
   .event-list{margin-top:18px;}
   .event-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid var(--border);}
   .event-row:first-child{border-top:none;}
@@ -163,6 +200,7 @@
   .task-row .body{flex:1;font-size:13.5px;}
   .task-row.done .body .txt{color:var(--muted);text-decoration:line-through;}
   .task-row .due{font-size:11px;color:var(--muted);margin-top:2px;}
+  .task-row .due.soon{color:var(--soon);font-weight:700;}
   .task-row .completed-date{font-size:11px;color:var(--good);margin-top:2px;}
   .cat-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
     letter-spacing:.03em;padding:2px 7px;border-radius:5px;margin-right:6px;vertical-align:middle;}
@@ -182,6 +220,12 @@
   .client-status-badge.status-sent{background:var(--warn-soft);color:var(--warn);}
   .client-status-badge.status-accepted{background:var(--good-soft);color:var(--good);}
   .client-status-badge.status-declined{background:#fbe9e9;color:#c0392b;}
+  .pw-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.03em;padding:3px 8px;border-radius:20px;margin-left:6px;}
+  .pw-badge.pw-required{background:var(--warn-soft);color:var(--warn);}
+  .pw-badge.pw-sent{background:var(--info-soft);color:var(--info);}
+  .pw-badge.pw-received{background:var(--soon-soft);color:var(--soon);}
+  .pw-badge.pw-complete{background:var(--good-soft);color:var(--good);}
   .line-item-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
   .line-item-row input[type=text]{flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
   .line-item-row input[type=number]{width:80px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
@@ -193,6 +237,10 @@
   .client-card .company{font-size:12.5px;color:var(--muted);margin-top:2px;}
   .client-card .meta-row{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
   .client-card .counts{font-size:11.5px;color:var(--muted);}
+  .urgencyWrap{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+  .urgency-chip{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;}
+  .urgency-chip.overdue{background:var(--warn-soft);color:var(--warn);}
+  .urgency-chip.soon{background:var(--soon-soft);color:var(--soon);}
   .zoho-snapshot{margin-top:14px;padding:14px;background:#f8f9fb;border-radius:10px;font-size:13px;}
   .zoho-snapshot .zoho-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);}
   .zoho-snapshot .zoho-row:last-child{border-bottom:none;}
@@ -247,7 +295,7 @@
   .deadline-row .dl-date{font-size:12.5px;font-weight:700;padding:4px 10px;border-radius:6px;
     white-space:nowrap;background:#eef1fa;color:var(--navy);}
   .deadline-row .dl-date.overdue{background:var(--warn-soft);color:var(--warn);}
-  .deadline-row .dl-date.soon{background:#fbf2df;color:var(--gold-deep);}
+  .deadline-row .dl-date.soon{background:var(--soon-soft);color:var(--soon);}
   .finance-import{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px;}
   .finance-import input[type=file]{font-size:12.5px;flex-basis:100%;}
   .finance-import textarea{flex:1;min-width:220px;min-height:60px;padding:9px 11px;
@@ -318,6 +366,45 @@
   .mtg-response-add button{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;
     font-size:12px;cursor:pointer;color:var(--navy);font-family:inherit;flex-shrink:0;}
   .mtg-response-add button:hover{border-color:var(--navy);}
+  .meeting-row .mtg-edit{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;}
+  .meeting-row .mtg-edit:hover{color:var(--navy);}
+  .mtg-viewtabs{display:flex;gap:6px;margin-bottom:14px;}
+  .mtg-viewtabs button{background:none;border:1px solid var(--border);border-radius:20px;padding:6px 14px;
+    font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted);}
+  .mtg-viewtabs button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .mtg-subtabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
+  .mtg-subtabs button{background:#fafbfd;border:1px solid var(--border);border-radius:8px;padding:7px 12px;
+    font-size:12.5px;cursor:pointer;}
+  .mtg-subtabs button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .mtg-subtabs.mtg-datetabs button{font-size:12px;padding:6px 10px;background:#fff;}
+  .topic-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.03em;padding:3px 8px;border-radius:20px;margin-left:6px;flex-shrink:0;}
+  .topic-badge.status-ongoing{background:var(--info-soft);color:var(--info);}
+  .topic-badge.status-complete{background:var(--good-soft);color:var(--good);}
+  .topic-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+  .topic-card .tc-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .topic-card .tc-title{font-weight:700;font-size:13.5px;color:var(--navy);}
+  .topic-card .tc-client{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .topic-card .tc-log{margin-top:8px;}
+  .topic-card .tc-entry{display:flex;gap:8px;padding:6px 0;font-size:12.5px;border-top:1px solid var(--border);}
+  .topic-card .tc-entry:first-child{border-top:none;}
+  .topic-card .tc-entry .tc-date{color:var(--muted);font-size:11px;flex-shrink:0;width:78px;padding-top:1px;}
+  .topic-card .tc-entry .tc-note{flex:1;white-space:pre-wrap;line-height:1.4;}
+  .topic-card .tc-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .topic-card .tc-actions button{background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;
+    font-size:12px;cursor:pointer;}
+  .topic-card .tc-actions button:hover{border-color:var(--navy);}
+  .topic-card .tc-actions button.tc-del:hover{border-color:var(--warn);color:var(--warn);}
+  .topic-card .tc-complete-btn.is-complete{color:var(--good);border-color:var(--good);background:var(--good-soft);}
+  .topic-card .tc-noteadd{display:none;margin-top:8px;gap:6px;flex-wrap:wrap;align-items:flex-start;}
+  .topic-card .tc-noteadd.open{display:flex;}
+  .topic-card .tc-noteadd input[type=date]{padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;}
+  .topic-card .tc-noteadd textarea{flex:1;min-width:160px;padding:6px 8px;border:1px solid var(--border);
+    border-radius:6px;font-size:12px;font-family:inherit;}
+  .topic-card .tc-noteadd button{background:var(--navy);color:#fff;border:none;border-radius:6px;padding:6px 12px;
+    font-size:12px;cursor:pointer;}
+  .mtg-touched-row{cursor:pointer;}
+  .mtg-touched-row:hover .resp-text{text-decoration:underline;}
 
   /* --- Blog --- */
   .wp-status{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-bottom:14px;
@@ -482,15 +569,22 @@
     <button id="alertViewBtn">View tasks →</button>
   </div>
 
-  <nav class="tabs">
-    <button data-panel="cal" class="active">Calendar</button>
+  <nav class="tabs tabs-primary">
+    <button data-panel="home" class="active">Dashboard</button>
+    <button data-panel="cal">Calendar</button>
+    <button data-group="client" class="group-btn">Client Work <span class="chev">▾</span></button>
+    <button data-group="admin" class="group-btn">Business Admin <span class="chev">▾</span></button>
+  </nav>
+  <nav class="tabs tabs-sub" id="subNavClient" style="display:none;">
     <button data-panel="clients">Clients</button>
-    <button data-panel="tasks">Tasks</button>
+    <button data-panel="paperwork">Paperwork</button>
+    <button data-panel="quotes">Quotes</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
-    <button data-panel="paperwork">Paperwork</button>
+  </nav>
+  <nav class="tabs tabs-sub" id="subNavAdmin" style="display:none;">
+    <button data-panel="tasks">Tasks</button>
     <button data-panel="finance">Finance &amp; Tax</button>
-    <button data-panel="quotes">Quotes</button>
     <button data-panel="emails">Email Templates</button>
     <button data-panel="blog">Blog</button>
     <button data-panel="links">Site &amp; Hosting</button>
@@ -498,7 +592,27 @@
 
   <main class="hub-main">
 
-    <div class="panel active" id="panel-cal">
+    <div class="panel active" id="panel-home">
+      <div class="card" id="dashGreeting">
+        <h2 id="dashGreetingText">Welcome back</h2>
+        <div class="sub" id="dashDateText"></div>
+      </div>
+      <div class="stat-grid" id="dashStats"></div>
+      <div class="card">
+        <div class="dash-section-head"><h2>Needs attention</h2></div>
+        <div class="sub">Overdue and due-soon tasks and paperwork, across every client, in one list.</div>
+        <div id="dashAttentionList"></div>
+      </div>
+      <div class="card">
+        <div class="dash-section-head"><h2>Next 7 days</h2>
+          <button type="button" class="see-all" id="dashSeeCalendar">Full calendar →</button>
+        </div>
+        <div class="sub">Manual events plus paperwork due/sent dates, whichever comes first.</div>
+        <div id="dashUpcomingList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-cal">
       <div class="card">
         <div class="cal-nav">
           <button class="btn btn-ghost" id="calPrev">◀ Prev</button>
@@ -603,16 +717,46 @@
     <div class="panel" id="panel-meetings">
       <div class="card">
         <h2>Meeting notes</h2>
-        <div class="sub">Log notes from meetings. Action items can become tasks with one click.</div>
-        <div class="meeting-add">
-          <input type="date" id="mtgDate">
-          <input type="text" id="mtgAttendees" placeholder="Attendees (optional)">
-          <textarea id="mtgNotes" placeholder="Notes…"></textarea>
-          <textarea id="mtgActions" placeholder="Action items — one per line (optional)"></textarea>
-          <select id="mtgClient"><option value="">No client</option></select>
-          <button class="btn btn-primary" id="mtgAddBtn" style="width:auto;">Add meeting note</button>
+        <div class="sub">Log notes from meetings. Action items can become tasks with one click, and discussion topics carry their own history and status across meetings so nothing gets lost between sessions.</div>
+
+        <div class="mtg-viewtabs">
+          <button type="button" class="active" data-view="bydate">By date</button>
+          <button type="button" data-view="topics">All topics</button>
         </div>
-        <div id="meetingList"></div>
+
+        <div id="mtgByDateView">
+          <div class="meeting-add">
+            <input type="date" id="mtgDate">
+            <input type="text" id="mtgAttendees" placeholder="Attendees (optional)">
+            <textarea id="mtgNotes" placeholder="Notes…"></textarea>
+            <textarea id="mtgActions" placeholder="Action items — one per line (optional)"></textarea>
+            <select id="mtgClient"><option value="">No client</option></select>
+            <button class="btn btn-primary" id="mtgAddBtn" style="width:auto;">Add meeting note</button>
+          </div>
+          <div class="mtg-subtabs" id="mtgMonthTabs"></div>
+          <div class="mtg-subtabs mtg-datetabs" id="mtgDateTabs"></div>
+          <div id="meetingDetail"></div>
+        </div>
+
+        <div id="mtgTopicsView" style="display:none;">
+          <div class="link-add">
+            <input type="text" id="topicNewTitle" placeholder="New discussion topic (e.g. Business Plan revisit)">
+            <select id="topicNewClient"><option value="">No client</option></select>
+            <button class="btn btn-primary" id="topicAddBtn" style="width:auto;">Start topic</button>
+          </div>
+          <div class="task-filter-row">
+            <div class="task-filter" id="topicFilter">
+              <button type="button" data-tstatus="all" class="active">All</button>
+              <button type="button" data-tstatus="ongoing">Ongoing</button>
+              <button type="button" data-tstatus="complete">Complete</button>
+            </div>
+          </div>
+          <div id="topicList"></div>
+        </div>
+
+        <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--border);">
+          <button class="btn btn-ghost" id="mtgImportBtn" style="width:auto;">Import meeting history…</button>
+        </div>
       </div>
     </div>
 
@@ -1001,6 +1145,21 @@
       m.responses = m.responses || [];
       m.clientId = m.clientId || '';
     });
+    // Discussion topics give continuity across meetings: a recurring agenda item (e.g.
+    // "Business Plan revisit") carries one persistent status plus a dated log of notes,
+    // one entry per meeting it came up in - rather than being re-typed fresh each time.
+    d.discussionTopics = d.discussionTopics || [];
+    d.discussionTopics.forEach(function(t){
+      t.title = t.title || 'Untitled topic';
+      t.status = t.status === 'complete' ? 'complete' : 'ongoing';
+      t.clientId = t.clientId || '';
+      t.log = t.log || [];
+      t.log.forEach(function(entry){
+        entry.id = entry.id || randomId();
+        entry.date = entry.date || '';
+        entry.note = entry.note || '';
+      });
+    });
     d.documents = d.documents || [];
     d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; });
     d.blogPosts = d.blogPosts || [];
@@ -1051,6 +1210,7 @@
   const CLIENT_STATUS_LABELS = { lead: 'Lead', active: 'Active', past: 'Past' };
   const QUOTE_STATUS_LABELS = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', declined: 'Declined' };
   const PAPERWORK_STATUS_LABELS = { required: 'Required', sent: 'Sent', received: 'Received', complete: 'Complete' };
+  const TOPIC_STATUS_LABELS = { ongoing: 'Ongoing', complete: 'Complete' };
   const PAPERWORK_LABEL_SUGGESTIONS = [
     'Client contract / agreement', 'Model release', 'Property release',
     'GDPR consent / data processing', 'NDA', 'Deposit invoice sent', 'Final invoice sent',
@@ -1383,6 +1543,62 @@
 
   function repoLabel(){ return (conn && conn.fileName) ? ('Google Drive → ' + conn.fileName) : 'Google Drive'; }
 
+  // ---------------------------------------------------------------- version history
+  // Every save overwrites vault.json in place, but Google Drive keeps its own revision
+  // history of that file automatically (same mechanism the doc comments at the top of
+  // this file already point to for rollback). This reads that history back through the
+  // Drive API the app already has full access to — no separate backup storage to manage.
+  // Note this is NOT unlimited: Drive prunes older, non-pinned revisions over time (its
+  // default is roughly the most recent 30 days' worth), so it's version history, not a
+  // permanent archive — the "Download current vault as JSON" export above is still the
+  // right tool for a permanent, dated snapshot you keep yourself.
+  function formatBytes_(n){
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async function listVaultRevisions(){
+    if (!conn || !conn.fileId) return [];
+    let all = [];
+    let pageToken = '';
+    for (let guard = 0; guard < 20; guard++){ // 20 pages is far more than this file will ever need
+      const qs = '?fields=nextPageToken,revisions(id,modifiedTime,size)&pageSize=200' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+      const res = await driveApiFetch('/files/' + conn.fileId + '/revisions' + qs);
+      if (!res.ok){
+        const body = await res.json().catch(function(){ return {}; });
+        throw new Error((body.error && body.error.message) || ('Could not list version history (status ' + res.status + ').'));
+      }
+      const body = await res.json();
+      all = all.concat(body.revisions || []);
+      if (!body.nextPageToken) break;
+      pageToken = body.nextPageToken;
+    }
+    return all.sort(function(a, b){ return a.modifiedTime < b.modifiedTime ? 1 : -1; });
+  }
+
+  async function fetchRevisionVault(revisionId){
+    const res = await driveApiFetch('/files/' + conn.fileId + '/revisions/' + revisionId + '?alt=media');
+    if (!res.ok) throw new Error('Could not download that version from Drive (status ' + res.status + ').');
+    const text = await res.text();
+    let vault;
+    try { vault = JSON.parse(text); } catch (e){ throw new Error('That version doesn\'t look like a vault file this app saved (couldn\'t parse it).'); }
+    return vault;
+  }
+
+  // Rough, human-readable summary of a decrypted vault object, so someone can sanity-check
+  // "is this the version I think it is" before committing to restoring it.
+  function summarizeVaultData(d){
+    const bits = [];
+    if (d.clients) bits.push(d.clients.length + ' client' + (d.clients.length === 1 ? '' : 's'));
+    if (d.tasks) bits.push(d.tasks.length + ' task' + (d.tasks.length === 1 ? '' : 's'));
+    if (d.paperwork) bits.push(d.paperwork.length + ' paperwork item' + (d.paperwork.length === 1 ? '' : 's'));
+    if (d.quotes) bits.push(d.quotes.length + ' quote' + (d.quotes.length === 1 ? '' : 's'));
+    if (d.events) bits.push(d.events.length + ' calendar event' + (d.events.length === 1 ? '' : 's'));
+    return bits.length ? bits.join(', ') : 'looks empty';
+  }
+
   function showScreen(id){
     ['connectScreen','loadingScreen','connErrorScreen','setupScreen','unlockScreen','dashboard'].forEach(function(s){
       document.getElementById(s).style.display = 'none';
@@ -1648,18 +1864,58 @@
     renderLinks();
     renderWpStatus();
     renderBlogHistory();
+    renderHome();
+    activatePanel('home');
     const mtgDateEl = document.getElementById('mtgDate');
     if (mtgDateEl && !mtgDateEl.value) mtgDateEl.value = lastFridayIso();
     resetAutoLockTimer();
     if (data.zohoConnection){ fetchZohoSnapshot().then(function(){ renderZohoStatus(); renderUseTemplateQuoteAndInvoiceOptions(); }); }
   }
 
-  document.querySelectorAll('nav.tabs button').forEach(function(btn){
+  // Nav is two-tier: a primary row (Dashboard, Calendar, and two group buttons), and a
+  // sub row per group that shows/hides depending which group the active panel belongs
+  // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
+  // listed here (home, cal) sit on the primary row and collapse both sub-navs.
+  const PANEL_GROUP = {
+    clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client',
+    tasks: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin'
+  };
+  // Remembers the last panel visited inside each group, so re-opening a group (e.g.
+  // clicking "Client Work" again) returns you where you left off instead of always
+  // resetting to that group's first tab. Kept as plain JS state rather than read back
+  // off DOM .active classes, since activatePanel() clears .active on every button when
+  // navigating away (see below) and that would otherwise erase this memory.
+  const lastPanelForGroup = { Client: 'clients', Admin: 'tasks' };
+
+  function activatePanel(panelId){
+    const panel = document.getElementById('panel-' + panelId);
+    if (!panel) return;
+    document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+    panel.classList.add('active');
+    document.querySelectorAll('nav.tabs button[data-panel]').forEach(function(b){
+      b.classList.toggle('active', b.dataset.panel === panelId);
+    });
+    const group = PANEL_GROUP[panelId] || null;
+    document.querySelectorAll('nav.tabs.tabs-sub').forEach(function(sub){ sub.style.display = 'none'; });
+    document.querySelectorAll('.group-btn').forEach(function(b){ b.classList.remove('active'); });
+    if (group){
+      lastPanelForGroup[group] = panelId;
+      const sub = document.getElementById('subNav' + group);
+      if (sub) sub.style.display = 'flex';
+      const gBtn = document.querySelector('.group-btn[data-group="' + group.toLowerCase() + '"]');
+      if (gBtn) gBtn.classList.add('active');
+    }
+  }
+
+  document.querySelectorAll('nav.tabs button[data-panel]').forEach(function(btn){
+    btn.addEventListener('click', function(){ activatePanel(btn.dataset.panel); });
+  });
+  document.querySelectorAll('.group-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
-      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+      const group = btn.dataset.group === 'client' ? 'Client' : 'Admin';
+      // Land on whichever panel in that group was last visited (so re-clicking the
+      // group button returns you where you left off), otherwise its first tab.
+      activatePanel(lastPanelForGroup[group]);
     });
   });
 
@@ -1762,17 +2018,34 @@
   });
 
   // ---------------------------------------------------------------- backup / restore (plain JSON)
+  // Applies a fully-decrypted, normalized data object as the new in-memory working
+  // copy and refreshes every panel. Shared by JSON-paste restore and version-history
+  // restore below — neither one touches Drive until the person clicks Save afterward.
+  function applyRestoredData(parsed){
+    data = normalizeData(parsed);
+    markDirty();
+    renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderLinks(); renderWpStatus(); renderBlogHistory(); renderHome();
+  }
+
   document.getElementById('backupBtn').addEventListener('click', function(){
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML =
-      '<div class="modal">' +
+      '<div class="modal" style="max-width:600px;max-height:88vh;overflow:auto;">' +
         '<h3>Backup / Restore</h3>' +
         '<p>Export everything currently loaded as a plain JSON file — this is a DECRYPTED copy, so store it somewhere as safe as you\'d store the password itself. Or paste JSON back in to replace what\'s currently loaded. Nothing here touches Drive until you click the header Save button afterward.</p>' +
         '<div id="bkMsg"></div>' +
         '<div class="row"><button class="btn btn-primary" id="bkExport" style="width:auto;">Download current vault as JSON</button></div>' +
         '<div class="field" style="margin-top:18px;"><label>Paste JSON to restore</label><textarea id="bkImportText" rows="8" style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--border);border-radius:8px;"></textarea></div>' +
-        '<div class="row"><button class="btn btn-ghost" id="bkCancel">Close</button><button class="btn btn-primary" id="bkImport" style="width:auto;">Replace loaded data with this JSON</button></div>' +
+        '<div class="row"><button class="btn btn-primary" id="bkImport" style="width:auto;">Replace loaded data with this JSON</button></div>' +
+
+        '<h3 style="margin-top:22px;font-size:14px;">Version history (from Google Drive)</h3>' +
+        '<p class="hint">Every save keeps the previous version in Drive\'s own history for this file — this reads that back so you can check or roll back to an earlier save without leaving the Hub. Drive doesn\'t keep this forever (older, non-pinned versions get pruned over time), so it\'s for "what did this look like recently", not a permanent archive — use the JSON export above for that.</p>' +
+        '<div class="row"><button class="btn btn-ghost" id="bkHistRefresh" style="width:auto;">Load version history</button></div>' +
+        '<div id="bkHistMsg"></div>' +
+        '<div id="bkHistList"></div>' +
+
+        '<div class="row" style="margin-top:14px;"><button class="btn btn-ghost" id="bkCancel">Close</button></div>' +
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#bkCancel').addEventListener('click', function(){ backdrop.remove(); });
@@ -1794,11 +2067,81 @@
       let parsed;
       try { parsed = JSON.parse(text); } catch (e){ msg.innerHTML = '<div class="msg error">That isn’t valid JSON (' + escapeHtml(e.message) + ').</div>'; return; }
       if (!confirm('This replaces everything currently loaded (in memory only) with the pasted JSON. Nothing is saved to Drive until you click Save afterward. Continue?')) return;
-      data = normalizeData(parsed);
-      markDirty();
-      renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderLinks(); renderWpStatus(); renderBlogHistory();
+      applyRestoredData(parsed);
       backdrop.remove();
       toast('Loaded from JSON — review it, then click Save to write it to Drive.');
+    });
+
+    // ---- version history ----
+    function renderHistList(revisions){
+      const wrap = backdrop.querySelector('#bkHistList');
+      wrap.innerHTML = '';
+      if (!revisions.length){
+        wrap.innerHTML = '<div class="empty-note">No version history yet — it appears here after this file has been saved at least once.</div>';
+        return;
+      }
+      revisions.forEach(function(rev, idx){
+        const row = document.createElement('div');
+        row.className = 'task-row';
+        const when = new Date(rev.modifiedTime);
+        const whenLabel = isNaN(when.getTime()) ? rev.modifiedTime : when.toLocaleString();
+        row.innerHTML =
+          '<div class="body"><div class="txt"></div><div class="due"></div><div class="pwRetry" style="display:none;margin-top:6px;"></div></div>' +
+          '<button class="btn btn-ghost" style="width:auto;">Review &amp; restore…</button>';
+        row.querySelector('.txt').textContent = whenLabel + (idx === 0 ? '  ·  most recent save' : '');
+        row.querySelector('.due').textContent = rev.size ? formatBytes_(rev.size) : '';
+        const retryWrap = row.querySelector('.pwRetry');
+
+        function attemptRestore(password){
+          return fetchRevisionVault(rev.id).then(function(vault){
+            return decryptVault(password, vault);
+          }).then(function(decrypted){
+            const summary = summarizeVaultData(decrypted);
+            const ok = confirm(
+              'Version from ' + whenLabel + ' (' + summary + ').\n\n' +
+              'This replaces everything currently loaded (in memory only) with this older version — nothing is saved to Drive until you click Save afterward, and Drive keeps its own history regardless, so this is safe to undo. Continue?'
+            );
+            if (!ok) return;
+            applyRestoredData(decrypted);
+            backdrop.remove();
+            toast('Restored the version from ' + whenLabel + ' — review it, then Save to write it to Drive.');
+          }).catch(function(e){
+            const isDecryptFailure = e && (e.name === 'OperationError' || /decrypt/i.test(e.message || ''));
+            if (isDecryptFailure){
+              retryWrap.style.display = 'block';
+              retryWrap.innerHTML =
+                '<div class="msg error" style="margin-bottom:6px;">Couldn\'t decrypt this version with the current password — it may be from before a password change. Try the password that was current back then:</div>' +
+                '<input type="password" class="pwRetryInput" placeholder="Password for this version" style="width:100%;margin-bottom:6px;">' +
+                '<button class="btn btn-ghost pwRetryBtn" style="width:auto;">Try this password</button>';
+              retryWrap.querySelector('.pwRetryBtn').addEventListener('click', function(){
+                const pw = retryWrap.querySelector('.pwRetryInput').value;
+                if (!pw) return;
+                attemptRestore(pw);
+              });
+            } else {
+              backdrop.querySelector('#bkHistMsg').innerHTML = '<div class="msg error">' + escapeHtml(e.message || 'Something went wrong loading that version.') + '</div>';
+            }
+          });
+        }
+        row.querySelector('button').addEventListener('click', function(){
+          backdrop.querySelector('#bkHistMsg').innerHTML = '';
+          attemptRestore(currentPassword);
+        });
+        wrap.appendChild(row);
+      });
+    }
+    backdrop.querySelector('#bkHistRefresh').addEventListener('click', function(){
+      const msg = backdrop.querySelector('#bkHistMsg');
+      const btn = backdrop.querySelector('#bkHistRefresh');
+      msg.innerHTML = '';
+      btn.disabled = true; btn.textContent = 'Loading…';
+      listVaultRevisions().then(function(revisions){
+        renderHistList(revisions);
+      }).catch(function(e){
+        msg.innerHTML = '<div class="msg error">' + escapeHtml(e.message || 'Could not load version history.') + '</div>';
+      }).finally(function(){
+        btn.disabled = false; btn.textContent = 'Load version history';
+      });
     });
   });
 
@@ -1910,7 +2253,8 @@
       const dayEvents = data.events.filter(function(e){ return e.date === iso; });
       dayEvents.slice(0, 2).forEach(function(ev){
         const chip = document.createElement('span');
-        chip.className = 'chip'; chip.textContent = ev.title;
+        chip.className = 'chip' + (ev.kind === 'due' ? ' chip-due' : ev.kind === 'sent' ? ' chip-sent' : '');
+        chip.textContent = ev.title;
         cell.appendChild(chip);
       });
       if (dayEvents.length > 2){
@@ -2093,20 +2437,20 @@
     visible.forEach(function(t){
       const row = document.createElement('div');
       row.className = 'task-row' + (t.done ? ' done' : '');
-      const overdue = t.due && !t.done && t.due < todayIso;
+      const urgency = dateUrgency(t.due, t.done);
       row.innerHTML =
         '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
         '<div class="body"><div class="txt">' +
         (t.category ? '<span class="cat-badge cat-' + t.category + '">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
         (t.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientName(t.clientId)) + '</span>' : '') +
         '</div>' +
-        (t.done ? '<div class="completed-date"></div>' : (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '')) +
+        (t.done ? '<div class="completed-date"></div>' : (t.due ? '<div class="due' + (urgency ? ' ' + urgency : '') + '"></div>' : '')) +
         '</div><button class="del" title="Delete">✕</button>';
       row.querySelector('.txt').appendChild(document.createTextNode(t.text));
       if (t.done){
         row.querySelector('.completed-date').textContent = t.completedAt ? ('Completed ' + t.completedAt) : 'Completed';
       } else if (t.due){
-        row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
+        row.querySelector('.due').textContent = (urgency === 'overdue' ? 'Overdue — was due ' : 'Due ') + t.due;
       }
       row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
         t.done = e.target.checked;
@@ -2130,26 +2474,28 @@
   // Purely in-app: this is a static page with no server of its own, so there's
   // nothing that can ping a phone while the Hub isn't open. What it CAN do is
   // surface anything outstanding the moment you do open it.
+  // Tasks and paperwork both carry due dates that matter the same way, so this counts
+  // across both — matches the merged "Needs attention" list on the Dashboard.
   function renderAlerts(){
     const banner = document.getElementById('alertBanner');
-    const todayIso = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
-    const in7 = (function(){ const d = new Date(); d.setDate(d.getDate() + 7); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
-    const overdue = data.tasks.filter(function(t){ return !t.done && t.due && t.due < todayIso; });
-    const soon = data.tasks.filter(function(t){ return !t.done && t.due && t.due >= todayIso && t.due <= in7; });
-    if (!overdue.length && !soon.length){
+    const overdue = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'overdue'; }).length +
+      data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; }).length;
+    const soon = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'soon'; }).length +
+      data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; }).length;
+    if (!overdue && !soon){
       banner.style.display = 'none';
       return;
     }
     const parts = [];
-    if (overdue.length) parts.push(overdue.length + (overdue.length === 1 ? ' task overdue' : ' tasks overdue'));
-    if (soon.length) parts.push(soon.length + (soon.length === 1 ? ' task due within 7 days' : ' tasks due within 7 days'));
+    if (overdue) parts.push(overdue + (overdue === 1 ? ' item overdue' : ' items overdue'));
+    if (soon) parts.push(soon + (soon === 1 ? ' item due within 7 days' : ' items due within 7 days'));
     document.getElementById('alertText').textContent = parts.join(' · ') + '.';
-    banner.className = 'alert-banner' + (overdue.length ? '' : ' alert-info');
+    banner.className = 'alert-banner' + (overdue ? '' : ' alert-info');
     banner.style.display = 'flex';
   }
 
   document.getElementById('alertViewBtn').addEventListener('click', function(){
-    document.querySelector('nav.tabs button[data-panel="tasks"]').click();
+    document.querySelector('nav.tabs button[data-panel="home"]').click();
   });
 
   document.getElementById('taskAddBtn').addEventListener('click', function(){
@@ -2177,89 +2523,395 @@
     return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
+  // Meetings panel has two views: "By date" (browse via month tabs -> date sub-tabs,
+  // one meeting at a time, same as before) and "All topics" (every discussion topic's
+  // full cross-meeting history in one place). mtgView/mtgActiveMonth/mtgActiveDate hold
+  // the by-date view's navigation state between re-renders.
+  let mtgView = 'bydate';
+  let mtgActiveMonth = null;
+  let mtgActiveDate = null;
+  let topicFilterStatus = 'all';
+
+  function mtgMonthKey(dateStr){ return dateStr ? dateStr.slice(0, 7) : ''; }
+  function mtgMonthLabel(key){
+    if (!key) return 'Undated';
+    const parts = key.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+  function mtgDateLabel(dateStr){
+    if (!dateStr) return 'Undated';
+    const parts = dateStr.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function mtgMonths(){
+    const seen = {};
+    data.meetings.forEach(function(m){ if (m.date) seen[mtgMonthKey(m.date)] = true; });
+    return Object.keys(seen).sort().reverse();
+  }
+  function mtgDatesInMonth(mk){
+    const seen = {};
+    data.meetings.forEach(function(m){ if (m.date && mtgMonthKey(m.date) === mk) seen[m.date] = true; });
+    return Object.keys(seen).sort().reverse();
+  }
+  function topicLastLogDate(t){
+    return (t.log || []).reduce(function(max, e){ return e.date > max ? e.date : max; }, '');
+  }
+
+  function lastFridayIso(){
+    const d = new Date();
+    const diff = (d.getDay() + 2) % 7; // days since the most recent Friday (0 if today is Friday)
+    d.setDate(d.getDate() - diff);
+    return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
   function renderMeetings(){
-    const list = document.getElementById('meetingList');
-    list.innerHTML = '';
-    const meetings = data.meetings.slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
-    if (!meetings.length){
-      list.innerHTML = '<div class="empty-note">No meeting notes yet.</div>';
-      return;
-    }
-    meetings.forEach(function(m){
-      const row = document.createElement('div');
-      row.className = 'meeting-row';
-      row.innerHTML =
-        '<div class="mtg-head"><span class="mtg-date"></span><span class="mtg-attendees"></span><button class="mtg-del" title="Delete">✕</button></div>' +
-        '<div class="mtg-notes"></div>' +
-        '<div class="mtg-actionwrap"></div>' +
-        '<div class="mtg-responses">' +
-          '<div class="resp-label">Responses / follow-up</div>' +
-          '<div class="resp-list"></div>' +
-          '<div class="mtg-response-add">' +
-            '<input type="date" class="resp-date-input">' +
-            '<textarea class="resp-text-input" placeholder="Add a follow-up note on what was raised…"></textarea>' +
-            '<button type="button" class="resp-add-btn">Add response</button>' +
-          '</div>' +
-        '</div>';
-      row.querySelector('.mtg-date').textContent = m.date;
-      row.querySelector('.mtg-attendees').textContent =
-        (m.attendees ? ('Attendees: ' + m.attendees) : '') + (m.clientId ? ('  ·  ' + clientName(m.clientId)) : '');
-      row.querySelector('.mtg-notes').textContent = m.notes || '';
-      const actionsWrap = row.querySelector('.mtg-actionwrap');
-      (m.actionItems || []).forEach(function(ai){
-        const aRow = document.createElement('div');
-        aRow.className = 'action-item';
-        aRow.innerHTML = '<span class="txt"></span><button></button>';
-        aRow.querySelector('.txt').textContent = ai.text;
-        const btn = aRow.querySelector('button');
-        if (ai.taskId){
-          btn.textContent = '✓ Task added';
-          btn.className = 'linked';
-          btn.disabled = true;
-        } else {
-          btn.textContent = 'Add as task';
-          btn.addEventListener('click', function(){
-            const task = { id: randomId(), text: ai.text, done: false, due: '' };
-            data.tasks.push(task);
-            ai.taskId = task.id;
-            markDirty();
-            renderTasks();
-            renderMeetings();
-            toast('Added to Tasks.');
-          });
-        }
-        actionsWrap.appendChild(aRow);
-      });
-      const respList = row.querySelector('.resp-list');
-      (m.responses || []).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); }).forEach(function(r){
-        const rRow = document.createElement('div');
-        rRow.className = 'mtg-response';
-        rRow.innerHTML = '<span class="resp-date"></span><span class="resp-text"></span><button class="resp-del" title="Delete">✕</button>';
-        rRow.querySelector('.resp-date').textContent = r.date || '';
-        rRow.querySelector('.resp-text').textContent = r.text;
-        rRow.querySelector('.resp-del').addEventListener('click', function(){
-          m.responses = m.responses.filter(function(x){ return x.id !== r.id; });
-          markDirty(); renderMeetings();
+    document.getElementById('mtgByDateView').style.display = mtgView === 'bydate' ? '' : 'none';
+    document.getElementById('mtgTopicsView').style.display = mtgView === 'topics' ? '' : 'none';
+    document.querySelectorAll('.mtg-viewtabs button[data-view]').forEach(function(b){
+      b.classList.toggle('active', b.dataset.view === mtgView);
+    });
+    if (mtgView === 'topics') renderTopicsView();
+    else renderMeetingsByDate();
+  }
+
+  function buildMeetingRow(m){
+    const row = document.createElement('div');
+    row.className = 'meeting-row';
+    row.innerHTML =
+      '<div class="mtg-head"><span class="mtg-date"></span><span class="mtg-attendees"></span><button class="mtg-edit" title="Edit">✎</button><button class="mtg-del" title="Delete">✕</button></div>' +
+      '<div class="mtg-notes"></div>' +
+      '<div class="mtg-actionwrap"></div>' +
+      '<div class="mtg-responses">' +
+        '<div class="resp-label">Responses / follow-up</div>' +
+        '<div class="resp-list"></div>' +
+        '<div class="mtg-response-add">' +
+          '<input type="date" class="resp-date-input">' +
+          '<textarea class="resp-text-input" placeholder="Add a follow-up note on what was raised…"></textarea>' +
+          '<button type="button" class="resp-add-btn">Add response</button>' +
+        '</div>' +
+      '</div>';
+    row.querySelector('.mtg-date').textContent = m.date;
+    row.querySelector('.mtg-attendees').textContent =
+      (m.attendees ? ('Attendees: ' + m.attendees) : '') + (m.clientId ? ('  ·  ' + clientName(m.clientId)) : '');
+    row.querySelector('.mtg-notes').textContent = m.notes || '';
+    const actionsWrap = row.querySelector('.mtg-actionwrap');
+    (m.actionItems || []).forEach(function(ai){
+      const aRow = document.createElement('div');
+      aRow.className = 'action-item';
+      aRow.innerHTML = '<span class="txt"></span><button></button>';
+      aRow.querySelector('.txt').textContent = ai.text;
+      const btn = aRow.querySelector('button');
+      if (ai.taskId){
+        btn.textContent = '✓ Task added';
+        btn.className = 'linked';
+        btn.disabled = true;
+      } else {
+        btn.textContent = 'Add as task';
+        btn.addEventListener('click', function(){
+          const task = { id: randomId(), text: ai.text, done: false, due: '' };
+          data.tasks.push(task);
+          ai.taskId = task.id;
+          markDirty();
+          renderTasks();
+          renderMeetings();
+          toast('Added to Tasks.');
         });
-        respList.appendChild(rRow);
-      });
-      const respDateInput = row.querySelector('.resp-date-input');
-      const respTextInput = row.querySelector('.resp-text-input');
-      respDateInput.value = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
-      row.querySelector('.resp-add-btn').addEventListener('click', function(){
-        const text = respTextInput.value.trim();
-        if (!text) return;
-        m.responses = m.responses || [];
-        m.responses.push({ id: randomId(), date: respDateInput.value || '', text: text });
+      }
+      actionsWrap.appendChild(aRow);
+    });
+    const respList = row.querySelector('.resp-list');
+    (m.responses || []).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); }).forEach(function(r){
+      const rRow = document.createElement('div');
+      rRow.className = 'mtg-response';
+      rRow.innerHTML = '<span class="resp-date"></span><span class="resp-text"></span><button class="resp-del" title="Delete">✕</button>';
+      rRow.querySelector('.resp-date').textContent = r.date || '';
+      rRow.querySelector('.resp-text').textContent = r.text;
+      rRow.querySelector('.resp-del').addEventListener('click', function(){
+        m.responses = m.responses.filter(function(x){ return x.id !== r.id; });
         markDirty(); renderMeetings();
       });
-      row.querySelector('.mtg-del').addEventListener('click', function(){
-        data.meetings = data.meetings.filter(function(x){ return x.id !== m.id; });
-        markDirty(); renderMeetings();
-      });
-      list.appendChild(row);
+      respList.appendChild(rRow);
+    });
+    const respDateInput = row.querySelector('.resp-date-input');
+    const respTextInput = row.querySelector('.resp-text-input');
+    respDateInput.value = todayIso_();
+    row.querySelector('.resp-add-btn').addEventListener('click', function(){
+      const text = respTextInput.value.trim();
+      if (!text) return;
+      m.responses = m.responses || [];
+      m.responses.push({ id: randomId(), date: respDateInput.value || '', text: text });
+      markDirty(); renderMeetings();
+    });
+    row.querySelector('.mtg-edit').addEventListener('click', function(){ openMeetingEditModal(m.id); });
+    row.querySelector('.mtg-del').addEventListener('click', function(){
+      if (!confirm('Delete the meeting note from ' + m.date + '? This can\'t be undone.')) return;
+      data.meetings = data.meetings.filter(function(x){ return x.id !== m.id; });
+      markDirty(); renderMeetings();
+    });
+    return row;
+  }
+
+  function openMeetingEditModal(id){
+    const m = data.meetings.find(function(x){ return x.id === id; });
+    if (!m) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Edit meeting</h3>' +
+        '<div class="field"><label>Date</label><input type="date" id="mtgEditDate"></div>' +
+        '<div class="field"><label>Attendees</label><input type="text" id="mtgEditAttendees"></div>' +
+        '<div class="field"><label>Client</label><select id="mtgEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Notes</label><textarea id="mtgEditNotes" rows="5"></textarea></div>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="mtgEditCancel">Close</button>' +
+          '<button class="btn btn-primary" id="mtgEditSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const clientSel = backdrop.querySelector('#mtgEditClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#mtgEditDate').value = m.date || '';
+    backdrop.querySelector('#mtgEditAttendees').value = m.attendees || '';
+    clientSel.value = m.clientId || '';
+    backdrop.querySelector('#mtgEditNotes').value = m.notes || '';
+    backdrop.querySelector('#mtgEditCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#mtgEditSave').addEventListener('click', function(){
+      const newDate = backdrop.querySelector('#mtgEditDate').value;
+      if (!newDate){ toast('Pick a date.'); return; }
+      m.date = newDate;
+      m.attendees = backdrop.querySelector('#mtgEditAttendees').value.trim();
+      m.clientId = clientSel.value || '';
+      m.notes = backdrop.querySelector('#mtgEditNotes').value.trim();
+      mtgActiveMonth = mtgMonthKey(m.date);
+      mtgActiveDate = m.date;
+      markDirty(); backdrop.remove(); renderMeetings();
+      toast('Meeting updated.');
     });
   }
+
+  function renderMeetingsByDate(){
+    const months = mtgMonths();
+    const monthWrap = document.getElementById('mtgMonthTabs');
+    const dateWrap = document.getElementById('mtgDateTabs');
+    monthWrap.innerHTML = '';
+    dateWrap.innerHTML = '';
+    if (!months.length){
+      document.getElementById('meetingDetail').innerHTML = '<div class="empty-note">No meeting notes yet — add one above.</div>';
+      return;
+    }
+    if (!mtgActiveMonth || months.indexOf(mtgActiveMonth) === -1) mtgActiveMonth = months[0];
+    months.forEach(function(mk){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = mtgMonthLabel(mk);
+      btn.classList.toggle('active', mk === mtgActiveMonth);
+      btn.addEventListener('click', function(){ mtgActiveMonth = mk; mtgActiveDate = null; renderMeetingsByDate(); });
+      monthWrap.appendChild(btn);
+    });
+
+    const dates = mtgDatesInMonth(mtgActiveMonth);
+    if (!mtgActiveDate || dates.indexOf(mtgActiveDate) === -1) mtgActiveDate = dates[0];
+    dates.forEach(function(ds){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = mtgDateLabel(ds);
+      btn.classList.toggle('active', ds === mtgActiveDate);
+      btn.addEventListener('click', function(){ mtgActiveDate = ds; renderMeetingsByDate(); });
+      dateWrap.appendChild(btn);
+    });
+
+    renderMeetingDetail(mtgActiveDate);
+  }
+
+  function renderMeetingDetail(dateStr){
+    const wrap = document.getElementById('meetingDetail');
+    wrap.innerHTML = '';
+    if (!dateStr){
+      wrap.innerHTML = '<div class="empty-note">No meeting notes yet — add one above.</div>';
+      return;
+    }
+    const meetings = data.meetings.filter(function(m){ return m.date === dateStr; });
+    if (!meetings.length){
+      const none = document.createElement('div');
+      none.className = 'empty-note';
+      none.textContent = 'No meeting logged for this date.';
+      wrap.appendChild(none);
+    } else {
+      meetings.forEach(function(m){ wrap.appendChild(buildMeetingRow(m)); });
+    }
+
+    const topicSection = document.createElement('div');
+    topicSection.style.marginTop = '18px';
+    topicSection.style.paddingTop = '14px';
+    topicSection.style.borderTop = '1px dashed var(--border)';
+    const heading = document.createElement('div');
+    heading.className = 'resp-label';
+    heading.textContent = 'Discussion topics touched this date';
+    topicSection.appendChild(heading);
+
+    const touched = data.discussionTopics.filter(function(t){ return (t.log || []).some(function(e){ return e.date === dateStr; }); });
+    if (!touched.length){
+      const none = document.createElement('div');
+      none.className = 'empty-note';
+      none.textContent = 'No topics logged for this date yet — pick or start one below.';
+      topicSection.appendChild(none);
+    } else {
+      touched.forEach(function(t){
+        const entry = t.log.filter(function(e){ return e.date === dateStr; }).pop();
+        const row = document.createElement('div');
+        row.className = 'mtg-response mtg-touched-row';
+        row.innerHTML = '<span class="resp-date"></span><span class="resp-text"></span><span class="topic-badge"></span>';
+        row.querySelector('.resp-date').textContent = t.title;
+        row.querySelector('.resp-text').textContent = entry ? entry.note : '';
+        const badge = row.querySelector('.topic-badge');
+        badge.textContent = TOPIC_STATUS_LABELS[t.status] || t.status;
+        badge.classList.add('status-' + t.status);
+        row.addEventListener('click', function(){ mtgView = 'topics'; renderMeetings(); });
+        topicSection.appendChild(row);
+      });
+    }
+
+    const addRow = document.createElement('div');
+    addRow.className = 'mtg-response-add';
+    addRow.innerHTML =
+      '<select class="mtg-topic-pick"><option value="">Pick a topic…</option></select>' +
+      '<textarea class="mtg-topic-note" placeholder="Update for this date…"></textarea>' +
+      '<button type="button" class="mtg-topic-save">Add note</button>' +
+      '<button type="button" class="mtg-topic-newlink" style="background:none;border:none;color:var(--navy);cursor:pointer;font-size:12px;">+ New topic</button>';
+    const pick = addRow.querySelector('.mtg-topic-pick');
+    data.discussionTopics.slice().sort(function(a, b){ return a.title.localeCompare(b.title); }).forEach(function(t){
+      const opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = t.title + (t.status === 'complete' ? ' (complete)' : '');
+      pick.appendChild(opt);
+    });
+    addRow.querySelector('.mtg-topic-save').addEventListener('click', function(){
+      const topicId = pick.value;
+      const text = addRow.querySelector('.mtg-topic-note').value.trim();
+      if (!topicId || !text){ toast('Pick a topic and enter a note.'); return; }
+      const t = data.discussionTopics.find(function(x){ return x.id === topicId; });
+      if (!t) return;
+      t.log.push({ id: randomId(), date: dateStr, note: text });
+      markDirty(); renderMeetings();
+      toast('Note added to "' + t.title + '".');
+    });
+    addRow.querySelector('.mtg-topic-newlink').addEventListener('click', function(){
+      mtgView = 'topics';
+      renderMeetings();
+      const titleInput = document.getElementById('topicNewTitle');
+      if (titleInput) titleInput.focus();
+    });
+    topicSection.appendChild(addRow);
+    wrap.appendChild(topicSection);
+  }
+
+  function renderTopicsView(){
+    document.querySelectorAll('#topicFilter button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tstatus === topicFilterStatus);
+    });
+    const listWrap = document.getElementById('topicList');
+    listWrap.innerHTML = '';
+    if (!data.discussionTopics.length){
+      listWrap.innerHTML = '<div class="empty-note">No discussion topics yet — start one above, or from a meeting date.</div>';
+      return;
+    }
+    const filtered = data.discussionTopics.filter(function(t){ return topicFilterStatus === 'all' || t.status === topicFilterStatus; });
+    if (!filtered.length){
+      listWrap.innerHTML = '<div class="empty-note">Nothing matches this filter.</div>';
+      return;
+    }
+    filtered.slice().sort(function(a, b){
+      const la = topicLastLogDate(a), lb = topicLastLogDate(b);
+      return la < lb ? 1 : (la > lb ? -1 : 0);
+    }).forEach(function(t){
+      const card = document.createElement('div');
+      card.className = 'topic-card';
+      card.dataset.topicId = t.id;
+      card.innerHTML =
+        '<div class="tc-head"><span class="tc-title"></span><span class="topic-badge"></span></div>' +
+        '<div class="tc-client"></div>' +
+        '<div class="tc-log"></div>' +
+        '<div class="tc-actions">' +
+          '<button type="button" class="tc-addnote-toggle">Add a note</button>' +
+          '<button type="button" class="tc-complete-btn"></button>' +
+          '<button type="button" class="tc-del">Delete topic</button>' +
+        '</div>' +
+        '<div class="tc-noteadd">' +
+          '<input type="date" class="tc-noteadd-date">' +
+          '<textarea class="tc-noteadd-text" placeholder="What happened / new update…"></textarea>' +
+          '<button type="button" class="tc-noteadd-save">Save note</button>' +
+        '</div>';
+      card.querySelector('.tc-title').textContent = t.title;
+      const badge = card.querySelector('.topic-badge');
+      badge.textContent = TOPIC_STATUS_LABELS[t.status] || t.status;
+      badge.classList.add('status-' + t.status);
+      card.querySelector('.tc-client').textContent = t.clientId ? clientName(t.clientId) : '';
+      const logWrap = card.querySelector('.tc-log');
+      t.log.slice().sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); }).forEach(function(entry){
+        const eRow = document.createElement('div');
+        eRow.className = 'tc-entry';
+        eRow.innerHTML = '<span class="tc-date"></span><span class="tc-note"></span>';
+        eRow.querySelector('.tc-date').textContent = entry.date || '';
+        eRow.querySelector('.tc-note').textContent = entry.note;
+        logWrap.appendChild(eRow);
+      });
+      if (!t.log.length){
+        const none = document.createElement('div');
+        none.className = 'empty-note';
+        none.textContent = 'No notes logged yet.';
+        logWrap.appendChild(none);
+      }
+      const completeBtn = card.querySelector('.tc-complete-btn');
+      completeBtn.textContent = t.status === 'complete' ? '↺ Reopen' : '✓ Mark complete';
+      completeBtn.classList.toggle('is-complete', t.status === 'complete');
+      completeBtn.addEventListener('click', function(){
+        t.status = t.status === 'complete' ? 'ongoing' : 'complete';
+        markDirty(); renderMeetings();
+        toast(t.status === 'complete' ? 'Marked complete.' : 'Reopened.');
+      });
+      card.querySelector('.tc-del').addEventListener('click', function(){
+        if (!confirm('Delete the topic "' + t.title + '" and its entire note history? This can\'t be undone.')) return;
+        data.discussionTopics = data.discussionTopics.filter(function(x){ return x.id !== t.id; });
+        markDirty(); renderMeetings();
+        toast('Topic deleted.');
+      });
+      const noteAddWrap = card.querySelector('.tc-noteadd');
+      const noteDateInput = noteAddWrap.querySelector('.tc-noteadd-date');
+      noteDateInput.value = todayIso_();
+      card.querySelector('.tc-addnote-toggle').addEventListener('click', function(){
+        noteAddWrap.classList.toggle('open');
+      });
+      noteAddWrap.querySelector('.tc-noteadd-save').addEventListener('click', function(){
+        const text = noteAddWrap.querySelector('.tc-noteadd-text').value.trim();
+        if (!text) return;
+        t.log.push({ id: randomId(), date: noteDateInput.value || todayIso_(), note: text });
+        markDirty(); renderMeetings();
+        toast('Note added.');
+      });
+      listWrap.appendChild(card);
+    });
+  }
+
+  document.querySelectorAll('.mtg-viewtabs button[data-view]').forEach(function(btn){
+    btn.addEventListener('click', function(){ mtgView = btn.dataset.view; renderMeetings(); });
+  });
+  document.querySelectorAll('#topicFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){ topicFilterStatus = btn.dataset.tstatus; renderTopicsView(); });
+  });
+  document.getElementById('topicAddBtn').addEventListener('click', function(){
+    const titleEl = document.getElementById('topicNewTitle');
+    const clientEl = document.getElementById('topicNewClient');
+    const title = titleEl.value.trim();
+    if (!title) return;
+    data.discussionTopics.push({ id: randomId(), title: title, status: 'ongoing', clientId: clientEl.value || '', log: [] });
+    titleEl.value = ''; clientEl.value = '';
+    markDirty(); renderMeetings();
+    toast('Topic started — add a note whenever it comes up.');
+  });
 
   document.getElementById('mtgAddBtn').addEventListener('click', function(){
     const dateEl = document.getElementById('mtgDate');
@@ -2277,8 +2929,55 @@
     }
     const actionItems = actionLines.map(function(text){ return { id: randomId(), text: text, taskId: null }; });
     data.meetings.push({ id: randomId(), date: date, attendees: attendees, notes: notes, actionItems: actionItems, responses: [], clientId: clientEl.value || '' });
+    mtgActiveMonth = mtgMonthKey(date);
+    mtgActiveDate = date;
     dateEl.value = ''; attEl.value = ''; notesEl.value = ''; actionsEl.value = ''; clientEl.value = '';
     markDirty(); renderMeetings();
+  });
+
+  document.getElementById('mtgImportBtn').addEventListener('click', function(){
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:600px;max-height:88vh;overflow:auto;">' +
+        '<h3>Import meeting history</h3>' +
+        '<p class="hint">Paste a JSON block of past meetings and/or discussion topics — Claude can turn old notes into this format for you. This only ADDS to what\'s already here; it never replaces or removes existing meetings or topics.</p>' +
+        '<div id="mtgImportMsg"></div>' +
+        '<textarea id="mtgImportText" rows="10" style="width:100%;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--border);border-radius:8px;" placeholder=\'{"meetings":[{"date":"2026-08-04","attendees":"JC, MC","notes":"…"}],"discussionTopics":[{"title":"…","status":"ongoing","log":[{"date":"2026-08-04","note":"…"}]}]}\'></textarea>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="mtgImportCancel">Close</button>' +
+          '<button class="btn btn-primary" id="mtgImportGo">Import</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#mtgImportCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#mtgImportGo').addEventListener('click', function(){
+      const msg = backdrop.querySelector('#mtgImportMsg');
+      const text = backdrop.querySelector('#mtgImportText').value.trim();
+      if (!text){ msg.innerHTML = '<div class="msg error">Paste JSON first.</div>'; return; }
+      let parsed;
+      try { parsed = JSON.parse(text); } catch (e){ msg.innerHTML = '<div class="msg error">That isn’t valid JSON (' + escapeHtml(e.message) + ').</div>'; return; }
+      const newMeetings = Array.isArray(parsed.meetings) ? parsed.meetings : [];
+      const newTopics = Array.isArray(parsed.discussionTopics) ? parsed.discussionTopics : [];
+      if (!newMeetings.length && !newTopics.length){
+        msg.innerHTML = '<div class="msg error">No "meetings" or "discussionTopics" arrays found in that JSON.</div>';
+        return;
+      }
+      newMeetings.forEach(function(m){
+        data.meetings.push({
+          id: randomId(), date: m.date || '', attendees: m.attendees || '', notes: m.notes || '',
+          actionItems: [], responses: [], clientId: ''
+        });
+      });
+      newTopics.forEach(function(t){
+        data.discussionTopics.push({
+          id: randomId(), title: t.title || 'Untitled topic', status: t.status === 'complete' ? 'complete' : 'ongoing',
+          clientId: '', log: (t.log || []).map(function(e){ return { id: randomId(), date: e.date || '', note: e.note || '' }; })
+        });
+      });
+      markDirty(); backdrop.remove(); renderMeetings();
+      toast('Imported ' + newMeetings.length + ' meeting(s) and ' + newTopics.length + ' topic(s).');
+    });
   });
 
   // ---------------------------------------------------------------- documents
@@ -2338,7 +3037,7 @@
   }
 
   function populateClientSelects(){
-    ['taskClient', 'docClient', 'mtgClient', 'pwClient'].forEach(function(selId){
+    ['taskClient', 'docClient', 'mtgClient', 'pwClient', 'topicNewClient'].forEach(function(selId){
       const sel = document.getElementById(selId);
       if (!sel) return;
       const prev = sel.value;
@@ -2360,12 +3059,127 @@
   }
 
   function todayIso_(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function in7Iso_(){ const d = new Date(); d.setDate(d.getDate() + 7); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); }
+  // Shared urgency check used everywhere a due date needs a red/amber/neutral treatment:
+  // task due dates, paperwork due dates, dashboard tiles. null = not due soon or overdue.
+  function dateUrgency(dateStr, isSettled){
+    if (isSettled || !dateStr) return null;
+    const today = todayIso_();
+    if (dateStr < today) return 'overdue';
+    if (dateStr <= in7Iso_()) return 'soon';
+    return null;
+  }
 
   // ---------------------------------------------------------------- paperwork
   let pwFilterStatus = 'all';
 
   function paperworkOverdue(p){
     return p.status !== 'complete' && p.status !== 'received' && !!p.dueDate && p.dueDate < todayIso_();
+  }
+  function paperworkUrgency(p){
+    return dateUrgency(p.dueDate, p.status === 'complete' || p.status === 'received');
+  }
+
+  // ---------------------------------------------------------------- dashboard / home
+  function jumpToPanel_(panelId){
+    const btn = document.querySelector('nav.tabs button[data-panel="' + panelId + '"]');
+    if (btn) btn.click();
+  }
+
+  function renderHome(){
+    const statsWrap = document.getElementById('dashStats');
+    if (!statsWrap) return;
+
+    document.getElementById('dashDateText').textContent =
+      new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const overdueTasks = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'overdue'; });
+    const soonTasks = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'soon'; });
+    const overduePw = data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; });
+    const soonPw = data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; });
+    const overdueTotal = overdueTasks.length + overduePw.length;
+    const soonTotal = soonTasks.length + soonPw.length;
+
+    const activeClients = data.clients.filter(function(c){ return c.status === 'active'; }).length;
+    const leadClients = data.clients.filter(function(c){ return c.status === 'lead'; }).length;
+
+    const openQuotes = data.quotes.filter(function(q){ return q.status === 'draft' || q.status === 'sent'; });
+    const openQuotesValue = openQuotes.reduce(function(sum, q){ return sum + computeQuoteTotals(q).total; }, 0);
+
+    const tiles = [
+      { cls: 'tile-overdue', num: overdueTotal, label: 'Overdue', sub: overdueTotal ? 'tasks & paperwork' : 'all clear', panel: 'tasks' },
+      { cls: 'tile-soon', num: soonTotal, label: 'Due within 7 days', sub: soonTotal ? 'tasks & paperwork' : 'nothing pressing', panel: 'tasks' },
+      { cls: 'tile-clients', num: activeClients, label: 'Active clients', sub: leadClients ? (leadClients + ' lead' + (leadClients === 1 ? '' : 's')) : 'no open leads', panel: 'clients' },
+      { cls: 'tile-quotes', num: openQuotes.length, label: 'Open quotes', sub: fmtGBP(openQuotesValue) + ' potential', panel: 'quotes' }
+    ];
+    statsWrap.innerHTML = '';
+    tiles.forEach(function(t){
+      const el = document.createElement('div');
+      el.className = 'stat-tile ' + t.cls;
+      el.innerHTML = '<div class="stat-num"></div><div class="stat-label"></div><div class="stat-sub"></div>';
+      el.querySelector('.stat-num').textContent = t.num;
+      el.querySelector('.stat-label').textContent = t.label;
+      el.querySelector('.stat-sub').textContent = t.sub;
+      el.addEventListener('click', function(){ jumpToPanel_(t.panel); });
+      statsWrap.appendChild(el);
+    });
+
+    // Needs attention: tasks + paperwork, overdue first then due-soon, earliest date first.
+    const attnWrap = document.getElementById('dashAttentionList');
+    const attnItems = [];
+    overdueTasks.forEach(function(t){
+      attnItems.push({ level: 'overdue', date: t.due, title: t.text, sub: t.clientId ? clientName(t.clientId) : (CATEGORY_LABELS[t.category] || 'Task'), panel: 'tasks' });
+    });
+    soonTasks.forEach(function(t){
+      attnItems.push({ level: 'soon', date: t.due, title: t.text, sub: t.clientId ? clientName(t.clientId) : (CATEGORY_LABELS[t.category] || 'Task'), panel: 'tasks' });
+    });
+    overduePw.forEach(function(p){
+      attnItems.push({ level: 'overdue', date: p.dueDate, title: p.label || 'Untitled paperwork', sub: (p.clientId ? clientName(p.clientId) : 'No client') + ' · ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status), panel: 'paperwork' });
+    });
+    soonPw.forEach(function(p){
+      attnItems.push({ level: 'soon', date: p.dueDate, title: p.label || 'Untitled paperwork', sub: (p.clientId ? clientName(p.clientId) : 'No client') + ' · ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status), panel: 'paperwork' });
+    });
+    attnItems.sort(function(a, b){
+      if (a.level !== b.level) return a.level === 'overdue' ? -1 : 1;
+      return (a.date || '') < (b.date || '') ? -1 : 1;
+    });
+    attnWrap.innerHTML = '';
+    if (!attnItems.length){
+      attnWrap.innerHTML = '<div class="empty-note">Nothing overdue or due soon — you\'re on top of it.</div>';
+    } else {
+      attnItems.forEach(function(item){
+        const row = document.createElement('div');
+        row.className = 'attention-row lvl-' + item.level;
+        row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div><div class="sub"></div></div><div class="when"></div>';
+        row.querySelector('.txt').textContent = item.title;
+        row.querySelector('.sub').textContent = item.sub;
+        row.querySelector('.when').textContent = (item.level === 'overdue' ? 'Was due ' : 'Due ') + item.date;
+        row.addEventListener('click', function(){ jumpToPanel_(item.panel); });
+        attnWrap.appendChild(row);
+      });
+    }
+
+    // Next 7 days: every calendar event (manual, plus paperwork due/sent already mirrored there).
+    const upWrap = document.getElementById('dashUpcomingList');
+    const today = todayIso_(), horizon = in7Iso_();
+    const upcoming = data.events.filter(function(e){ return e.date >= today && e.date <= horizon; })
+      .slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    upWrap.innerHTML = '';
+    if (!upcoming.length){
+      upWrap.innerHTML = '<div class="empty-note">Nothing on the calendar in the next 7 days.</div>';
+    } else {
+      upcoming.forEach(function(ev){
+        const row = document.createElement('div');
+        row.className = 'attention-row' + (ev.kind === 'due' ? ' lvl-soon' : '');
+        row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div></div><div class="when"></div>';
+        row.querySelector('.txt').textContent = ev.title;
+        row.querySelector('.when').textContent = ev.date;
+        row.addEventListener('click', function(){ jumpToPanel_('cal'); });
+        upWrap.appendChild(row);
+      });
+    }
+    const seeCalBtn = document.getElementById('dashSeeCalendar');
+    if (seeCalBtn) seeCalBtn.onclick = function(){ jumpToPanel_('cal'); };
   }
 
   function renderPaperwork(){
@@ -2386,29 +3200,31 @@
       const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
       return ad < bd ? -1 : (ad > bd ? 1 : 0);
     }).forEach(function(p){
-      const overdue = paperworkOverdue(p);
+      const urgency = paperworkUrgency(p);
       const row = document.createElement('div');
       row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
       row.style.cursor = 'pointer';
       row.innerHTML =
-        '<div class="body"><div class="txt"></div><div class="due"></div></div>' +
+        '<div class="body"><div class="txt"><span class="pwLabelText"></span><span class="pw-badge"></span></div><div class="due"></div></div>' +
         '<button class="del" title="Delete">✕</button>';
       const clientLabel = p.clientId ? (clientName(p.clientId) || 'Unlinked client') : 'No client';
-      row.querySelector('.txt').textContent =
-        (p.label || 'Untitled') + '  ·  ' + clientLabel + '  ·  ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status);
+      row.querySelector('.pwLabelText').textContent = (p.label || 'Untitled') + '  ·  ' + clientLabel;
+      const badge = row.querySelector('.pw-badge');
+      badge.textContent = PAPERWORK_STATUS_LABELS[p.status] || p.status;
+      badge.classList.add('pw-' + p.status);
       const dueBits = [];
-      if (p.dueDate) dueBits.push((overdue ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
+      if (p.dueDate) dueBits.push((urgency === 'overdue' ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
       if (p.sentDate) dueBits.push('Sent ' + p.sentDate);
       if (p.receivedDate) dueBits.push('Received ' + p.receivedDate);
       row.querySelector('.due').textContent = dueBits.join('  ·  ');
-      if (overdue) row.querySelector('.due').classList.add('overdue');
+      if (urgency) row.querySelector('.due').classList.add(urgency);
       row.addEventListener('click', function(){ openPaperworkEditModal(p.id); });
       row.querySelector('.del').addEventListener('click', function(e){
         e.stopPropagation();
         if (!confirm('Delete "' + p.label + '"? Its linked calendar entries will be removed too.')) return;
         data.paperwork = data.paperwork.filter(function(x){ return x.id !== p.id; });
         removePaperworkEvents(p.id);
-        markDirty(); renderPaperwork(); renderCalendar(); renderClients();
+        markDirty(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
       });
       list.appendChild(row);
     });
@@ -2437,7 +3253,7 @@
     data.paperwork.push(item);
     syncPaperworkEvents(item);
     labelEl.value = ''; dueEl.value = ''; statusEl.value = 'required'; clientEl.value = '';
-    markDirty(); renderPaperwork(); renderCalendar(); renderClients();
+    markDirty(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
   });
 
   // Shared edit modal — used from both the global Paperwork tab and a client's own
@@ -2487,7 +3303,7 @@
       if (!confirm('Delete "' + p.label + '"? Its linked calendar entries will be removed too.')) return;
       data.paperwork = data.paperwork.filter(function(x){ return x.id !== p.id; });
       removePaperworkEvents(p.id);
-      markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients();
+      markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
       toast('Paperwork deleted.');
     });
     backdrop.querySelector('#pwEditSave').addEventListener('click', function(){
@@ -2499,7 +3315,7 @@
       p.receivedDate = backdrop.querySelector('#pwEditReceived').value || '';
       p.notes = backdrop.querySelector('#pwEditNotes').value.trim();
       syncPaperworkEvents(p);
-      markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients();
+      markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
       toast('Paperwork updated.');
     });
   }
@@ -2517,16 +3333,18 @@
     } else if (!visible.length){
       grid.innerHTML = '<div class="empty-note">No clients match.</div>';
     } else {
-      const todayIso = todayIso_();
       visible.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
         const clientTasks = data.tasks.filter(function(t){ return t.clientId === c.id; });
         const openTasks = clientTasks.filter(function(t){ return !t.done; });
-        const overdueTasks = openTasks.filter(function(t){ return t.due && t.due < todayIso; });
+        const overdueTasks = openTasks.filter(function(t){ return dateUrgency(t.due, false) === 'overdue'; });
+        const soonTasks = openTasks.filter(function(t){ return dateUrgency(t.due, false) === 'soon'; });
         const docCount = data.documents.filter(function(d){ return d.clientId === c.id; }).length;
         const clientPaperwork = data.paperwork.filter(function(p){ return p.clientId === c.id; });
         const openPaperwork = clientPaperwork.filter(function(p){ return p.status !== 'complete'; });
-        const overduePaperwork = openPaperwork.filter(paperworkOverdue);
+        const overduePaperwork = openPaperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; });
+        const soonPaperwork = openPaperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; });
         const overdueTotal = overdueTasks.length + overduePaperwork.length;
+        const soonTotal = soonTasks.length + soonPaperwork.length;
         const card = document.createElement('div');
         card.className = 'link-card client-card';
         card.innerHTML =
@@ -2535,15 +3353,25 @@
           '<div class="company"></div>' +
           '<div class="meta-row"><span class="client-status-badge status-' + c.status + '"></span>' +
           '<span class="counts"></span></div>' +
-          (overdueTotal ? '<div class="hint" style="color:var(--warn);margin-top:4px;font-weight:700;"></div>' : '');
+          '<div class="urgencyWrap"></div>';
         card.querySelector('.name').textContent = c.name;
         card.querySelector('.company').textContent = c.company || [c.email, c.phone].filter(Boolean).join(' · ');
         card.querySelector('.client-status-badge').textContent = CLIENT_STATUS_LABELS[c.status] || c.status;
         card.querySelector('.counts').textContent =
           openTasks.length + ' open task' + (openTasks.length === 1 ? '' : 's') + ' · ' + docCount + ' doc' + (docCount === 1 ? '' : 's') +
           ' · ' + openPaperwork.length + ' paperwork';
+        const uWrap = card.querySelector('.urgencyWrap');
         if (overdueTotal){
-          card.querySelector('.hint').textContent = overdueTotal + ' overdue';
+          const chip = document.createElement('span');
+          chip.className = 'urgency-chip overdue';
+          chip.textContent = overdueTotal + ' overdue';
+          uWrap.appendChild(chip);
+        }
+        if (soonTotal){
+          const chip = document.createElement('span');
+          chip.className = 'urgency-chip soon';
+          chip.textContent = soonTotal + ' due soon';
+          uWrap.appendChild(chip);
         }
         card.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
@@ -2561,6 +3389,7 @@
     renderZohoStatus();
     if (document.getElementById('quoteGrid')) renderQuotes();
     if (document.getElementById('useTemplateSelect')) populateUseTemplateSelects();
+    if (document.getElementById('dashStats')) renderHome();
   }
 
   document.querySelectorAll('#clientFilter button').forEach(function(btn){
@@ -2654,24 +3483,22 @@
     backdrop.querySelector('#cdNotes').value = c.notes || '';
     backdrop.querySelector('#cdZoho').value = c.zohoContactId || '';
 
-    const todayIso = todayIso_();
-
     function renderModalTasks(){
       const wrap = backdrop.querySelector('#cdTaskList');
       const linked = data.tasks.filter(function(t){ return t.clientId === id; });
       if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No tasks linked yet.</div>'; return; }
       wrap.innerHTML = '';
       linked.forEach(function(t){
-        const overdue = t.due && !t.done && t.due < todayIso;
+        const urgency = dateUrgency(t.due, t.done);
         const row = document.createElement('div');
         row.className = 'task-row' + (t.done ? ' done' : '');
         row.innerHTML =
           '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
           '<div class="body"><div class="txt"></div>' +
-          (t.done ? '' : (t.due ? '<div class="due' + (overdue ? ' overdue' : '') + '"></div>' : '')) +
+          (t.done ? '' : (t.due ? '<div class="due' + (urgency ? ' ' + urgency : '') + '"></div>' : '')) +
           '</div><button class="del" title="Delete">✕</button>';
         row.querySelector('.txt').textContent = t.text;
-        if (!t.done && t.due) row.querySelector('.due').textContent = (overdue ? 'Overdue — was due ' : 'Due ') + t.due;
+        if (!t.done && t.due) row.querySelector('.due').textContent = (urgency === 'overdue' ? 'Overdue — was due ' : 'Due ') + t.due;
         row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
           t.done = e.target.checked;
           t.completedAt = t.done ? todayIso_() : '';
@@ -2735,25 +3562,28 @@
         const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
         return ad < bd ? -1 : (ad > bd ? 1 : 0);
       }).forEach(function(p){
-        const overdue = paperworkOverdue(p);
+        const urgency = paperworkUrgency(p);
         const row = document.createElement('div');
         row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
         row.style.cursor = 'pointer';
-        row.innerHTML = '<div class="body"><div class="txt"></div><div class="due"></div></div><button class="del" title="Delete">✕</button>';
-        row.querySelector('.txt').textContent = (p.label || 'Untitled') + '  ·  ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status);
+        row.innerHTML = '<div class="body"><div class="txt"><span class="pwLabelText"></span><span class="pw-badge"></span></div><div class="due"></div></div><button class="del" title="Delete">✕</button>';
+        row.querySelector('.pwLabelText').textContent = p.label || 'Untitled';
+        const badge = row.querySelector('.pw-badge');
+        badge.textContent = PAPERWORK_STATUS_LABELS[p.status] || p.status;
+        badge.classList.add('pw-' + p.status);
         const dueBits = [];
-        if (p.dueDate) dueBits.push((overdue ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
+        if (p.dueDate) dueBits.push((urgency === 'overdue' ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
         if (p.sentDate) dueBits.push('Sent ' + p.sentDate);
         if (p.receivedDate) dueBits.push('Received ' + p.receivedDate);
         row.querySelector('.due').textContent = dueBits.join('  ·  ');
-        if (overdue) row.querySelector('.due').classList.add('overdue');
+        if (urgency) row.querySelector('.due').classList.add(urgency);
         row.addEventListener('click', function(){ backdrop.remove(); openPaperworkEditModal(p.id); });
         row.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
           if (!confirm('Delete "' + p.label + '"? Its linked calendar entries will be removed too.')) return;
           data.paperwork = data.paperwork.filter(function(x){ return x.id !== p.id; });
           removePaperworkEvents(p.id);
-          markDirty(); renderModalPaperwork(); renderPaperwork(); renderCalendar(); renderClients();
+          markDirty(); renderModalPaperwork(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
         });
         wrap.appendChild(row);
       });
@@ -2772,7 +3602,7 @@
       data.paperwork.push(item);
       syncPaperworkEvents(item);
       labelEl.value = ''; dueEl.value = ''; statusEl.value = 'required';
-      markDirty(); renderModalPaperwork(); renderPaperwork(); renderCalendar(); renderClients();
+      markDirty(); renderModalPaperwork(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
     });
 
     function renderModalMeetings(){
@@ -3018,6 +3848,7 @@
     grid.innerHTML = '';
     if (!data.quotes.length){
       grid.innerHTML = '<div class="empty-note">No quotes yet — click "+ New quote".</div>';
+      if (document.getElementById('dashStats')) renderHome();
       return;
     }
     data.quotes.slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); }).forEach(function(q){
@@ -3044,6 +3875,7 @@
       card.addEventListener('click', function(){ openQuoteEditor(q.id); });
       grid.appendChild(card);
     });
+    if (document.getElementById('dashStats')) renderHome();
   }
 
   document.getElementById('quoteNewBtn').addEventListener('click', function(){
