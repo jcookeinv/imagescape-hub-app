@@ -95,6 +95,24 @@
   .dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:6px;}
   .gh-badge{font-size:11px;opacity:.8;padding:6px 10px;}
 
+  .global-search-wrap{position:relative;max-width:920px;margin:14px auto 0;padding:0 24px;}
+  .global-search-wrap input{width:100%;padding:10px 14px;border:1px solid var(--border);
+    border-radius:10px;font-size:13.5px;font-family:inherit;box-sizing:border-box;}
+  .global-search-wrap input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold-deep);}
+  .global-search-results{display:none;position:absolute;left:24px;right:24px;top:calc(100% + 4px);
+    background:#fff;border:1px solid var(--border);border-radius:10px;
+    box-shadow:0 12px 28px -14px rgba(30,35,55,.35);max-height:60vh;overflow:auto;z-index:50;padding:6px;}
+  .global-search-results.open{display:block;}
+  .gsr-group-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);padding:8px 10px 4px;}
+  .gsr-row{padding:8px 10px;border-radius:8px;cursor:pointer;}
+  .gsr-row:hover{background:#fafbfd;}
+  .gsr-row .gsr-text{font-size:13px;font-weight:600;color:var(--ink);}
+  .gsr-row .gsr-sub{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;}
+  .gsr-empty{padding:14px 10px;font-size:12.5px;color:var(--muted);}
+  .gsr-more{padding:6px 10px;font-size:11px;color:var(--muted);}
+
   nav.tabs{display:flex;gap:4px;background:var(--card);border-bottom:1px solid var(--border);
     padding:0 24px;overflow-x:auto;}
   nav.tabs button{background:none;border:none;padding:14px 16px;font-size:13.5px;font-weight:700;
@@ -163,6 +181,7 @@
   .cal-cell .chip.more{background:none;color:var(--muted);font-weight:600;}
   .cal-cell .chip.chip-due{background:var(--warn-soft);color:var(--warn);}
   .cal-cell .chip.chip-sent{background:var(--info-soft);color:var(--info);}
+  .cal-cell .chip.chip-expiry{background:var(--soon-soft);color:var(--soon);}
   .event-list{margin-top:18px;}
   .event-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:1px solid var(--border);}
   .event-row:first-child{border-top:none;}
@@ -226,6 +245,9 @@
   .pw-badge.pw-sent{background:var(--info-soft);color:var(--info);}
   .pw-badge.pw-received{background:var(--soon-soft);color:var(--soon);}
   .pw-badge.pw-complete{background:var(--good-soft);color:var(--good);}
+  .pw-badge.gal-editing{background:var(--warn-soft);color:var(--warn);}
+  .pw-badge.gal-delivered{background:var(--info-soft);color:var(--info);}
+  .pw-badge.gal-complete{background:var(--good-soft);color:var(--good);}
   .line-item-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
   .line-item-row input[type=text]{flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
   .line-item-row input[type=number]{width:80px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
@@ -262,6 +284,8 @@
   .tl-badge.tl-meeting{background:var(--info-soft);color:var(--info);}
   .tl-badge.tl-task{background:var(--good-soft);color:var(--good);}
   .tl-badge.tl-discussion{background:var(--soon-soft);color:var(--soon);}
+  .tl-badge.tl-gallery{background:#fdf6e8;color:var(--gold-deep);}
+  .tl-badge.tl-document{background:var(--soon-soft);color:var(--soon);}
   .task-row .due.overdue{color:var(--warn);font-weight:700;}
   .task-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;}
   .task-row .del:hover{color:var(--warn);}
@@ -278,6 +302,9 @@
   .link-card .del{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);
     cursor:pointer;font-size:14px;opacity:.5;}
   .link-card .del:hover{opacity:1;color:var(--warn);}
+  .link-card .edit{position:absolute;top:8px;right:30px;background:none;border:none;color:var(--muted);
+    cursor:pointer;font-size:13px;opacity:.5;}
+  .link-card .edit:hover{opacity:1;color:var(--navy);}
   .link-add{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
   .link-add input{padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;
     font-family:inherit;flex:1;min-width:160px;}
@@ -294,6 +321,9 @@
     font-size:10.5px;cursor:pointer;color:var(--navy);font-family:inherit;flex-shrink:0;}
   .cred-row button:hover{border-color:var(--navy);color:var(--navy-deep);}
   .doc-desc{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  .doc-expiry{font-size:11px;color:var(--muted);margin-top:5px;}
+  .doc-expiry.soon{color:var(--soon);font-weight:700;}
+  .doc-expiry.overdue{color:var(--warn);font-weight:700;}
 
   /* --- Finance & Tax --- */
   .finance-form{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:14px;}
@@ -510,6 +540,8 @@
     .cal-cell{min-height:48px;}
     header.hub-header{padding:12px 16px;}
     main.hub-main{padding:18px 14px 70px;}
+    .global-search-wrap{padding:0 14px;}
+    .global-search-results{left:14px;right:14px;}
   }
 </style>
 </head>
@@ -604,6 +636,11 @@
     </div>
   </header>
 
+  <div class="global-search-wrap">
+    <input type="text" id="globalSearchInput" placeholder="Search everything — clients, tasks, quotes, notes, documents…" autocomplete="off">
+    <div class="global-search-results" id="globalSearchResults"></div>
+  </div>
+
   <div class="alert-banner" id="alertBanner" style="display:none;">
     <span id="alertText"></span>
     <button id="alertViewBtn">View tasks →</button>
@@ -621,6 +658,7 @@
     <button data-panel="quotes">Quotes</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
+    <button data-panel="galleries">Galleries</button>
   </nav>
   <nav class="tabs tabs-sub" id="subNavAdmin" style="display:none;">
     <button data-panel="tasks">Tasks</button>
@@ -752,6 +790,13 @@
         </div>
         <div id="taskList"></div>
       </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Checklist templates</h2>
+        <div class="sub">Reusable, ordered lists of tasks for the jobs you do over and over. Apply one to a client from their client card to generate every step in one click, spaced out from a date you choose.</div>
+        <button class="btn btn-primary" id="checklistNewBtn" style="width:auto;margin-bottom:14px;">+ New checklist</button>
+        <div class="link-grid" id="checklistGrid"></div>
+      </div>
     </div>
 
     <div class="panel" id="panel-meetings">
@@ -816,15 +861,43 @@
     <div class="panel" id="panel-documents">
       <div class="card">
         <h2>Documents</h2>
-        <div class="sub">Links to documents stored elsewhere — Google Drive, Dropbox, etc. This app doesn't store the files themselves.</div>
+        <div class="sub">Links to documents stored elsewhere — Google Drive, Dropbox, etc. This app doesn't store the files themselves. Give one an expiry date (an insurance policy, a licence, a certification) and it mirrors onto the Calendar automatically, and shows up here and on the client's card as it approaches.</div>
         <div class="link-add">
           <input type="text" id="docLabel" placeholder="Label (e.g. 2026 Insurance policy)">
           <input type="text" id="docUrl" placeholder="https://…">
           <input type="text" id="docDesc" placeholder="Description (optional)">
           <select id="docClient"><option value="">No client</option></select>
+          <input type="date" id="docExpiry" title="Expiry date (optional) — mirrors onto the Calendar">
           <button class="btn btn-primary" id="docAddBtn" style="width:auto;">Add document</button>
         </div>
         <div class="link-grid" id="docGrid"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-galleries">
+      <div class="card">
+        <h2>Galleries</h2>
+        <div class="sub">Track a shoot from booked through to delivered — link the online gallery once it's live, and mark it complete once the client has what they need.</div>
+        <div class="link-add">
+          <input type="text" id="galLabel" placeholder="Label (e.g. Autumn family session)">
+          <select id="galClient"><option value="">No client</option></select>
+          <input type="date" id="galShootDate" title="Shoot date">
+          <select id="galStatus">
+            <option value="editing" selected>Editing</option>
+            <option value="delivered">Delivered</option>
+            <option value="complete">Complete</option>
+          </select>
+          <button class="btn btn-primary" id="galAddBtn" style="width:auto;">Add gallery</button>
+        </div>
+        <div class="task-filter-row">
+          <div class="task-filter" id="galFilter">
+            <button data-status="all" class="active">All</button>
+            <button data-status="editing">Editing</button>
+            <button data-status="delivered">Delivered</button>
+            <button data-status="complete">Complete</button>
+          </div>
+        </div>
+        <div id="galList"></div>
       </div>
     </div>
 
@@ -833,7 +906,7 @@
     <div class="panel" id="panel-paperwork">
       <div class="card">
         <h2>Paperwork</h2>
-        <div class="sub">Contracts, releases, consent forms, anything that needs to go out or come back for a client. "Required by" and "Sent" dates mirror onto the Calendar automatically, so that's always the one place to see what's due and what's gone out.</div>
+        <div class="sub">Contracts, releases, consent forms, anything that needs to go out or come back for a client. "Required by" and "Sent" dates mirror onto the Calendar automatically, so that's always the one place to see what's due and what's gone out. Add an expiry date too (a model release, an insurance certificate, a licence with a renewal date) and that mirrors onto the Calendar as well — edit an item to set it.</div>
         <div class="link-add">
           <input type="text" id="pwLabel" list="pwLabelSuggestions" placeholder="What is it? (e.g. Model release)">
           <select id="pwStatus">
@@ -937,6 +1010,12 @@
         <div class="sub">Build a quote from your rate presets below — pick a client (optional), add line items, get a total (VAT added automatically if you're VAT registered, per Finance &amp; Tax).</div>
         <button class="btn btn-primary" id="quoteNewBtn" style="width:auto;margin-bottom:14px;">+ New quote</button>
         <div class="link-grid" id="quoteGrid"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;" id="quoteProfitSummaryCard">
+        <h2>Job profitability</h2>
+        <div class="sub">What your jobs actually made once real costs are logged against them — open a quote and add its costs (editing time, an assistant, props, printing, travel) to include it here. Revenue is shown ex. VAT, since VAT was never really yours.</div>
+        <div id="quoteProfitSummary"><div class="empty-note">No jobs have costs logged yet — open a quote and add one under "Job costs" to see profitability here.</div></div>
       </div>
 
       <div class="card" style="margin-top:16px;">
@@ -1214,7 +1293,7 @@
       });
     });
     d.documents = d.documents || [];
-    d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; });
+    d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; doc.expiryDate = doc.expiryDate || ''; });
     d.blogPosts = d.blogPosts || [];
     d.wpConnection = d.wpConnection || null;
     // Built field-by-field (rather than Object.assign(defaults, d.financeProfile)) so that
@@ -1256,6 +1335,7 @@
       p.receivedDate = p.receivedDate || '';
       p.notes = p.notes || '';
       p.documentId = p.documentId || '';
+      p.expiryDate = p.expiryDate || '';
     });
     d.zohoConnection = d.zohoConnection || null;
     d.quoteRates = d.quoteRates || [];
@@ -1269,9 +1349,52 @@
       q.notes = q.notes || '';
       q.title = q.title || 'Untitled quote';
       q.createdAt = q.createdAt || '';
+      // Ad-hoc costs the job actually incurred (an assistant, props, printing, travel) -
+      // never sent to the client, used only to work out this job's real profit below its
+      // quoted/invoiced total.
+      q.costs = (q.costs || []).map(function(c){
+        return { id: c.id || randomId(), label: c.label || '', amount: Number(c.amount) || 0 };
+      });
     });
     d.emailTemplates = d.emailTemplates || [];
+    d.galleries = d.galleries || [];
+    d.galleries.forEach(function(g){
+      g.clientId = g.clientId || '';
+      g.label = g.label || '';
+      g.shootDate = g.shootDate || '';
+      g.deliveredDate = g.deliveredDate || '';
+      g.galleryUrl = g.galleryUrl || '';
+      g.status = g.status || 'editing';
+      g.notes = g.notes || '';
+    });
+    // Only ever backfilled when this field is entirely missing (a vault saved before this
+    // feature existed) - a fresh object each time (never a shared module-level literal)
+    // so editing one vault's default checklist can never leak into another's. Once
+    // backfilled it's a real array the user can edit or empty out, which then stays empty
+    // on later loads - `[] || X` is `[]`, so only genuinely-absent triggers the default.
+    d.taskChecklists = d.taskChecklists || [defaultTaskChecklist()];
+    d.taskChecklists.forEach(function(cl){
+      cl.name = cl.name || 'Untitled checklist';
+      cl.items = (cl.items || []).map(function(it){
+        return { id: it.id || randomId(), text: it.text || '', offsetDays: Number(it.offsetDays) || 0 };
+      });
+    });
     return d;
+  }
+
+  function defaultTaskChecklist(){
+    return {
+      id: randomId(), name: 'Standard client job',
+      items: [
+        { id: randomId(), text: 'Send contract / booking agreement', offsetDays: 0 },
+        { id: randomId(), text: 'Send deposit invoice', offsetDays: 0 },
+        { id: randomId(), text: 'Confirm shoot date, time & location', offsetDays: 3 },
+        { id: randomId(), text: 'Shoot day', offsetDays: 14 },
+        { id: randomId(), text: 'Edit & deliver gallery', offsetDays: 21 },
+        { id: randomId(), text: 'Send final invoice', offsetDays: 21 },
+        { id: randomId(), text: 'Request a review / referral', offsetDays: 28 }
+      ]
+    };
   }
 
   const CLIENT_STATUS_LABELS = { lead: 'Lead', active: 'Active', past: 'Past' };
@@ -1931,6 +2054,8 @@
     renderLinks();
     renderWpStatus();
     renderBlogHistory();
+    renderGalleries();
+    renderChecklists();
     renderHome();
     activatePanel('home');
     const mtgDateEl = document.getElementById('mtgDate');
@@ -1944,7 +2069,7 @@
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
   // listed here (home, cal) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
-    clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client',
+    clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client', galleries: 'Client',
     tasks: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
@@ -2320,7 +2445,7 @@
       const dayEvents = data.events.filter(function(e){ return e.date === iso; });
       dayEvents.slice(0, 2).forEach(function(ev){
         const chip = document.createElement('span');
-        chip.className = 'chip' + (ev.kind === 'due' ? ' chip-due' : ev.kind === 'sent' ? ' chip-sent' : '');
+        chip.className = 'chip' + (ev.kind === 'due' ? ' chip-due' : ev.kind === 'sent' ? ' chip-sent' : (ev.kind === 'expiry' || ev.kind === 'doc-expiry') ? ' chip-expiry' : '');
         chip.textContent = ev.title;
         cell.appendChild(chip);
       });
@@ -2360,9 +2485,19 @@
         tag.textContent = 'Linked to a paperwork item — edit it from Clients or the Paperwork tab.';
         row.querySelector('.body').appendChild(tag);
       }
+      if (ev.documentId){
+        const tag = document.createElement('div');
+        tag.className = 'hint';
+        tag.textContent = 'Linked to a document\'s expiry date — edit it from the Documents tab.';
+        row.querySelector('.body').appendChild(tag);
+      }
       row.querySelector('.del').addEventListener('click', function(){
         if (ev.paperworkId){
           alert('This event is linked to a paperwork item, so it\'s kept in sync automatically. Edit or delete the paperwork item instead (client\'s Paperwork section, or the Paperwork tab) — that updates this event for you.');
+          return;
+        }
+        if (ev.documentId){
+          alert('This event is linked to a document\'s expiry date, so it\'s kept in sync automatically. Edit or delete the document instead (Documents tab) — that updates this event for you.');
           return;
         }
         data.events = data.events.filter(function(e){ return e.id !== ev.id; });
@@ -2382,12 +2517,17 @@
     const client = data.clients.find(function(c){ return c.id === item.clientId; });
     const who = client ? client.name : 'Unlinked client';
     const label = item.label || 'Paperwork';
-    return '📄 ' + who + ' — ' + label + (kind === 'due' ? ' due' : ' sent');
+    const verb = kind === 'due' ? ' due' : (kind === 'sent' ? ' sent' : ' expires');
+    return '📄 ' + who + ' — ' + label + verb;
   }
 
+  // "due"/"sent" are dates on the way to getting the paperwork done; "expiry" is separate -
+  // some paperwork (an insurance certificate, a model release, a licence) is only valid for
+  // a term and needs renewing once that date passes, regardless of its own status. All
+  // three stay mirrored onto the Calendar the same way.
   function syncPaperworkEvents(item){
-    ['due', 'sent'].forEach(function(kind){
-      const dateVal = kind === 'due' ? item.dueDate : item.sentDate;
+    ['due', 'sent', 'expiry'].forEach(function(kind){
+      const dateVal = kind === 'due' ? item.dueDate : (kind === 'sent' ? item.sentDate : item.expiryDate);
       const existing = data.events.find(function(e){ return e.paperworkId === item.id && e.kind === kind; });
       if (!dateVal){
         if (existing) data.events = data.events.filter(function(e){ return e !== existing; });
@@ -2404,6 +2544,34 @@
 
   function removePaperworkEvents(itemId){
     data.events = data.events.filter(function(e){ return e.paperworkId !== itemId; });
+  }
+
+  // ---------------------------------------------------------------- document <-> calendar sync
+  // Mirrors syncPaperworkEvents' pattern: a document's optional expiry date (an insurance
+  // policy, a licence, a certification) becomes a Calendar event tagged with documentId, kept
+  // in sync whenever the document is saved and removed when the document is deleted.
+  function documentEventTitle(item){
+    const client = data.clients.find(function(c){ return c.id === item.clientId; });
+    const who = client ? client.name : 'Unlinked client';
+    return '🗂️ ' + who + ' — ' + (item.label || 'Document') + ' expires';
+  }
+
+  function syncDocumentEvents(item){
+    const existing = data.events.find(function(e){ return e.documentId === item.id; });
+    if (!item.expiryDate){
+      if (existing) data.events = data.events.filter(function(e){ return e !== existing; });
+      return;
+    }
+    const title = documentEventTitle(item);
+    if (existing){
+      existing.date = item.expiryDate; existing.title = title;
+    } else {
+      data.events.push({ id: randomId(), date: item.expiryDate, title: title, notes: item.description || '', documentId: item.id, kind: 'doc-expiry' });
+    }
+  }
+
+  function removeDocumentEvents(itemId){
+    data.events = data.events.filter(function(e){ return e.documentId !== itemId; });
   }
 
   function openEventForm(iso){
@@ -2557,9 +2725,13 @@
   function renderAlerts(){
     const banner = document.getElementById('alertBanner');
     const overdue = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'overdue'; }).length +
-      data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; }).length;
+      data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; }).length +
+      data.paperwork.filter(function(p){ return dateUrgency(p.expiryDate, false) === 'overdue'; }).length +
+      data.documents.filter(function(d){ return dateUrgency(d.expiryDate, false) === 'overdue'; }).length;
     const soon = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'soon'; }).length +
-      data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; }).length;
+      data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; }).length +
+      data.paperwork.filter(function(p){ return dateUrgency(p.expiryDate, false) === 'soon'; }).length +
+      data.documents.filter(function(d){ return dateUrgency(d.expiryDate, false) === 'soon'; }).length;
     if (!overdue && !soon){
       banner.style.display = 'none';
       return;
@@ -2575,6 +2747,109 @@
   document.getElementById('alertViewBtn').addEventListener('click', function(){
     document.querySelector('nav.tabs button[data-panel="home"]').click();
   });
+
+  // ---------------------------------------------------------------- task checklists
+  // Steps are edited as plain lines of text rather than a dynamic add/remove row-list (the
+  // pattern quote line items use) - simpler to build and test, and matches the same
+  // one-item-per-line convention already used for meeting action items and JSON imports
+  // elsewhere in this app. "@N" is an optional trailing day-offset; day 0 if omitted.
+  function parseChecklistItemsText(text){
+    return (text || '').split('\n').map(function(line){ return line.trim(); }).filter(Boolean).map(function(line){
+      const m = /^(.*?)\s*@\s*(-?\d+)\s*$/.exec(line);
+      if (m) return { id: randomId(), text: m[1].trim(), offsetDays: parseInt(m[2], 10) };
+      return { id: randomId(), text: line, offsetDays: 0 };
+    });
+  }
+  function checklistItemsToText(items){
+    return (items || []).map(function(it){ return it.text + (it.offsetDays ? (' @' + it.offsetDays) : ''); }).join('\n');
+  }
+
+  function renderChecklists(){
+    const grid = document.getElementById('checklistGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    if (!data.taskChecklists.length){
+      grid.innerHTML = '<div class="empty-note">No checklists yet.</div>';
+      return;
+    }
+    data.taskChecklists.forEach(function(cl){
+      const card = document.createElement('div');
+      card.className = 'link-card clickable-card';
+      card.innerHTML =
+        '<button class="del" title="Remove">✕</button>' +
+        '<div class="name" style="font-weight:700;font-size:14px;color:var(--navy);"></div>' +
+        '<div class="company" style="font-size:12.5px;color:var(--muted);margin-top:2px;"></div>';
+      card.querySelector('.name').textContent = cl.name;
+      card.querySelector('.company').textContent = cl.items.length + ' step' + (cl.items.length === 1 ? '' : 's');
+      card.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete checklist "' + cl.name + '"?')) return;
+        data.taskChecklists = data.taskChecklists.filter(function(x){ return x.id !== cl.id; });
+        markDirty(); renderChecklists(); populateChecklistSelects();
+      });
+      card.addEventListener('click', function(){ openChecklistEditor(cl.id); });
+      grid.appendChild(card);
+    });
+  }
+
+  document.getElementById('checklistNewBtn').addEventListener('click', function(){
+    const cl = { id: randomId(), name: 'New checklist', items: [] };
+    data.taskChecklists.push(cl);
+    markDirty(); renderChecklists(); populateChecklistSelects();
+    openChecklistEditor(cl.id);
+  });
+
+  function openChecklistEditor(id){
+    const cl = data.taskChecklists.find(function(x){ return x.id === id; });
+    if (!cl) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:560px;max-height:85vh;overflow:auto;">' +
+        '<h3>Checklist template</h3>' +
+        '<div class="field"><label>Name</label><input type="text" id="clName"></div>' +
+        '<div class="field"><label>Steps (one per line)</label><textarea id="clItems" rows="10" style="font-family:inherit;"></textarea></div>' +
+        '<div class="hint">Add "@N" after a step to due it N days after whatever date you apply the checklist with — e.g. "Shoot day @14". Leave it off for day 0 (due the same day you apply it).</div>' +
+        '<div style="margin-top:16px;display:flex;gap:8px;">' +
+          '<button class="btn btn-ghost" id="clCancel">Close</button>' +
+          '<button class="btn btn-ghost" id="clDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-primary" id="clSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#clName').value = cl.name;
+    backdrop.querySelector('#clItems').value = checklistItemsToText(cl.items);
+    backdrop.querySelector('#clCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#clDelete').addEventListener('click', function(){
+      if (!confirm('Delete checklist "' + cl.name + '"?')) return;
+      data.taskChecklists = data.taskChecklists.filter(function(x){ return x.id !== cl.id; });
+      markDirty(); backdrop.remove(); renderChecklists(); populateChecklistSelects();
+      toast('Checklist deleted.');
+    });
+    backdrop.querySelector('#clSave').addEventListener('click', function(){
+      cl.name = backdrop.querySelector('#clName').value.trim() || cl.name;
+      cl.items = parseChecklistItemsText(backdrop.querySelector('#clItems').value);
+      markDirty(); renderChecklists(); populateChecklistSelects();
+      backdrop.remove();
+      toast('Checklist saved.');
+    });
+  }
+
+  // Populates the "Apply a checklist…" dropdown in the Client detail modal. A no-op
+  // (returns early) whenever that modal isn't currently open, same guarded pattern used
+  // elsewhere for dashboard-only elements - safe to call from anywhere checklists change.
+  function populateChecklistSelects(){
+    const sel = document.getElementById('cdChecklistSelect');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Apply a checklist…</option>';
+    data.taskChecklists.forEach(function(cl){
+      const opt = document.createElement('option');
+      opt.value = cl.id; opt.textContent = cl.name + ' (' + cl.items.length + ')';
+      sel.appendChild(opt);
+    });
+    sel.value = prev;
+  }
 
   document.getElementById('taskAddBtn').addEventListener('click', function(){
     const textEl = document.getElementById('taskText');
@@ -3163,21 +3438,36 @@
     }
     const clientIdx = buildClientIndex();
     data.documents.forEach(function(d){
+      const urgency = dateUrgency(d.expiryDate, false);
       const card = document.createElement('div');
       card.className = 'link-card';
       card.innerHTML =
         '<button class="del" title="Remove">✕</button>' +
+        '<button class="edit" title="Edit">✎</button>' +
         '<a target="_blank" rel="noopener"></a>' +
         '<div class="url"></div>' +
         '<div class="doc-desc"></div>' +
+        '<div class="doc-expiry"></div>' +
         (d.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientNameIndexed(clientIdx, d.clientId)) + '</span>' : '');
       const a = card.querySelector('a');
       a.href = safeHref(d.url); a.textContent = d.label;
+      a.addEventListener('click', function(e){ e.stopPropagation(); });
       card.querySelector('.url').textContent = d.url;
       card.querySelector('.doc-desc').textContent = d.description || '';
-      card.querySelector('.del').addEventListener('click', function(){
+      const expiryEl = card.querySelector('.doc-expiry');
+      if (d.expiryDate){
+        expiryEl.textContent = (urgency === 'overdue' ? 'Expired ' : 'Expires ') + d.expiryDate;
+        if (urgency) expiryEl.classList.add(urgency);
+      }
+      card.querySelector('.edit').addEventListener('click', function(e){
+        e.stopPropagation();
+        openDocumentEditModal(d.id);
+      });
+      card.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
         data.documents = data.documents.filter(function(x){ return x.id !== d.id; });
-        markDirty(); renderDocuments();
+        removeDocumentEvents(d.id);
+        markDirty(); renderDocuments(); renderCalendar(); renderAlerts(); renderHome();
       });
       grid.appendChild(card);
     });
@@ -3188,15 +3478,76 @@
     const urlEl = document.getElementById('docUrl');
     const descEl = document.getElementById('docDesc');
     const clientEl = document.getElementById('docClient');
+    const expiryEl = document.getElementById('docExpiry');
     const label = labelEl.value.trim();
     let url = urlEl.value.trim();
     const description = descEl.value.trim();
     if (!label || !url) return;
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    data.documents.push({ id: randomId(), label: label, url: url, description: description, clientId: clientEl.value || '' });
-    labelEl.value = ''; urlEl.value = ''; descEl.value = ''; clientEl.value = '';
-    markDirty(); renderDocuments();
+    const doc = { id: randomId(), label: label, url: url, description: description, clientId: clientEl.value || '', expiryDate: expiryEl.value || '' };
+    data.documents.push(doc);
+    syncDocumentEvents(doc);
+    labelEl.value = ''; urlEl.value = ''; descEl.value = ''; clientEl.value = ''; expiryEl.value = '';
+    markDirty(); renderDocuments(); renderCalendar(); renderAlerts(); renderHome();
   });
+
+  // Shared edit modal for documents — mirrors openPaperworkEditModal / openGalleryEditModal,
+  // so there's one place that knows how to edit a document (used from both the Documents
+  // tab and a client's own Documents subsection).
+  function openDocumentEditModal(id){
+    const d = data.documents.find(function(x){ return x.id === id; });
+    if (!d) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Document</h3>' +
+        '<div class="field"><label>Label</label><input type="text" id="docEditLabel"></div>' +
+        '<div class="field"><label>URL</label><input type="text" id="docEditUrl" placeholder="https://…"></div>' +
+        '<div class="field"><label>Description</label><input type="text" id="docEditDesc"></div>' +
+        '<div class="field"><label>Client</label><select id="docEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Expiry date</label><input type="date" id="docEditExpiry"></div>' +
+        '<div class="hint">An expiry date stays mirrored onto the Calendar automatically.</div>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="docEditCancel">Close</button>' +
+          '<button class="btn btn-ghost" id="docEditDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-primary" id="docEditSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const clientSel = backdrop.querySelector('#docEditClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#docEditLabel').value = d.label || '';
+    backdrop.querySelector('#docEditUrl').value = d.url || '';
+    backdrop.querySelector('#docEditDesc').value = d.description || '';
+    clientSel.value = d.clientId || '';
+    backdrop.querySelector('#docEditExpiry').value = d.expiryDate || '';
+
+    backdrop.querySelector('#docEditCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#docEditDelete').addEventListener('click', function(){
+      if (!confirm('Delete "' + (d.label || 'this document') + '"? Its linked calendar entry (if any) will be removed too.')) return;
+      data.documents = data.documents.filter(function(x){ return x.id !== d.id; });
+      removeDocumentEvents(d.id);
+      markDirty(); backdrop.remove(); renderDocuments(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
+      toast('Document deleted.');
+    });
+    backdrop.querySelector('#docEditSave').addEventListener('click', function(){
+      d.label = backdrop.querySelector('#docEditLabel').value.trim() || d.label;
+      let url = backdrop.querySelector('#docEditUrl').value.trim();
+      if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+      d.url = url || d.url;
+      d.description = backdrop.querySelector('#docEditDesc').value.trim();
+      d.clientId = clientSel.value || '';
+      d.expiryDate = backdrop.querySelector('#docEditExpiry').value || '';
+      syncDocumentEvents(d);
+      markDirty(); backdrop.remove(); renderDocuments(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
+      toast('Document updated.');
+    });
+  }
 
   // ---------------------------------------------------------------- clients
   let clientFilterStatus = 'all';
@@ -3290,6 +3641,169 @@
     if (btn) btn.click();
   }
 
+  // ---------------------------------------------------------------- global search
+  // Scans across the whole vault for a case-insensitive substring match. Deliberately
+  // never searches the "Links" section's username/password fields — only their label
+  // and URL — since those are credential values, not searchable notes.
+  function performGlobalSearch(term){
+    const q = (term || '').trim().toLowerCase();
+    const results = { clients: [], tasks: [], quotes: [], paperwork: [], documents: [], meetings: [], discussions: [], galleries: [], templates: [], links: [], blog: [] };
+    if (!q) return results;
+    const hit = function(s){ return typeof s === 'string' && s.toLowerCase().indexOf(q) !== -1; };
+    const clientIdx = buildClientIndex();
+
+    data.clients.forEach(function(c){
+      if (hit(c.name) || hit(c.company) || hit(c.email) || hit(c.notes) || hit(c.referralSource)){
+        results.clients.push({ text: c.name + (c.company ? ' — ' + c.company : ''), sub: c.email || '', onClick: function(){ openClientDetail(c.id); } });
+      }
+    });
+    data.tasks.forEach(function(t){
+      if (hit(t.text)){
+        const clientLabel = t.clientId ? clientNameIndexed(clientIdx, t.clientId) : '';
+        results.tasks.push({
+          text: t.text, sub: (t.done ? 'Completed' : (t.due ? 'Due ' + t.due : 'No due date')) + (clientLabel ? '  ·  ' + clientLabel : ''),
+          onClick: function(){ taskFilter = 'all'; showCompleted = true; renderTasks(); jumpToPanel_('tasks'); }
+        });
+      }
+    });
+    data.quotes.forEach(function(qt){
+      if (hit(qt.title) || hit(qt.notes)){
+        results.quotes.push({ text: qt.title, sub: qt.clientId ? clientNameIndexed(clientIdx, qt.clientId) : 'No client', onClick: function(){ openQuoteEditor(qt.id); } });
+      }
+    });
+    data.paperwork.forEach(function(p){
+      if (hit(p.label) || hit(p.notes)){
+        const pwSub = (p.clientId ? clientNameIndexed(clientIdx, p.clientId) : 'No client') + (p.expiryDate ? ('  ·  Expires ' + p.expiryDate) : '');
+        results.paperwork.push({ text: p.label || 'Untitled', sub: pwSub, onClick: function(){ openPaperworkEditModal(p.id); } });
+      }
+    });
+    data.documents.forEach(function(d){
+      if (hit(d.label) || hit(d.description) || hit(d.url)){
+        const docSub = (d.clientId ? clientNameIndexed(clientIdx, d.clientId) : '') + (d.expiryDate ? ('  ·  Expires ' + d.expiryDate) : '');
+        results.documents.push({ text: d.label, sub: docSub, onClick: function(){ openDocumentEditModal(d.id); } });
+      }
+    });
+    data.meetings.forEach(function(m){
+      if (hit(m.notes) || hit(m.attendees) || (m.actionItems || []).some(function(ai){ return hit(ai.text); })){
+        results.meetings.push({
+          text: (m.notes || '(no notes)').slice(0, 80), sub: m.date + (m.clientId ? ('  ·  ' + clientNameIndexed(clientIdx, m.clientId)) : ''),
+          onClick: function(){
+            mtgView = 'bydate'; mtgActiveMonth = mtgMonthKey(m.date); mtgActiveDate = m.date;
+            syncMtgCalToMonth(mtgActiveMonth); renderMeetings(); jumpToPanel_('meetings');
+          }
+        });
+      }
+    });
+    data.discussionTopics.forEach(function(dt){
+      const logHit = (dt.log || []).some(function(e){ return hit(e.note); });
+      if (hit(dt.title) || logHit){
+        results.discussions.push({
+          text: dt.title, sub: dt.clientId ? clientNameIndexed(clientIdx, dt.clientId) : '',
+          onClick: function(){ mtgView = 'topics'; renderMeetings(); jumpToPanel_('meetings'); }
+        });
+      }
+    });
+    data.galleries.forEach(function(g){
+      if (hit(g.label) || hit(g.notes)){
+        results.galleries.push({ text: g.label || 'Untitled gallery', sub: g.clientId ? clientNameIndexed(clientIdx, g.clientId) : '', onClick: function(){ openGalleryEditModal(g.id); } });
+      }
+    });
+    data.emailTemplates.forEach(function(t){
+      if (hit(t.name) || hit(t.subject) || hit(t.body)){
+        results.templates.push({ text: t.name, sub: t.subject || '', onClick: function(){ jumpToPanel_('emails'); openTemplateEditor(t.id); } });
+      }
+    });
+    data.links.forEach(function(l){
+      if (hit(l.label) || hit(l.url)){
+        results.links.push({ text: l.label, sub: l.url || '', onClick: function(){ jumpToPanel_('links'); } });
+      }
+    });
+    data.blogPosts.forEach(function(p){
+      if (hit(p.title)){
+        results.blog.push({ text: p.title, sub: p.date || '', onClick: function(){ jumpToPanel_('blog'); } });
+      }
+    });
+    return results;
+  }
+
+  const GSR_GROUP_LABELS = {
+    clients: 'Clients', tasks: 'Tasks', quotes: 'Quotes', paperwork: 'Paperwork', documents: 'Documents',
+    meetings: 'Meetings', discussions: 'Discussion topics', galleries: 'Galleries',
+    templates: 'Email templates', links: 'Links', blog: 'Blog posts'
+  };
+  const GSR_GROUP_ORDER = ['clients', 'tasks', 'quotes', 'paperwork', 'documents', 'meetings', 'discussions', 'galleries', 'templates', 'links', 'blog'];
+  const GSR_MAX_PER_GROUP = 5;
+
+  function renderGlobalSearchResults(term){
+    const wrap = document.getElementById('globalSearchResults');
+    if (!wrap) return;
+    const q = (term || '').trim();
+    if (!q){ wrap.classList.remove('open'); wrap.innerHTML = ''; return; }
+    const results = performGlobalSearch(q);
+    const totalHits = GSR_GROUP_ORDER.reduce(function(sum, k){ return sum + results[k].length; }, 0);
+    wrap.innerHTML = '';
+    if (!totalHits){
+      const empty = document.createElement('div');
+      empty.className = 'gsr-empty';
+      empty.textContent = 'No matches for "' + q + '".';
+      wrap.appendChild(empty);
+      wrap.classList.add('open');
+      return;
+    }
+    GSR_GROUP_ORDER.forEach(function(key){
+      const items = results[key];
+      if (!items.length) return;
+      const label = document.createElement('div');
+      label.className = 'gsr-group-label';
+      label.textContent = GSR_GROUP_LABELS[key] + ' (' + items.length + ')';
+      wrap.appendChild(label);
+      items.slice(0, GSR_MAX_PER_GROUP).forEach(function(item){
+        const row = document.createElement('div');
+        row.className = 'gsr-row';
+        row.innerHTML = '<div class="gsr-text"></div><div class="gsr-sub"></div>';
+        row.querySelector('.gsr-text').textContent = item.text || '(untitled)';
+        row.querySelector('.gsr-sub').textContent = item.sub || '';
+        row.addEventListener('click', function(){
+          wrap.classList.remove('open');
+          const inputEl = document.getElementById('globalSearchInput');
+          if (inputEl) inputEl.value = '';
+          item.onClick();
+        });
+        wrap.appendChild(row);
+      });
+      if (items.length > GSR_MAX_PER_GROUP){
+        const more = document.createElement('div');
+        more.className = 'gsr-more';
+        more.textContent = '+ ' + (items.length - GSR_MAX_PER_GROUP) + ' more — refine your search to narrow it down.';
+        wrap.appendChild(more);
+      }
+    });
+    wrap.classList.add('open');
+  }
+
+  (function initGlobalSearch(){
+    const input = document.getElementById('globalSearchInput');
+    const wrap = document.getElementById('globalSearchResults');
+    if (!input || !wrap) return;
+    let debounceTimer = null;
+    input.addEventListener('input', function(){
+      clearTimeout(debounceTimer);
+      const val = input.value;
+      debounceTimer = setTimeout(function(){ renderGlobalSearchResults(val); }, 120);
+    });
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Escape'){
+        input.value = ''; wrap.classList.remove('open'); wrap.innerHTML = ''; input.blur();
+      }
+    });
+    input.addEventListener('focus', function(){
+      if (input.value.trim()) renderGlobalSearchResults(input.value);
+    });
+    document.addEventListener('click', function(e){
+      if (e.target !== input && !wrap.contains(e.target)) wrap.classList.remove('open');
+    });
+  })();
+
   function renderHome(){
     const statsWrap = document.getElementById('dashStats');
     if (!statsWrap) return;
@@ -3301,8 +3815,12 @@
     const soonTasks = data.tasks.filter(function(t){ return dateUrgency(t.due, t.done) === 'soon'; });
     const overduePw = data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; });
     const soonPw = data.paperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; });
-    const overdueTotal = overdueTasks.length + overduePw.length;
-    const soonTotal = soonTasks.length + soonPw.length;
+    const overduePwExpiry = data.paperwork.filter(function(p){ return dateUrgency(p.expiryDate, false) === 'overdue'; });
+    const soonPwExpiry = data.paperwork.filter(function(p){ return dateUrgency(p.expiryDate, false) === 'soon'; });
+    const overdueDocs = data.documents.filter(function(d){ return dateUrgency(d.expiryDate, false) === 'overdue'; });
+    const soonDocs = data.documents.filter(function(d){ return dateUrgency(d.expiryDate, false) === 'soon'; });
+    const overdueTotal = overdueTasks.length + overduePw.length + overduePwExpiry.length + overdueDocs.length;
+    const soonTotal = soonTasks.length + soonPw.length + soonPwExpiry.length + soonDocs.length;
 
     const activeClients = data.clients.filter(function(c){ return c.status === 'active'; }).length;
     const leadClients = data.clients.filter(function(c){ return c.status === 'lead'; }).length;
@@ -3311,8 +3829,8 @@
     const openQuotesValue = openQuotes.reduce(function(sum, q){ return sum + computeQuoteTotals(q).total; }, 0);
 
     const tiles = [
-      { cls: 'tile-overdue', num: overdueTotal, label: 'Overdue', sub: overdueTotal ? 'tasks & paperwork' : 'all clear', panel: 'tasks' },
-      { cls: 'tile-soon', num: soonTotal, label: 'Due within 7 days', sub: soonTotal ? 'tasks & paperwork' : 'nothing pressing', panel: 'tasks' },
+      { cls: 'tile-overdue', num: overdueTotal, label: 'Overdue', sub: overdueTotal ? 'tasks, paperwork & expiries' : 'all clear', panel: 'tasks' },
+      { cls: 'tile-soon', num: soonTotal, label: 'Due within 7 days', sub: soonTotal ? 'tasks, paperwork & expiries' : 'nothing pressing', panel: 'tasks' },
       { cls: 'tile-clients', num: activeClients, label: 'Active clients', sub: leadClients ? (leadClients + ' lead' + (leadClients === 1 ? '' : 's')) : 'no open leads', panel: 'clients' },
       { cls: 'tile-quotes', num: openQuotes.length, label: 'Open quotes', sub: fmtGBP(openQuotesValue) + ' potential', panel: 'quotes' }
     ];
@@ -3342,6 +3860,18 @@
     });
     soonPw.forEach(function(p){
       attnItems.push({ level: 'soon', date: p.dueDate, title: p.label || 'Untitled paperwork', sub: (p.clientId ? clientName(p.clientId) : 'No client') + ' · ' + (PAPERWORK_STATUS_LABELS[p.status] || p.status), panel: 'paperwork' });
+    });
+    overduePwExpiry.forEach(function(p){
+      attnItems.push({ level: 'overdue', date: p.expiryDate, title: (p.label || 'Untitled paperwork') + ' — expired', sub: p.clientId ? clientName(p.clientId) : 'No client', panel: 'paperwork' });
+    });
+    soonPwExpiry.forEach(function(p){
+      attnItems.push({ level: 'soon', date: p.expiryDate, title: (p.label || 'Untitled paperwork') + ' — expiring', sub: p.clientId ? clientName(p.clientId) : 'No client', panel: 'paperwork' });
+    });
+    overdueDocs.forEach(function(d){
+      attnItems.push({ level: 'overdue', date: d.expiryDate, title: (d.label || 'Untitled document') + ' — expired', sub: d.clientId ? clientName(d.clientId) : 'No client', panel: 'documents' });
+    });
+    soonDocs.forEach(function(d){
+      attnItems.push({ level: 'soon', date: d.expiryDate, title: (d.label || 'Untitled document') + ' — expiring', sub: d.clientId ? clientName(d.clientId) : 'No client', panel: 'documents' });
     });
     attnItems.sort(function(a, b){
       if (a.level !== b.level) return a.level === 'overdue' ? -1 : 1;
@@ -3406,6 +3936,7 @@
       return ad < bd ? -1 : (ad > bd ? 1 : 0);
     }).forEach(function(p){
       const urgency = paperworkUrgency(p);
+      const expUrgency = dateUrgency(p.expiryDate, false);
       const row = document.createElement('div');
       row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
       row.style.cursor = 'pointer';
@@ -3421,8 +3952,10 @@
       if (p.dueDate) dueBits.push((urgency === 'overdue' ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
       if (p.sentDate) dueBits.push('Sent ' + p.sentDate);
       if (p.receivedDate) dueBits.push('Received ' + p.receivedDate);
+      if (p.expiryDate) dueBits.push((expUrgency === 'overdue' ? 'Expired ' : 'Expires ') + p.expiryDate);
       row.querySelector('.due').textContent = dueBits.join('  ·  ');
-      if (urgency) row.querySelector('.due').classList.add(urgency);
+      const combinedUrgency = (urgency === 'overdue' || expUrgency === 'overdue') ? 'overdue' : ((urgency === 'soon' || expUrgency === 'soon') ? 'soon' : null);
+      if (combinedUrgency) row.querySelector('.due').classList.add(combinedUrgency);
       row.addEventListener('click', function(){ openPaperworkEditModal(p.id); });
       row.querySelector('.del').addEventListener('click', function(e){
         e.stopPropagation();
@@ -3480,8 +4013,9 @@
         '<div class="field"><label>Required by</label><input type="date" id="pwEditDue"></div>' +
         '<div class="field"><label>Sent</label><input type="date" id="pwEditSent"></div>' +
         '<div class="field"><label>Received back</label><input type="date" id="pwEditReceived"></div>' +
+        '<div class="field"><label>Expiry date (optional)</label><input type="date" id="pwEditExpiry"></div>' +
         '<div class="field"><label>Notes</label><textarea id="pwEditNotes" rows="2"></textarea></div>' +
-        '<div class="hint">"Required by" and "Sent" dates stay mirrored onto the Calendar automatically.</div>' +
+        '<div class="hint">"Required by", "Sent" and "Expiry date" all stay mirrored onto the Calendar automatically.</div>' +
         '<div class="row" style="margin-top:10px;">' +
           '<button class="btn btn-ghost" id="pwEditCancel">Close</button>' +
           '<button class="btn btn-ghost" id="pwEditDelete" style="color:var(--warn);">Delete</button>' +
@@ -3501,6 +4035,7 @@
     backdrop.querySelector('#pwEditDue').value = p.dueDate || '';
     backdrop.querySelector('#pwEditSent').value = p.sentDate || '';
     backdrop.querySelector('#pwEditReceived').value = p.receivedDate || '';
+    backdrop.querySelector('#pwEditExpiry').value = p.expiryDate || '';
     backdrop.querySelector('#pwEditNotes').value = p.notes || '';
 
     backdrop.querySelector('#pwEditCancel').addEventListener('click', function(){ backdrop.remove(); });
@@ -3518,10 +4053,175 @@
       p.dueDate = backdrop.querySelector('#pwEditDue').value || '';
       p.sentDate = backdrop.querySelector('#pwEditSent').value || '';
       p.receivedDate = backdrop.querySelector('#pwEditReceived').value || '';
+      p.expiryDate = backdrop.querySelector('#pwEditExpiry').value || '';
       p.notes = backdrop.querySelector('#pwEditNotes').value.trim();
       syncPaperworkEvents(p);
       markDirty(); backdrop.remove(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
       toast('Paperwork updated.');
+    });
+  }
+
+  // ---------------------------------------------------------------- galleries
+  const GAL_STATUS_LABELS = { editing: 'Editing', delivered: 'Delivered', complete: 'Complete' };
+  let galFilterStatus = 'all';
+
+  // Populates the "Add gallery" quick-add row's client dropdown directly, rather than
+  // going through populateClientSelects()'s shared cache-by-content-key guard: that guard
+  // assumes every select it lists has already been populated at least once whenever the
+  // cache key was last set, which doesn't hold here (this select didn't exist when the
+  // cache was first primed by an earlier panel's render in the same boot sequence) - a
+  // shared cache hit would otherwise leave this dropdown showing only "No client" forever
+  // on first load. Rebuilding it fresh on every renderGalleries() call is cheap (one
+  // small select, only rebuilt when this panel actually renders).
+  function populateGalleryClientSelect(){
+    const sel = document.getElementById('galClient');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">No client</option>';
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      sel.appendChild(opt);
+    });
+    sel.value = prev;
+  }
+
+  function renderGalleries(){
+    populateGalleryClientSelect();
+    const list = document.getElementById('galList');
+    if (!list) return;
+    const clientIdx = buildClientIndex();
+    const visible = data.galleries.filter(function(g){ return galFilterStatus === 'all' || g.status === galFilterStatus; });
+    if (!data.galleries.length){
+      list.innerHTML = '<div class="empty-note">No galleries tracked yet — add one above.</div>';
+      return;
+    }
+    if (!visible.length){
+      list.innerHTML = '<div class="empty-note">Nothing matches this filter.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    visible.slice().sort(function(a, b){
+      const ad = a.shootDate || '9999-99-99', bd = b.shootDate || '9999-99-99';
+      return ad < bd ? 1 : (ad > bd ? -1 : 0); // most recent/upcoming shoot first
+    }).forEach(function(g){
+      const row = document.createElement('div');
+      row.className = 'task-row' + (g.status === 'complete' ? ' done' : '');
+      row.style.cursor = 'pointer';
+      row.innerHTML =
+        '<div class="body"><div class="txt"><span class="galLabelText"></span><span class="pw-badge"></span>' +
+        (g.clientId ? '<span class="cat-badge client-badge"></span>' : '') + '</div><div class="due"></div></div>' +
+        '<button class="del" title="Delete">✕</button>';
+      row.querySelector('.galLabelText').textContent = g.label || 'Untitled gallery';
+      if (g.clientId) row.querySelector('.client-badge').textContent = clientNameIndexed(clientIdx, g.clientId);
+      const badge = row.querySelector('.pw-badge');
+      badge.textContent = GAL_STATUS_LABELS[g.status] || g.status;
+      badge.classList.add('gal-' + g.status);
+      const dueBits = [];
+      if (g.shootDate) dueBits.push('Shoot ' + g.shootDate);
+      if (g.deliveredDate) dueBits.push('Delivered ' + g.deliveredDate);
+      if (g.galleryUrl) dueBits.push('Gallery linked');
+      row.querySelector('.due').textContent = dueBits.join('  ·  ');
+      row.addEventListener('click', function(){ openGalleryEditModal(g.id); });
+      row.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete "' + (g.label || 'Untitled gallery') + '"?')) return;
+        data.galleries = data.galleries.filter(function(x){ return x.id !== g.id; });
+        markDirty(); renderGalleries(); renderClients();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll('#galFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#galFilter button').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      galFilterStatus = btn.dataset.status;
+      renderGalleries();
+    });
+  });
+
+  document.getElementById('galAddBtn').addEventListener('click', function(){
+    const labelEl = document.getElementById('galLabel');
+    const clientEl = document.getElementById('galClient');
+    const shootEl = document.getElementById('galShootDate');
+    const statusEl = document.getElementById('galStatus');
+    const label = labelEl.value.trim();
+    if (!label) return;
+    data.galleries.push({
+      id: randomId(), clientId: clientEl.value || '', label: label, shootDate: shootEl.value || '',
+      deliveredDate: '', galleryUrl: '', status: statusEl.value || 'editing', notes: ''
+    });
+    labelEl.value = ''; shootEl.value = ''; statusEl.value = 'editing';
+    markDirty(); renderGalleries(); renderClients();
+  });
+
+  function openGalleryEditModal(id){
+    const g = data.galleries.find(function(x){ return x.id === id; });
+    if (!g) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Gallery</h3>' +
+        '<div class="field"><label>Label</label><input type="text" id="galEditLabel"></div>' +
+        '<div class="field"><label>Client</label><select id="galEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Status</label><select id="galEditStatus">' +
+          '<option value="editing">Editing</option><option value="delivered">Delivered</option><option value="complete">Complete</option>' +
+        '</select></div>' +
+        '<div class="field"><label>Shoot date</label><input type="date" id="galEditShootDate"></div>' +
+        '<div class="field"><label>Delivered date</label><input type="date" id="galEditDeliveredDate"></div>' +
+        '<div class="field"><label>Online gallery link</label><input type="text" id="galEditUrl" placeholder="https://…"></div>' +
+        '<div class="field"><label>Notes</label><textarea id="galEditNotes" rows="2"></textarea></div>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="galEditCancel">Close</button>' +
+          '<button class="btn btn-ghost" id="galEditDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-primary" id="galEditSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const clientSel = backdrop.querySelector('#galEditClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#galEditLabel').value = g.label || '';
+    clientSel.value = g.clientId || '';
+    backdrop.querySelector('#galEditStatus').value = g.status || 'editing';
+    backdrop.querySelector('#galEditShootDate').value = g.shootDate || '';
+    backdrop.querySelector('#galEditDeliveredDate').value = g.deliveredDate || '';
+    backdrop.querySelector('#galEditUrl').value = g.galleryUrl || '';
+    backdrop.querySelector('#galEditNotes').value = g.notes || '';
+
+    backdrop.querySelector('#galEditCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#galEditDelete').addEventListener('click', function(){
+      if (!confirm('Delete "' + (g.label || 'Untitled gallery') + '"?')) return;
+      data.galleries = data.galleries.filter(function(x){ return x.id !== g.id; });
+      markDirty(); backdrop.remove(); renderGalleries(); renderClients();
+      toast('Gallery deleted.');
+    });
+    backdrop.querySelector('#galEditSave').addEventListener('click', function(){
+      const newStatus = backdrop.querySelector('#galEditStatus').value;
+      const deliveredEl = backdrop.querySelector('#galEditDeliveredDate');
+      // Mirrors how tasks auto-stamp completedAt: moving into "Delivered" or "Complete"
+      // for the first time fills in today's date rather than leaving you to remember to.
+      if ((newStatus === 'delivered' || newStatus === 'complete') && !deliveredEl.value){
+        deliveredEl.value = todayIso_();
+      }
+      g.label = backdrop.querySelector('#galEditLabel').value.trim() || g.label;
+      g.clientId = clientSel.value || '';
+      g.status = newStatus;
+      g.shootDate = backdrop.querySelector('#galEditShootDate').value || '';
+      g.deliveredDate = deliveredEl.value || '';
+      let url = backdrop.querySelector('#galEditUrl').value.trim();
+      if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+      g.galleryUrl = url;
+      g.notes = backdrop.querySelector('#galEditNotes').value.trim();
+      markDirty(); backdrop.remove(); renderGalleries(); renderClients();
+      toast('Gallery updated.');
     });
   }
 
@@ -3559,12 +4259,18 @@
         if (!paperworkByClient.has(p.clientId)) paperworkByClient.set(p.clientId, []);
         paperworkByClient.get(p.clientId).push(p);
       });
+      const galleryCountByClient = new Map();
+      data.galleries.forEach(function(g){
+        if (!g.clientId) return;
+        galleryCountByClient.set(g.clientId, (galleryCountByClient.get(g.clientId) || 0) + 1);
+      });
       visible.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
         const clientTasks = tasksByClient.get(c.id) || [];
         const openTasks = clientTasks.filter(function(t){ return !t.done; });
         const overdueTasks = openTasks.filter(function(t){ return dateUrgency(t.due, false) === 'overdue'; });
         const soonTasks = openTasks.filter(function(t){ return dateUrgency(t.due, false) === 'soon'; });
         const docCount = docCountByClient.get(c.id) || 0;
+        const galCount = galleryCountByClient.get(c.id) || 0;
         const clientPaperwork = paperworkByClient.get(c.id) || [];
         const openPaperwork = clientPaperwork.filter(function(p){ return p.status !== 'complete'; });
         const overduePaperwork = openPaperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; });
@@ -3585,7 +4291,7 @@
         card.querySelector('.client-status-badge').textContent = CLIENT_STATUS_LABELS[c.status] || c.status;
         card.querySelector('.counts').textContent =
           openTasks.length + ' open task' + (openTasks.length === 1 ? '' : 's') + ' · ' + docCount + ' doc' + (docCount === 1 ? '' : 's') +
-          ' · ' + openPaperwork.length + ' paperwork';
+          ' · ' + openPaperwork.length + ' paperwork' + (galCount ? (' · ' + galCount + (galCount === 1 ? ' gallery' : ' galleries')) : '');
         const uWrap = card.querySelector('.urgencyWrap');
         if (overdueTotal){
           const chip = document.createElement('span');
@@ -3688,6 +4394,19 @@
           '<input type="date" id="cdTaskDue">' +
           '<button class="btn btn-primary" id="cdTaskAddBtn" style="width:auto;">Add</button>' +
         '</div>' +
+        '<div class="task-add" style="margin-top:8px;">' +
+          '<select id="cdChecklistSelect"><option value="">Apply a checklist…</option></select>' +
+          '<input type="date" id="cdChecklistAnchor" title="Start date — each step\'s day-offset counts from here">' +
+          '<button class="btn btn-ghost" id="cdChecklistApplyBtn" style="width:auto;">Apply checklist</button>' +
+        '</div>' +
+
+        '<h3 style="margin-top:18px;font-size:14px;">Galleries</h3>' +
+        '<div id="cdGalList"></div>' +
+        '<div class="link-add" style="margin-top:8px;">' +
+          '<input type="text" id="cdGalLabel" placeholder="Label (e.g. Autumn family session)">' +
+          '<input type="date" id="cdGalShootDate" title="Shoot date">' +
+          '<button class="btn btn-primary" id="cdGalAddBtn" style="width:auto;">Add</button>' +
+        '</div>' +
 
         '<h3 style="margin-top:18px;font-size:14px;">Documents</h3>' +
         '<div id="cdDocList"></div>' +
@@ -3723,6 +4442,8 @@
     backdrop.querySelector('#cdReferral').value = c.referralSource || '';
     backdrop.querySelector('#cdNotes').value = c.notes || '';
     backdrop.querySelector('#cdZoho').value = c.zohoContactId || '';
+    populateChecklistSelects();
+    backdrop.querySelector('#cdChecklistAnchor').value = todayIso_();
 
     function renderModalTasks(){
       const wrap = backdrop.querySelector('#cdTaskList');
@@ -3763,20 +4484,87 @@
       markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
     });
 
+    backdrop.querySelector('#cdChecklistApplyBtn').addEventListener('click', function(){
+      const clId = backdrop.querySelector('#cdChecklistSelect').value;
+      const anchor = backdrop.querySelector('#cdChecklistAnchor').value || todayIso_();
+      if (!clId) { toast('Choose a checklist first.'); return; }
+      const cl = data.taskChecklists.find(function(x){ return x.id === clId; });
+      if (!cl || !cl.items.length) { toast('That checklist has no steps.'); return; }
+      cl.items.forEach(function(it){
+        data.tasks.push({ id: randomId(), text: it.text, done: false, due: addDaysIso(anchor, it.offsetDays || 0), category: 'client', clientId: id });
+      });
+      markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderHome(); renderClientTimeline();
+      toast('Added ' + cl.items.length + ' task' + (cl.items.length === 1 ? '' : 's') + ' from "' + cl.name + '".');
+    });
+
+    function renderModalGalleries(){
+      const wrap = backdrop.querySelector('#cdGalList');
+      const linked = data.galleries.filter(function(g){ return g.clientId === id; });
+      if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No galleries linked yet.</div>'; return; }
+      wrap.innerHTML = '';
+      linked.slice().sort(function(a, b){
+        const ad = a.shootDate || '9999-99-99', bd = b.shootDate || '9999-99-99';
+        return ad < bd ? 1 : (ad > bd ? -1 : 0);
+      }).forEach(function(g){
+        const row = document.createElement('div');
+        row.className = 'task-row' + (g.status === 'complete' ? ' done' : '');
+        row.style.cursor = 'pointer';
+        row.innerHTML = '<div class="body"><div class="txt"><span class="galLabelText"></span><span class="pw-badge"></span></div><div class="due"></div></div><button class="del" title="Delete">✕</button>';
+        row.querySelector('.galLabelText').textContent = g.label || 'Untitled gallery';
+        const badge = row.querySelector('.pw-badge');
+        badge.textContent = GAL_STATUS_LABELS[g.status] || g.status;
+        badge.classList.add('gal-' + g.status);
+        const dueBits = [];
+        if (g.shootDate) dueBits.push('Shoot ' + g.shootDate);
+        if (g.deliveredDate) dueBits.push('Delivered ' + g.deliveredDate);
+        row.querySelector('.due').textContent = dueBits.join('  ·  ');
+        row.addEventListener('click', function(){ backdrop.remove(); openGalleryEditModal(g.id); });
+        row.querySelector('.del').addEventListener('click', function(e){
+          e.stopPropagation();
+          if (!confirm('Delete "' + (g.label || 'Untitled gallery') + '"?')) return;
+          data.galleries = data.galleries.filter(function(x){ return x.id !== g.id; });
+          markDirty(); renderModalGalleries(); renderGalleries(); renderClients(); renderClientTimeline();
+        });
+        wrap.appendChild(row);
+      });
+    }
+    renderModalGalleries();
+    backdrop.querySelector('#cdGalAddBtn').addEventListener('click', function(){
+      const labelEl = backdrop.querySelector('#cdGalLabel');
+      const shootEl = backdrop.querySelector('#cdGalShootDate');
+      const label = labelEl.value.trim();
+      if (!label) return;
+      data.galleries.push({ id: randomId(), clientId: id, label: label, shootDate: shootEl.value || '', deliveredDate: '', galleryUrl: '', status: 'editing', notes: '' });
+      labelEl.value = ''; shootEl.value = '';
+      markDirty(); renderModalGalleries(); renderGalleries(); renderClients(); renderClientTimeline();
+    });
+
     function renderModalDocs(){
       const wrap = backdrop.querySelector('#cdDocList');
       const linked = data.documents.filter(function(d){ return d.clientId === id; });
       if (!linked.length){ wrap.innerHTML = '<div class="empty-note">No documents linked yet.</div>'; return; }
       wrap.innerHTML = '';
       linked.forEach(function(d){
+        const urgency = dateUrgency(d.expiryDate, false);
         const row = document.createElement('div');
         row.className = 'task-row';
-        row.innerHTML = '<div class="body"><a target="_blank" rel="noopener" style="font-weight:700;color:var(--navy);text-decoration:none;"></a></div><button class="del" title="Delete">✕</button>';
+        row.style.cursor = 'pointer';
+        row.innerHTML =
+          '<div class="body"><a target="_blank" rel="noopener" style="font-weight:700;color:var(--navy);text-decoration:none;"></a><div class="due"></div></div>' +
+          '<button class="del" title="Delete">✕</button>';
         const a = row.querySelector('a');
         a.href = safeHref(d.url); a.textContent = d.label;
-        row.querySelector('.del').addEventListener('click', function(){
+        a.addEventListener('click', function(e){ e.stopPropagation(); });
+        if (d.expiryDate){
+          row.querySelector('.due').textContent = (urgency === 'overdue' ? 'Expired ' : 'Expires ') + d.expiryDate;
+          if (urgency) row.querySelector('.due').classList.add(urgency);
+        }
+        row.addEventListener('click', function(){ backdrop.remove(); openDocumentEditModal(d.id); });
+        row.querySelector('.del').addEventListener('click', function(e){
+          e.stopPropagation();
           data.documents = data.documents.filter(function(x){ return x.id !== d.id; });
-          markDirty(); renderModalDocs(); renderDocuments(); renderClients();
+          removeDocumentEvents(d.id);
+          markDirty(); renderModalDocs(); renderDocuments(); renderClients(); renderCalendar(); renderAlerts(); renderHome(); renderClientTimeline();
         });
         wrap.appendChild(row);
       });
@@ -3789,9 +4577,9 @@
       let url = urlEl.value.trim();
       if (!label || !url) return;
       if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-      data.documents.push({ id: randomId(), label: label, url: url, description: '', clientId: id });
+      data.documents.push({ id: randomId(), label: label, url: url, description: '', clientId: id, expiryDate: '' });
       labelEl.value = ''; urlEl.value = '';
-      markDirty(); renderModalDocs(); renderDocuments(); renderClients();
+      markDirty(); renderModalDocs(); renderDocuments(); renderClients(); renderClientTimeline();
     });
 
     function renderModalPaperwork(){
@@ -3804,6 +4592,7 @@
         return ad < bd ? -1 : (ad > bd ? 1 : 0);
       }).forEach(function(p){
         const urgency = paperworkUrgency(p);
+        const expUrgency = dateUrgency(p.expiryDate, false);
         const row = document.createElement('div');
         row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
         row.style.cursor = 'pointer';
@@ -3816,8 +4605,10 @@
         if (p.dueDate) dueBits.push((urgency === 'overdue' ? 'Overdue — was required ' : 'Required by ') + p.dueDate);
         if (p.sentDate) dueBits.push('Sent ' + p.sentDate);
         if (p.receivedDate) dueBits.push('Received ' + p.receivedDate);
+        if (p.expiryDate) dueBits.push((expUrgency === 'overdue' ? 'Expired ' : 'Expires ') + p.expiryDate);
         row.querySelector('.due').textContent = dueBits.join('  ·  ');
-        if (urgency) row.querySelector('.due').classList.add(urgency);
+        const combinedUrgency = (urgency === 'overdue' || expUrgency === 'overdue') ? 'overdue' : ((urgency === 'soon' || expUrgency === 'soon') ? 'soon' : null);
+        if (combinedUrgency) row.querySelector('.due').classList.add(combinedUrgency);
         row.addEventListener('click', function(){ backdrop.remove(); openPaperworkEditModal(p.id); });
         row.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
@@ -3838,7 +4629,7 @@
       if (!label) return;
       const item = {
         id: randomId(), clientId: id, label: label, status: statusEl.value || 'required',
-        dueDate: dueEl.value || '', sentDate: '', receivedDate: '', notes: '', documentId: ''
+        dueDate: dueEl.value || '', sentDate: '', receivedDate: '', notes: '', documentId: '', expiryDate: ''
       };
       data.paperwork.push(item);
       syncPaperworkEvents(item);
@@ -3884,6 +4675,13 @@
         if (p.dueDate) items.push({ date: p.dueDate, kind: 'paperwork', badgeLabel: 'Paperwork', text: label + ' — required by', sub: statusSub, onClick: onClick });
         if (p.sentDate) items.push({ date: p.sentDate, kind: 'paperwork', badgeLabel: 'Paperwork', text: label + ' — sent', sub: statusSub, onClick: onClick });
         if (p.receivedDate) items.push({ date: p.receivedDate, kind: 'paperwork', badgeLabel: 'Paperwork', text: label + ' — received back', sub: statusSub, onClick: onClick });
+        if (p.expiryDate) items.push({ date: p.expiryDate, kind: 'paperwork', badgeLabel: 'Paperwork expires', text: label + ' — expires', sub: statusSub, onClick: onClick });
+      });
+      data.documents.filter(function(doc){ return doc.clientId === id && doc.expiryDate; }).forEach(function(doc){
+        items.push({
+          date: doc.expiryDate, kind: 'document', badgeLabel: 'Document expires', text: (doc.label || 'Document') + ' — expires', sub: doc.description || '',
+          onClick: function(){ backdrop.remove(); openDocumentEditModal(doc.id); }
+        });
       });
       data.meetings.filter(function(m){ return m.clientId === id; }).forEach(function(m){
         items.push({
@@ -3909,6 +4707,11 @@
             onClick: function(){ backdrop.remove(); mtgView = 'topics'; renderMeetings(); jumpToPanel_('meetings'); }
           });
         });
+      });
+      data.galleries.filter(function(g){ return g.clientId === id; }).forEach(function(g){
+        const onClick = function(){ backdrop.remove(); openGalleryEditModal(g.id); };
+        if (g.shootDate) items.push({ date: g.shootDate, kind: 'gallery', badgeLabel: 'Shoot', text: g.label || 'Untitled gallery', sub: GAL_STATUS_LABELS[g.status] || g.status, onClick: onClick });
+        if (g.deliveredDate) items.push({ date: g.deliveredDate, kind: 'gallery', badgeLabel: 'Gallery delivered', text: g.label || 'Untitled gallery', sub: GAL_STATUS_LABELS[g.status] || g.status, onClick: onClick });
       });
       return items.filter(function(it){ return it.date; }).sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
     }
@@ -4001,7 +4804,7 @@
       // The client's name/company is rendered via clientName() on task, document, quote
       // and meeting cards too - refresh those panels so a rename doesn't leave stale
       // labels showing anywhere else in the app.
-      renderTasks(); renderDocuments(); renderPaperwork(); renderQuotes(); renderMeetings();
+      renderTasks(); renderDocuments(); renderPaperwork(); renderQuotes(); renderMeetings(); renderGalleries();
       backdrop.remove();
       toast('Client updated.');
     });
@@ -4150,7 +4953,22 @@
     const afterDiscount = subtotal - discount;
     const vat = data.financeProfile.isVatRegistered ? afterDiscount * 0.2 : 0;
     const total = afterDiscount + vat;
-    return { subtotal: subtotal, discount: discount, vat: vat, total: total };
+    // netRevenue excludes VAT deliberately - VAT is collected on the client's behalf and
+    // passed to HMRC, so it was never really "yours" and shouldn't count toward this job's
+    // own profit margin below.
+    return { subtotal: subtotal, discount: discount, vat: vat, total: total, netRevenue: afterDiscount };
+  }
+
+  // ---------------------------------------------------------------- per-job profitability
+  function computeQuoteCosts(q){
+    return (q.costs || []).reduce(function(sum, c){ return sum + (Number(c.amount) || 0); }, 0);
+  }
+  function computeQuoteProfit(q){
+    const revenue = computeQuoteTotals(q).netRevenue;
+    const costs = computeQuoteCosts(q);
+    const profit = revenue - costs;
+    const marginPct = revenue > 0 ? (profit / revenue * 100) : null;
+    return { revenue: revenue, costs: costs, profit: profit, marginPct: marginPct };
   }
 
   function renderRatePresets(){
@@ -4200,11 +5018,19 @@
         '<div class="company" style="font-size:12.5px;color:var(--muted);margin-top:2px;"></div>' +
         '<div class="meta-row" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">' +
           '<span class="client-status-badge status-' + escapeHtml(q.status) + '"></span><span style="font-weight:700;"></span>' +
-        '</div>';
+        '</div>' +
+        '<div class="quote-profit-line" style="font-size:11.5px;margin-top:4px;"></div>';
       card.querySelector('.name').textContent = q.title;
       card.querySelector('.company').textContent = q.clientId ? (clientName(q.clientId) || 'Client removed') : 'No client';
       card.querySelector('.client-status-badge').textContent = QUOTE_STATUS_LABELS[q.status] || q.status;
       card.querySelector('.meta-row span:last-child').textContent = fmtGBP(totals.total);
+      if ((q.costs || []).length){
+        const profit = computeQuoteProfit(q);
+        const profitLine = card.querySelector('.quote-profit-line');
+        profitLine.textContent = 'Profit ' + fmtGBP(profit.profit) + (profit.marginPct != null ? (' (' + profit.marginPct.toFixed(0) + '%)') : '');
+        profitLine.style.color = profit.profit < 0 ? 'var(--warn)' : 'var(--good)';
+        profitLine.style.fontWeight = '700';
+      }
       card.querySelector('.del').addEventListener('click', function(e){
         e.stopPropagation();
         if (!confirm('Delete quote "' + q.title + '"?')) return;
@@ -4214,11 +5040,34 @@
       card.addEventListener('click', function(){ openQuoteEditor(q.id); });
       grid.appendChild(card);
     });
+
+    // Job profitability at a glance: only jobs where costs have actually been logged -
+    // an untouched "no costs entered yet" quote would otherwise misleadingly look like a
+    // 100% margin job rather than one nobody's costed out yet.
+    const summaryWrap = document.getElementById('quoteProfitSummary');
+    if (summaryWrap){
+      const costed = data.quotes.filter(function(q){ return (q.costs || []).length > 0; });
+      if (!costed.length){
+        summaryWrap.innerHTML = '<div class="empty-note">No jobs have costs logged yet — open a quote and add one under "Job costs" to see profitability here.</div>';
+      } else {
+        const totalRevenue = costed.reduce(function(sum, q){ return sum + computeQuoteProfit(q).revenue; }, 0);
+        const totalCosts = costed.reduce(function(sum, q){ return sum + computeQuoteProfit(q).costs; }, 0);
+        const totalProfit = totalRevenue - totalCosts;
+        const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue * 100) : null;
+        summaryWrap.innerHTML =
+          '<div class="quote-totals" style="border-top:none;padding-top:0;">' +
+            '<div class="qt-row"><span>Jobs with costs logged</span><span>' + costed.length + '</span></div>' +
+            '<div class="qt-row"><span>Revenue (ex. VAT)</span><span>' + fmtGBP(totalRevenue) + '</span></div>' +
+            '<div class="qt-row"><span>Costs</span><span>' + fmtGBP(totalCosts) + '</span></div>' +
+            '<div class="qt-row total"><span>Profit</span><span>' + fmtGBP(totalProfit) + (avgMargin != null ? (' (' + avgMargin.toFixed(0) + '% margin)') : '') + '</span></div>' +
+          '</div>';
+      }
+    }
     if (document.getElementById('dashStats')) renderHome();
   }
 
   document.getElementById('quoteNewBtn').addEventListener('click', function(){
-    const q = { id: randomId(), title: 'New quote', clientId: '', status: 'draft', lineItems: [], discountPct: 0, notes: '', createdAt: new Date().toISOString() };
+    const q = { id: randomId(), title: 'New quote', clientId: '', status: 'draft', lineItems: [], costs: [], discountPct: 0, notes: '', createdAt: new Date().toISOString() };
     data.quotes.push(q);
     markDirty(); renderQuotes();
     openQuoteEditor(q.id);
@@ -4246,6 +5095,11 @@
         '</div>' +
         '<div class="field" style="margin-top:12px;max-width:160px;"><label>Discount %</label><input type="number" id="qDiscount" step="0.1"></div>' +
         '<div class="quote-totals" id="qTotals"></div>' +
+        '<h3 style="margin-top:14px;font-size:14px;">Job costs</h3>' +
+        '<div class="sub" style="margin:-4px 0 8px;">What this job actually cost you — editing time, an assistant, props, printing, travel. Never shown to the client; used only to work out your real profit below.</div>' +
+        '<div id="qCostItems"></div>' +
+        '<button class="btn btn-ghost" id="qAddCostBtn" style="width:auto;margin-top:2px;">+ Add cost</button>' +
+        '<div class="quote-totals" id="qProfit"></div>' +
         '<div class="field" style="margin-top:12px;"><label>Notes</label><textarea id="qNotes" rows="2"></textarea></div>' +
         '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
           '<button class="btn btn-ghost" id="qClose">Close</button>' +
@@ -4284,6 +5138,42 @@
       wrap.innerHTML = html;
     }
 
+    function renderCostItems(){
+      const wrap = backdrop.querySelector('#qCostItems');
+      wrap.innerHTML = '';
+      if (!q.costs.length){ wrap.innerHTML = '<div class="empty-note">No costs logged yet.</div>'; }
+      q.costs.forEach(function(c){
+        const row = document.createElement('div');
+        row.className = 'line-item-row';
+        row.innerHTML =
+          '<input type="text" class="ci-label" placeholder="What was it? (e.g. Second shooter)">' +
+          '<input type="number" class="ci-amount" step="0.01" placeholder="Amount">' +
+          '<button class="del" title="Delete">✕</button>';
+        row.querySelector('.ci-label').value = c.label;
+        row.querySelector('.ci-amount').value = c.amount;
+        row.querySelector('.ci-label').addEventListener('input', function(e){ c.label = e.target.value; markDirty(); });
+        row.querySelector('.ci-amount').addEventListener('input', function(e){
+          c.amount = e.target.value; markDirty(); renderProfit(); renderQuotes();
+        });
+        row.querySelector('.del').addEventListener('click', function(){
+          q.costs = q.costs.filter(function(x){ return x.id !== c.id; });
+          markDirty(); renderCostItems(); renderProfit(); renderQuotes();
+        });
+        wrap.appendChild(row);
+      });
+    }
+
+    function renderProfit(){
+      const wrap = backdrop.querySelector('#qProfit');
+      if (!q.costs.length){ wrap.innerHTML = ''; return; }
+      const p = computeQuoteProfit(q);
+      let html = '<div class="qt-row"><span>Revenue (ex. VAT)</span><span>' + fmtGBP(p.revenue) + '</span></div>';
+      html += '<div class="qt-row"><span>Costs</span><span>-' + fmtGBP(p.costs) + '</span></div>';
+      html += '<div class="qt-row total"><span>Profit</span><span style="color:' + (p.profit < 0 ? 'var(--warn)' : 'var(--good)') + ';">' +
+        fmtGBP(p.profit) + (p.marginPct != null ? (' (' + p.marginPct.toFixed(0) + '% margin)') : '') + '</span></div>';
+      wrap.innerHTML = html;
+    }
+
     function renderLineItems(){
       const wrap = backdrop.querySelector('#qLineItems');
       wrap.innerHTML = '';
@@ -4305,26 +5195,28 @@
         row.querySelector('.li-qty').addEventListener('input', function(e){
           li.qty = e.target.value; markDirty();
           row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
-          renderTotals();
+          renderTotals(); renderProfit();
         });
         row.querySelector('.li-rate').addEventListener('input', function(e){
           li.rate = e.target.value; markDirty();
           row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
-          renderTotals();
+          renderTotals(); renderProfit();
         });
         row.querySelector('.del').addEventListener('click', function(){
           q.lineItems = q.lineItems.filter(function(x){ return x.id !== li.id; });
-          markDirty(); renderLineItems(); renderTotals(); renderQuotes();
+          markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes();
         });
         wrap.appendChild(row);
       });
     }
     renderLineItems();
     renderTotals();
+    renderCostItems();
+    renderProfit();
 
     backdrop.querySelector('#qAddBlankBtn').addEventListener('click', function(){
       q.lineItems.push({ id: randomId(), label: '', qty: 1, rate: 0 });
-      markDirty(); renderLineItems(); renderTotals(); renderQuotes();
+      markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes();
     });
     backdrop.querySelector('#qAddPresetBtn').addEventListener('click', function(){
       const presetId = presetSel.value;
@@ -4332,13 +5224,17 @@
       const preset = data.quoteRates.find(function(x){ return x.id === presetId; });
       if (!preset) return;
       q.lineItems.push({ id: randomId(), label: preset.label, qty: 1, rate: preset.rate });
-      markDirty(); renderLineItems(); renderTotals(); renderQuotes();
+      markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes();
+    });
+    backdrop.querySelector('#qAddCostBtn').addEventListener('click', function(){
+      q.costs.push({ id: randomId(), label: '', amount: 0 });
+      markDirty(); renderCostItems(); renderProfit(); renderQuotes();
     });
 
     backdrop.querySelector('#qTitle').addEventListener('input', function(e){ q.title = e.target.value; markDirty(); });
     clientSel.addEventListener('change', function(e){ q.clientId = e.target.value; markDirty(); renderQuotes(); });
     backdrop.querySelector('#qStatus').addEventListener('change', function(e){ q.status = e.target.value; markDirty(); renderQuotes(); });
-    backdrop.querySelector('#qDiscount').addEventListener('input', function(e){ q.discountPct = e.target.value; markDirty(); renderTotals(); });
+    backdrop.querySelector('#qDiscount').addEventListener('input', function(e){ q.discountPct = e.target.value; markDirty(); renderTotals(); renderProfit(); });
     backdrop.querySelector('#qNotes').addEventListener('input', function(e){ q.notes = e.target.value; markDirty(); });
 
     backdrop.querySelector('#qClose').addEventListener('click', function(){
