@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src *; img-src * data: blob:; frame-src *;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src *; img-src * data: blob:; frame-src https://accounts.google.com https://apis.google.com;">
 <title>ImageScape Studios — Management Hub</title>
 <!--
   ImageScape Studios Management Hub — a small static app (no build step, no
@@ -1217,11 +1217,23 @@
     d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; });
     d.blogPosts = d.blogPosts || [];
     d.wpConnection = d.wpConnection || null;
-    d.financeProfile = Object.assign({
-      companyLegalName: '', companyNumber: '', incorporationDate: '', companyFyEnd: '',
-      confirmationStatementDate: '', companyUtr: '', isVatRegistered: false,
-      personalName: '', personalUtr: '', personalNi: '', personalNotes: ''
-    }, d.financeProfile || {});
+    // Built field-by-field (rather than Object.assign(defaults, d.financeProfile)) so that
+    // a restored JSON file can only ever set these specific known fields. Object.assign would
+    // copy ANY own key from the untrusted source, including a "__proto__" key - which, unlike
+    // a JSON.parse'd object's own inert "__proto__" property, DOES reassign the resulting
+    // object's actual prototype once Object.assign's [[Set]] touches it.
+    (function(){
+      const fpDefaults = {
+        companyLegalName: '', companyNumber: '', incorporationDate: '', companyFyEnd: '',
+        confirmationStatementDate: '', companyUtr: '', isVatRegistered: false,
+        personalName: '', personalUtr: '', personalNi: '', personalNotes: ''
+      };
+      const fpSource = (d.financeProfile && typeof d.financeProfile === 'object') ? d.financeProfile : {};
+      Object.keys(fpDefaults).forEach(function(k){
+        if (Object.prototype.hasOwnProperty.call(fpSource, k)) fpDefaults[k] = fpSource[k];
+      });
+      d.financeProfile = fpDefaults;
+    })();
     d.financeSnapshots = d.financeSnapshots || [];
     d.remindersConnection = d.remindersConnection || null;
     d.clients = d.clients || [];
@@ -2355,6 +2367,7 @@
         }
         data.events = data.events.filter(function(e){ return e.id !== ev.id; });
         markDirty(); renderCalendar();
+        if (document.getElementById('dashStats')) renderHome();
       });
       list.appendChild(row);
     });
@@ -2415,6 +2428,7 @@
       markDirty();
       backdrop.remove();
       renderCalendar();
+      if (document.getElementById('dashStats')) renderHome();
     });
   }
 
@@ -2455,6 +2469,7 @@
   function renderTasks(){
     const list = document.getElementById('taskList');
     list.innerHTML = '';
+    const clientIdx = buildClientIndex();
 
     const categoryMatch = function(t){
       if (taskFilter === 'all') return true;
@@ -2479,6 +2494,7 @@
     if (!data.tasks.length){
       list.innerHTML = '<div class="empty-note">No tasks yet.</div>';
       renderAlerts();
+      if (document.getElementById('dashStats')) renderHome();
       return;
     }
     if (!visible.length){
@@ -2486,6 +2502,7 @@
         (completedInCategory.length && !showCompleted ? 'All tasks in this category are completed — click "Show completed" to see them.' : 'No tasks in this category.') +
         '</div>';
       renderAlerts();
+      if (document.getElementById('dashStats')) renderHome();
       return;
     }
     const todayIso = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
@@ -2496,8 +2513,8 @@
       row.innerHTML =
         '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
         '<div class="body"><div class="txt">' +
-        (t.category ? '<span class="cat-badge cat-' + t.category + '">' + (CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
-        (t.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientName(t.clientId)) + '</span>' : '') +
+        (t.category ? '<span class="cat-badge cat-' + escapeHtml(t.category) + '">' + escapeHtml(CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
+        (t.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientNameIndexed(clientIdx, t.clientId)) + '</span>' : '') +
         '</div>' +
         (t.done ? '<div class="completed-date"></div>' : (t.due ? '<div class="due' + (urgency ? ' ' + urgency : '') + '"></div>' : '')) +
         '</div><button class="del" title="Delete">✕</button>';
@@ -2523,6 +2540,12 @@
       list.appendChild(row);
     });
     renderAlerts();
+    // Ticking a task done/undone or deleting one changes the overdue/soon counts and
+    // "Needs attention" list on the Dashboard - keep it in sync from every call site
+    // (main Tasks panel, client-detail modal, meeting "Add as task") rather than
+    // patching each one. Guarded since renderTasks() runs at boot before the
+    // dashboard's own elements necessarily exist in a given render pass.
+    if (document.getElementById('dashStats')) renderHome();
   }
 
   // ---------------------------------------------------------------- alerts
@@ -3138,6 +3161,7 @@
       grid.innerHTML = '<div class="empty-note">No documents linked yet.</div>';
       return;
     }
+    const clientIdx = buildClientIndex();
     data.documents.forEach(function(d){
       const card = document.createElement('div');
       card.className = 'link-card';
@@ -3146,9 +3170,9 @@
         '<a target="_blank" rel="noopener"></a>' +
         '<div class="url"></div>' +
         '<div class="doc-desc"></div>' +
-        (d.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientName(d.clientId)) + '</span>' : '');
+        (d.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientNameIndexed(clientIdx, d.clientId)) + '</span>' : '');
       const a = card.querySelector('a');
-      a.href = d.url; a.textContent = d.label;
+      a.href = safeHref(d.url); a.textContent = d.label;
       card.querySelector('.url').textContent = d.url;
       card.querySelector('.doc-desc').textContent = d.description || '';
       card.querySelector('.del').addEventListener('click', function(){
@@ -3186,7 +3210,37 @@
     return c.company ? (c.name + ' (' + c.company + ')') : c.name;
   }
 
+  // clientName() above does a linear scan of data.clients on every call, which is fine for
+  // a one-off lookup (a modal, a single row) but turns O(n) with a large client list into
+  // O(n*m) when called once per row inside a render loop over many tasks/documents/etc.
+  // These two helpers let a hot render loop build one id->client index up front and do O(1)
+  // lookups per row instead - same output as clientName(), just batched.
+  function buildClientIndex(){
+    const m = new Map();
+    (data.clients || []).forEach(function(c){ m.set(c.id, c); });
+    return m;
+  }
+  function clientNameIndexed(idx, id){
+    if (!id) return '';
+    const c = idx.get(id);
+    if (!c) return '';
+    return c.company ? (c.name + ' (' + c.company + ')') : c.name;
+  }
+
+  // populateClientSelects() rebuilds 5 <select> dropdowns' full <option> lists from
+  // data.clients (sort + one DOM element per client, per select). It's called from the top
+  // of renderClients() on every render - including every keystroke in the client search box,
+  // which never actually changes data.clients itself. With a large client list that made
+  // typing in the search field visibly redo ~5x(clients) DOM work per keystroke for no
+  // reason. This cache key is built from client id/name/company only (cheap string
+  // concatenation, no DOM) and skips the rebuild whenever the client list's actual content
+  // hasn't changed since the last populate - any real add/rename/delete still changes the
+  // key and rebuilds correctly.
+  let clientSelectsCacheKey = null;
   function populateClientSelects(){
+    const key = data.clients.map(function(c){ return c.id + '|' + c.name + '|' + c.company; }).join('~');
+    if (key === clientSelectsCacheKey) return;
+    clientSelectsCacheKey = key;
     ['taskClient', 'docClient', 'mtgClient', 'pwClient', 'topicNewClient'].forEach(function(selId){
       const sel = document.getElementById(selId);
       if (!sel) return;
@@ -3346,6 +3400,7 @@
       list.innerHTML = '<div class="empty-note">Nothing matches this filter.</div>';
       return;
     }
+    const clientIdx = buildClientIndex();
     visible.slice().sort(function(a, b){
       const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
       return ad < bd ? -1 : (ad > bd ? 1 : 0);
@@ -3357,7 +3412,7 @@
       row.innerHTML =
         '<div class="body"><div class="txt"><span class="pwLabelText"></span><span class="pw-badge"></span></div><div class="due"></div></div>' +
         '<button class="del" title="Delete">✕</button>';
-      const clientLabel = p.clientId ? (clientName(p.clientId) || 'Unlinked client') : 'No client';
+      const clientLabel = p.clientId ? (clientNameIndexed(clientIdx, p.clientId) || 'Unlinked client') : 'No client';
       row.querySelector('.pwLabelText').textContent = (p.label || 'Untitled') + '  ·  ' + clientLabel;
       const badge = row.querySelector('.pw-badge');
       badge.textContent = PAPERWORK_STATUS_LABELS[p.status] || p.status;
@@ -3483,13 +3538,34 @@
     } else if (!visible.length){
       grid.innerHTML = '<div class="empty-note">No clients match.</div>';
     } else {
+      // Grouping tasks/documents/paperwork by clientId ONCE up front (instead of re-filtering
+      // the full tasks/documents/paperwork arrays inside the per-client loop below) turns what
+      // was an O(clients * records) scan into O(clients + records) - matters once either list
+      // grows into the hundreds/thousands, since every client card re-scanned everything.
+      const tasksByClient = new Map();
+      data.tasks.forEach(function(t){
+        if (!t.clientId) return;
+        if (!tasksByClient.has(t.clientId)) tasksByClient.set(t.clientId, []);
+        tasksByClient.get(t.clientId).push(t);
+      });
+      const docCountByClient = new Map();
+      data.documents.forEach(function(d){
+        if (!d.clientId) return;
+        docCountByClient.set(d.clientId, (docCountByClient.get(d.clientId) || 0) + 1);
+      });
+      const paperworkByClient = new Map();
+      data.paperwork.forEach(function(p){
+        if (!p.clientId) return;
+        if (!paperworkByClient.has(p.clientId)) paperworkByClient.set(p.clientId, []);
+        paperworkByClient.get(p.clientId).push(p);
+      });
       visible.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
-        const clientTasks = data.tasks.filter(function(t){ return t.clientId === c.id; });
+        const clientTasks = tasksByClient.get(c.id) || [];
         const openTasks = clientTasks.filter(function(t){ return !t.done; });
         const overdueTasks = openTasks.filter(function(t){ return dateUrgency(t.due, false) === 'overdue'; });
         const soonTasks = openTasks.filter(function(t){ return dateUrgency(t.due, false) === 'soon'; });
-        const docCount = data.documents.filter(function(d){ return d.clientId === c.id; }).length;
-        const clientPaperwork = data.paperwork.filter(function(p){ return p.clientId === c.id; });
+        const docCount = docCountByClient.get(c.id) || 0;
+        const clientPaperwork = paperworkByClient.get(c.id) || [];
         const openPaperwork = clientPaperwork.filter(function(p){ return p.status !== 'complete'; });
         const overduePaperwork = openPaperwork.filter(function(p){ return paperworkUrgency(p) === 'overdue'; });
         const soonPaperwork = openPaperwork.filter(function(p){ return paperworkUrgency(p) === 'soon'; });
@@ -3501,7 +3577,7 @@
           '<button class="del" title="Remove">✕</button>' +
           '<div class="name"></div>' +
           '<div class="company"></div>' +
-          '<div class="meta-row"><span class="client-status-badge status-' + c.status + '"></span>' +
+          '<div class="meta-row"><span class="client-status-badge status-' + escapeHtml(c.status) + '"></span>' +
           '<span class="counts"></span></div>' +
           '<div class="urgencyWrap"></div>';
         card.querySelector('.name').textContent = c.name;
@@ -3530,7 +3606,15 @@
           data.paperwork.forEach(function(p){
             if (p.clientId === c.id){ p.clientId = ''; syncPaperworkEvents(p); }
           });
-          markDirty(); renderClients();
+          // The confirm dialog promises every linked record just loses its client tag,
+          // not only paperwork - actually clear it everywhere so no other panel keeps
+          // showing a client badge that resolves to nothing.
+          data.tasks.forEach(function(t){ if (t.clientId === c.id) t.clientId = ''; });
+          data.documents.forEach(function(dc){ if (dc.clientId === c.id) dc.clientId = ''; });
+          data.meetings.forEach(function(m){ if (m.clientId === c.id) m.clientId = ''; });
+          data.quotes.forEach(function(q){ if (q.clientId === c.id) q.clientId = ''; });
+          data.discussionTopics.forEach(function(dt){ if (dt.clientId === c.id) dt.clientId = ''; });
+          markDirty(); renderClients(); renderTasks(); renderDocuments(); renderPaperwork(); renderMeetings(); renderQuotes();
         });
         card.addEventListener('click', function(){ openClientDetail(c.id); });
         grid.appendChild(card);
@@ -3689,7 +3773,7 @@
         row.className = 'task-row';
         row.innerHTML = '<div class="body"><a target="_blank" rel="noopener" style="font-weight:700;color:var(--navy);text-decoration:none;"></a></div><button class="del" title="Delete">✕</button>';
         const a = row.querySelector('a');
-        a.href = d.url; a.textContent = d.label;
+        a.href = safeHref(d.url); a.textContent = d.label;
         row.querySelector('.del').addEventListener('click', function(){
           data.documents = data.documents.filter(function(x){ return x.id !== d.id; });
           markDirty(); renderModalDocs(); renderDocuments(); renderClients();
@@ -3914,6 +3998,10 @@
       // just changed, refresh those entries rather than leaving them stale.
       data.paperwork.filter(function(p){ return p.clientId === c.id; }).forEach(syncPaperworkEvents);
       markDirty(); renderClients(); renderCalendar();
+      // The client's name/company is rendered via clientName() on task, document, quote
+      // and meeting cards too - refresh those panels so a rename doesn't leave stale
+      // labels showing anywhere else in the app.
+      renderTasks(); renderDocuments(); renderPaperwork(); renderQuotes(); renderMeetings();
       backdrop.remove();
       toast('Client updated.');
     });
@@ -4111,7 +4199,7 @@
         '<div class="name" style="font-weight:700;font-size:14px;color:var(--navy);"></div>' +
         '<div class="company" style="font-size:12.5px;color:var(--muted);margin-top:2px;"></div>' +
         '<div class="meta-row" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">' +
-          '<span class="client-status-badge status-' + q.status + '"></span><span style="font-weight:700;"></span>' +
+          '<span class="client-status-badge status-' + escapeHtml(q.status) + '"></span><span style="font-weight:700;"></span>' +
         '</div>';
       card.querySelector('.name').textContent = q.title;
       card.querySelector('.company').textContent = q.clientId ? (clientName(q.clientId) || 'Client removed') : 'No client';
@@ -4496,10 +4584,18 @@
     d.setDate(d.getDate() + n);
     return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
   }
+  // Adds calendar months the way financial deadlines actually work: a day that doesn't
+  // exist in the target month clamps to that month's last day (e.g. 31 May + 9 months =
+  // 28/29 Feb, never rolling into March) - plain Date#setMonth does NOT do this; it
+  // overflows into the next month instead, which silently shifted compliance deadlines.
   function addMonthsIso(dateStr, n){
-    const d = new Date(dateStr + 'T00:00:00');
-    d.setMonth(d.getMonth() + n);
-    return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
+    const parts = dateStr.split('-').map(Number);
+    const targetIndex = (parts[1] - 1) + n;
+    const targetYear = parts[0] + Math.floor(targetIndex / 12);
+    const targetMonth = ((targetIndex % 12) + 12) % 12;
+    const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const day = Math.min(parts[2], daysInTargetMonth);
+    return isoDate(targetYear, targetMonth, day);
   }
   // Next upcoming occurrence of a fixed UK date (e.g. 31 Jan), rolling to next year if already passed.
   function nextAnnualDate(month, day){
@@ -4587,6 +4683,9 @@
     };
     markDirty();
     renderDeadlines();
+    // VAT registration status feeds quote totals (computeQuoteTotals), which show up
+    // both on the Quotes cards and the Dashboard's "Open quotes" value - refresh both.
+    renderQuotes();
     const msg = document.getElementById('finSaveMsg');
     msg.textContent = 'Saved.';
     setTimeout(function(){ if (msg.textContent === 'Saved.') msg.textContent = ''; }, 2500);
@@ -4826,6 +4925,14 @@
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  // Document/link URLs are free-typed by whoever adds them, and the ADD forms normalize
+  // them to start with http(s):// - but "Restore from JSON" and version-history restore
+  // both load data straight from parsed JSON with no such check, so a crafted backup could
+  // plant a "javascript:" URL that runs with full access to the unlocked vault the moment
+  // it's clicked. Anything assigned to a real <a href> goes through this gate first.
+  function safeHref(url){
+    return /^https?:\/\//i.test(String(url || '')) ? url : '#';
   }
   function textToHtml(text){
     return text.split(/\n\s*\n/).map(function(para){
@@ -5151,7 +5258,7 @@
         '<a target="_blank" rel="noopener"></a>' +
         '<div class="url"></div>';
       const a = card.querySelector('a');
-      a.href = l.url; a.textContent = l.label;
+      a.href = safeHref(l.url); a.textContent = l.label;
       card.querySelector('.url').textContent = l.url;
       card.querySelector('.del').addEventListener('click', function(){
         data.links = data.links.filter(function(x){ return x.id !== l.id; });
