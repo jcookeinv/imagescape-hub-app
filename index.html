@@ -2677,6 +2677,7 @@
     visible.forEach(function(t){
       const row = document.createElement('div');
       row.className = 'task-row' + (t.done ? ' done' : '');
+      row.style.cursor = 'pointer';
       const urgency = dateUrgency(t.due, t.done);
       row.innerHTML =
         '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
@@ -2692,6 +2693,7 @@
       } else if (t.due){
         row.querySelector('.due').textContent = (urgency === 'overdue' ? 'Overdue — was due ' : 'Due ') + t.due;
       }
+      row.querySelector('input[type=checkbox]').addEventListener('click', function(e){ e.stopPropagation(); });
       row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
         t.done = e.target.checked;
         if (t.done){
@@ -2701,7 +2703,10 @@
         }
         markDirty(); renderTasks();
       });
-      row.querySelector('.del').addEventListener('click', function(){
+      row.addEventListener('click', function(){ openTaskEditModal(t.id); });
+      row.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete "' + t.text + '"? This can\'t be undone.')) return;
         data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
         markDirty(); renderTasks();
       });
@@ -2714,6 +2719,70 @@
     // patching each one. Guarded since renderTasks() runs at boot before the
     // dashboard's own elements necessarily exist in a given render pass.
     if (document.getElementById('dashStats')) renderHome();
+  }
+
+  // Shared edit modal for tasks — used from both the main Tasks panel and a client's own
+  // Tasks subsection, so there's one place that knows how to edit a task. Mirrors the same
+  // edit-modal pattern used for paperwork, galleries and documents.
+  function openTaskEditModal(id){
+    const t = data.tasks.find(function(x){ return x.id === id; });
+    if (!t) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Task</h3>' +
+        '<div class="field"><label>Task</label><input type="text" id="taskEditText"></div>' +
+        '<div class="field"><label>Category</label><select id="taskEditCategory">' +
+          '<option value="">No category</option>' +
+          Object.keys(CATEGORY_LABELS).map(function(k){ return '<option value="' + k + '">' + CATEGORY_LABELS[k] + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label>Client</label><select id="taskEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Due date</label><input type="date" id="taskEditDue"></div>' +
+        '<div class="field" style="display:flex;align-items:center;gap:8px;flex-direction:row;">' +
+          '<input type="checkbox" id="taskEditDone" style="width:auto;"><label for="taskEditDone" style="margin:0;">Completed</label>' +
+        '</div>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="taskEditCancel">Close</button>' +
+          '<button class="btn btn-ghost" id="taskEditDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-primary" id="taskEditSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const clientSel = backdrop.querySelector('#taskEditClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#taskEditText').value = t.text || '';
+    backdrop.querySelector('#taskEditCategory').value = t.category || '';
+    clientSel.value = t.clientId || '';
+    backdrop.querySelector('#taskEditDue').value = t.due || '';
+    backdrop.querySelector('#taskEditDone').checked = !!t.done;
+
+    backdrop.querySelector('#taskEditCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#taskEditDelete').addEventListener('click', function(){
+      if (!confirm('Delete "' + (t.text || 'this task') + '"? This can\'t be undone.')) return;
+      data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
+      markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome();
+      toast('Task deleted.');
+    });
+    backdrop.querySelector('#taskEditSave').addEventListener('click', function(){
+      t.text = backdrop.querySelector('#taskEditText').value.trim() || t.text;
+      t.category = backdrop.querySelector('#taskEditCategory').value || '';
+      t.clientId = clientSel.value || '';
+      t.due = backdrop.querySelector('#taskEditDue').value || '';
+      const nowDone = backdrop.querySelector('#taskEditDone').checked;
+      if (nowDone && !t.done){
+        t.completedAt = todayIso_();
+      } else if (!nowDone){
+        t.completedAt = '';
+      }
+      t.done = nowDone;
+      markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome();
+      toast('Task updated.');
+    });
   }
 
   // ---------------------------------------------------------------- alerts
@@ -2861,7 +2930,7 @@
     const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: clientEl.value || '' };
     if (catEl.value) entry.category = catEl.value;
     data.tasks.push(entry);
-    textEl.value = ''; dueEl.value = ''; clientEl.value = '';
+    textEl.value = ''; dueEl.value = ''; clientEl.value = ''; catEl.value = '';
     markDirty(); renderTasks();
   });
   document.getElementById('taskText').addEventListener('keydown', function(e){
@@ -4454,6 +4523,7 @@
         const urgency = dateUrgency(t.due, t.done);
         const row = document.createElement('div');
         row.className = 'task-row' + (t.done ? ' done' : '');
+        row.style.cursor = 'pointer';
         row.innerHTML =
           '<input type="checkbox"' + (t.done ? ' checked' : '') + '>' +
           '<div class="body"><div class="txt"></div>' +
@@ -4461,12 +4531,16 @@
           '</div><button class="del" title="Delete">✕</button>';
         row.querySelector('.txt').textContent = t.text;
         if (!t.done && t.due) row.querySelector('.due').textContent = (urgency === 'overdue' ? 'Overdue — was due ' : 'Due ') + t.due;
+        row.querySelector('input[type=checkbox]').addEventListener('click', function(e){ e.stopPropagation(); });
         row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
           t.done = e.target.checked;
           t.completedAt = t.done ? todayIso_() : '';
           markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
         });
-        row.querySelector('.del').addEventListener('click', function(){
+        row.addEventListener('click', function(){ backdrop.remove(); openTaskEditModal(t.id); });
+        row.querySelector('.del').addEventListener('click', function(e){
+          e.stopPropagation();
+          if (!confirm('Delete "' + t.text + '"? This can\'t be undone.')) return;
           data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
           markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
         });
