@@ -177,7 +177,12 @@
     border:1px solid var(--border);border-radius:8px;overflow:hidden;}
   .cal-grid .dow{background:#f0f1f4;text-align:center;font-size:10.5px;font-weight:700;
     color:var(--muted);padding:6px 0;text-transform:uppercase;letter-spacing:.04em;}
-  .cal-cell{background:#fff;min-height:64px;padding:5px;font-size:12px;cursor:pointer;position:relative;}
+  /* min-width:0 overrides the grid item's default auto min-size (which is driven by the
+     nowrap chip's full unwrapped text width) — without it, one long, unbreakable chip title
+     forces its whole column wider than an equal 1/7 share, squeezing or pushing other
+     columns out of view. Added 16 Sep 2026 after long real calendar event titles surfaced
+     this on the self-employed calendar; same fix benefits the Imagescape one too. */
+  .cal-cell{background:#fff;min-height:64px;padding:5px;font-size:12px;cursor:pointer;position:relative;min-width:0;}
   .cal-cell:hover{background:#fafbfd;}
   .cal-cell.empty{background:#fafafb;cursor:default;}
   .cal-cell .daynum{font-weight:700;font-size:12px;}
@@ -805,6 +810,7 @@
     <button data-panel="sedash" class="active">Dashboard</button>
     <button data-panel="secal">Calendar</button>
     <button data-panel="seclients">Clients</button>
+    <button data-panel="seinvoices">Invoices</button>
     <button data-panel="setax">Tax spreadsheet</button>
   </nav>
 
@@ -1162,7 +1168,7 @@
     <div class="panel" id="panel-secal">
       <div class="card">
         <h2>Work calendar</h2>
-        <div class="sub">Reads your jcookeinv@gmail.com Google Calendar — read-only, this can't create, edit, or delete anything on your calendar. Pull a month and it matches each event to a client (see the Clients tab) by the code at the start of its title; anything that doesn't match is listed separately rather than guessed at.</div>
+        <div class="sub">Reads your jcookeinv@gmail.com Google Calendar — read-only, this can't create, edit, or delete anything on your calendar. Pull a month and it matches each event to a client (see the Clients tab) by their <strong>Calendar Code</strong> at the start of its title; anything that doesn't match is listed separately rather than guessed at.</div>
         <div class="wp-status">
           <span class="pill disconnected" id="stCalStatusPill"><span class="dot"></span><span id="stCalStatusText">Not connected</span></span>
           <button class="btn btn-ghost" id="stCalConnectBtn" style="padding:6px 12px;font-size:12.5px;">Connect calendar</button>
@@ -1180,17 +1186,46 @@
     <div class="panel" id="panel-seclients">
       <div class="card">
         <h2>Sole trader clients</h2>
-        <div class="sub">Each client gets a short code. Start every calendar event's title with a client's code (e.g. "RM - mentoring") and the work calendar can match it automatically. The journey/reason/miles are what get written to the Expenses tab of your tax spreadsheet for each matched session — total is always miles &times; 45p, HMRC's mileage rate, worked out fresh each time rather than stored.</div>
+        <div class="sub">Each client gets two separate short codes, added 16 Sep 2026 so calendar matching and invoice numbering don't collide. <strong>Calendar Code</strong> — start every calendar event's title with it (e.g. "RM - mentoring") and the work calendar can match it automatically. <strong>Invoice Code</strong> — the prefix on that client's invoice numbers in your tax spreadsheet's Invoices tab (e.g. "R26-0008"). <strong>Day rate</strong> and <strong>hours/day</strong>, added 16 Sep 2026, are what the Invoices tab uses to work out a session's amount — a session billed for fewer hours than a full day is charged pro-rata (day rate &divide; hours/day &times; hours worked). The journey/reason/miles are what get written to the Expenses tab for each matched calendar session — total is always miles &times; 45p, HMRC's mileage rate, worked out fresh each time rather than stored.</div>
         <div class="link-add">
           <input type="text" id="stClientName" placeholder="Client name">
-          <input type="text" id="stClientCode" placeholder="Code (e.g. RM)" style="max-width:110px;text-transform:uppercase;" maxlength="6">
+          <input type="text" id="stClientCode" placeholder="Calendar Code (e.g. RM)" style="max-width:150px;text-transform:uppercase;" maxlength="6">
+          <input type="text" id="stClientInvoiceCode" placeholder="Invoice Code (e.g. R)" style="max-width:140px;text-transform:uppercase;" maxlength="6">
+          <input type="number" id="stClientDayRate" placeholder="Day rate (£)" min="0" step="0.01" style="max-width:120px;">
+          <input type="number" id="stClientDayHours" placeholder="Hours/day" min="0.5" step="0.5" style="max-width:110px;">
           <input type="text" id="stClientJourney" placeholder="Journey (e.g. Beeston to Shepshed & return)">
           <input type="text" id="stClientReason" placeholder="Reason (e.g. JJ Shop work)">
           <input type="number" id="stClientMiles" placeholder="Miles" min="0" step="1" style="max-width:90px;">
           <button class="btn btn-primary" id="stClientAddBtn" style="width:auto;">Add client</button>
+          <button class="btn btn-ghost" id="stClientCancelEditBtn" style="width:auto;display:none;">Cancel edit</button>
         </div>
-        <div class="optional-hint">Journey/reason/miles are optional if you'll only ever use the calendar pull for matching, not for writing Expenses rows.</div>
+        <div class="optional-hint">Invoice Code, day rate/hours, journey/reason/miles are all optional if you'll only ever use the calendar pull for matching, not for raising invoices or writing Expenses rows.</div>
         <div id="stClientList" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-seinvoices">
+      <div class="card">
+        <h2>Raise an invoice</h2>
+        <div class="sub">Pulls that client's matched calendar sessions for a month, lets you tick which to bill and adjust hours per session, fills their invoice template (or a blank fallback) with the next invoice number from your tax spreadsheet, and saves the finished .ods and a PDF copy into <strong>Sole trader &gt; Invoices &gt; </strong>that client's folder in Drive. Set a day rate and hours/day for the client on the Clients tab first.</div>
+        <div class="link-add">
+          <select id="invClientSelect"><option value="">Choose a client…</option></select>
+          <input type="month" id="invMonthPicker">
+          <button class="btn btn-ghost" id="invPullBtn" style="width:auto;">Pull sessions</button>
+        </div>
+        <div id="invRateHint" class="hint" style="margin-top:6px;"></div>
+        <div id="invSessions" style="margin-top:12px;"></div>
+        <div class="link-add" style="margin-top:12px;">
+          <input type="text" id="invMaterials" placeholder="Materials (default: None)" style="flex:1;">
+        </div>
+        <div id="invTotals" class="hint" style="margin-top:8px;"></div>
+        <div class="link-add" style="margin-top:12px;">
+          <input type="text" id="invFolderName" placeholder="Drive folder under Sole trader › Invoices (auto-filled once you pick a client)">
+        </div>
+        <div id="invTemplateHint" class="hint" style="margin-top:6px;"></div>
+        <button class="btn btn-primary" id="invGenerateBtn" style="width:auto;margin-top:12px;">Generate invoice</button>
+        <div id="invStatus" class="hint" style="margin-top:10px;"></div>
+        <div id="invResult" style="margin-top:10px;"></div>
       </div>
     </div>
 
@@ -1949,6 +1984,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       c.id = c.id || randomId();
       c.name = c.name || '';
       c.code = (c.code || '').toUpperCase();
+      // Invoice Code, added 16 Sep 2026 — a separate prefix from the Calendar Code above
+      // (matches the client's invoice numbers in the tax spreadsheet's Invoices tab, e.g.
+      // "R" for Ruth Malloy's R26-0008, vs. her Calendar Code "RM"). Defaults to blank on
+      // existing client records rather than guessing, since it's not derivable from what's
+      // already stored here.
+      c.invoiceCode = (c.invoiceCode || '').toUpperCase();
+      // Day rate + standard hours/day, added 16 Sep 2026 for the Invoices tab - a session
+      // billed for fewer hours than a full day is charged dayRate / dayHours * hours worked.
+      // Defaults to 0/8 on existing records (0 rate means "not set yet", surfaced as a
+      // warning on the Invoices tab rather than silently invoicing for £0).
+      c.dayRate = (typeof c.dayRate === 'number' && c.dayRate >= 0) ? c.dayRate : (Number(c.dayRate) || 0);
+      c.dayHours = (typeof c.dayHours === 'number' && c.dayHours > 0) ? c.dayHours : (Number(c.dayHours) || 8);
       // Mileage-claim template for this client - used when writing new Expenses rows to
       // the tax spreadsheet (see "Sole trader tax spreadsheet" below). Total is always
       // derived from miles at HMRC's 45p rate at write time, not stored separately, so it
@@ -2114,9 +2161,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // addable from that panel like any other seeded default.
   function defaultSoleTraderClients(){
     return [
-      { id: randomId(), name: 'Ruth Malloy', code: 'RM',
+      { id: randomId(), name: 'Ruth Malloy', code: 'RM', invoiceCode: 'R', dayRate: 0, dayHours: 8,
         journey: 'Beeston NG9 1PB to Mountsorrel LE12 7UJ & return', reason: 'Mentoring J Hallam', miles: 50 },
-      { id: randomId(), name: 'Just Jules Jewellery', code: 'JJ',
+      { id: randomId(), name: 'Just Jules Jewellery', code: 'JJ', invoiceCode: 'J', dayRate: 0, dayHours: 8,
         journey: 'Beeston NG9 1PB to Shepshed LE12 9YE & return', reason: 'JJ Shop work', miles: 40 }
     ];
   }
@@ -2571,27 +2618,637 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
-  function renderSoleTraderClients(){
-    const wrap = document.getElementById('stClientList');
+  // ---------------------------------------------------------------- Sole trader invoicing
+  // Added 16 Sep 2026. Fills an existing invoice template (.ods, reused from a client's
+  // last real invoice, or the generic "Misc Invoice Template.ods" fallback) with a fresh
+  // invoice number, date, line items and total, then saves the filled .ods plus a PDF
+  // copy into that client's folder under Sole trader > Invoices in Drive. Cell positions
+  // are found by searching for known label text ("Invoice Number:", "Description", "Total:"
+  // etc.) rather than hardcoded row/column indices, since real templates vary slightly
+  // between clients - slower, but robust to those differences. Reuses the Drive/ODS
+  // plumbing already built for the Expenses-tab writer above (driveApiFetch,
+  // driveUploadFetch, JSZip, ODF_NS, odsTableCells/odsGetCellAt/odsSetCell*).
+
+  function odsExpandedCellScan(row, fromExpandedIdx){
+    // Walks a row's cells (accounting for table:number-columns-repeated blocks) and
+    // returns the rightmost single (non-repeated) cell with real text content at or
+    // after fromExpandedIdx - used to find a label's value cell without guessing a
+    // fixed column offset, since real templates carry the previous invoice's own
+    // number/date/total there already (even the blank template uses "-" placeholders).
+    const cells = odsTableCells(row);
+    let idx = 0, best = null;
+    for (let ci = 0; ci < cells.length; ci++){
+      const c = cells[ci];
+      const repAttr = c.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+      const rep = repAttr ? parseInt(repAttr, 10) : 1;
+      if (rep === 1 && idx >= fromExpandedIdx && (c.textContent || '').trim()) best = c;
+      idx += rep;
+    }
+    return best;
+  }
+
+  // Finds the first row with a cell reading (or starting with) labelText, returning that
+  // row plus the label cell's expanded column index (accounting for repeated-cell blocks,
+  // so it lines up with odsGetCellAt's colIdx).
+  function odsFindRowByLabel(table, labelText){
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const needle = labelText.trim().toLowerCase();
+    for (let r = 0; r < rows.length; r++){
+      const cells = odsTableCells(rows[r]);
+      let idx = 0;
+      for (let ci = 0; ci < cells.length; ci++){
+        const c = cells[ci];
+        const repAttr = c.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+        const rep = repAttr ? parseInt(repAttr, 10) : 1;
+        if (rep === 1){
+          const txt = (c.textContent || '').trim().toLowerCase();
+          if (txt && (txt === needle || txt.indexOf(needle) === 0)) return { row: rows[r], cellIndex: idx };
+        }
+        idx += rep;
+      }
+    }
+    return null;
+  }
+
+  function odsSetLabelledValue(xmlDoc, table, labelText, value, opts){
+    opts = opts || {};
+    const found = odsFindRowByLabel(table, labelText);
+    if (!found) throw new Error('Could not find a "' + labelText + '" field in this invoice template.');
+    let cell = odsExpandedCellScan(found.row, found.cellIndex + 1);
+    if (!cell) cell = odsGetCellAt(found.row, found.cellIndex + 1);
+    if (opts.asDate) odsSetCellDate(xmlDoc, cell, opts.isoDate, value);
+    else odsSetCellText(xmlDoc, cell, value);
+  }
+
+  // Locates the item table's header row (the one with "Description"/"Amount" cells) and
+  // the real column positions of Description/Date(s)/Amount, read from that row's own
+  // label text rather than assumed offsets.
+  function odsFindItemHeader(table){
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    for (let r = 0; r < rows.length; r++){
+      const cells = odsTableCells(rows[r]);
+      let idx = 0, descIdx = -1, dateIdx = -1, amtIdx = -1;
+      for (let ci = 0; ci < cells.length; ci++){
+        const c = cells[ci];
+        const repAttr = c.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+        const rep = repAttr ? parseInt(repAttr, 10) : 1;
+        if (rep === 1){
+          const txt = (c.textContent || '').trim().toLowerCase();
+          if (txt.indexOf('description') === 0) descIdx = idx;
+          else if (txt.indexOf('date') === 0) dateIdx = idx;
+          else if (txt.indexOf('amount') === 0) amtIdx = idx;
+        }
+        idx += rep;
+      }
+      if (descIdx !== -1 && amtIdx !== -1){
+        return { row: rows[r], rowIndex: r, descIdx: descIdx, dateIdx: dateIdx === -1 ? descIdx + 1 : dateIdx, amtIdx: amtIdx };
+      }
+    }
+    return null;
+  }
+
+  // Replaces whatever item rows the template currently has (leftovers from the last real
+  // invoice it was reused from) with one row per selected session, cloning the first
+  // existing item row as a style anchor so fonts/borders match the rest of the sheet.
+  function odsRebuildInvoiceItems(xmlDoc, table, items){
+    const header = odsFindItemHeader(table);
+    if (!header) throw new Error('Could not find the invoice’s item table (a "Description" header row).');
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const firstItemRow = rows[header.rowIndex + 1];
+    if (!firstItemRow) throw new Error('This invoice template has no item row under its header to copy.');
+    const anchor = firstItemRow.cloneNode(true);
+
+    const itemRows = [];
+    let r = header.rowIndex + 1;
+    while (r < rows.length){
+      const cells = odsTableCells(rows[r]);
+      const firstTxt = cells.length ? (cells[0].textContent || '').trim().toLowerCase() : '';
+      if (firstTxt.indexOf('materials') === 0 || firstTxt.indexOf('total') === 0) break;
+      itemRows.push(rows[r]);
+      r++;
+    }
+    if (!itemRows.length) throw new Error('Could not find any item rows to replace in this invoice template.');
+
+    const parent = itemRows[0].parentNode;
+    const insertBefore = itemRows[itemRows.length - 1].nextSibling;
+    itemRows.forEach(function(row){ parent.removeChild(row); });
+
+    items.forEach(function(item){
+      const newRow = anchor.cloneNode(true);
+      const descCell = odsGetCellAt(newRow, header.descIdx);
+      const dateCell = odsGetCellAt(newRow, header.dateIdx);
+      const amtCell = odsGetCellAt(newRow, header.amtIdx);
+      odsSetCellText(xmlDoc, descCell, item.description);
+      if (item.isoDate) odsSetCellDate(xmlDoc, dateCell, item.isoDate, item.dateLabel || ddmmyy(item.isoDate));
+      else odsSetCellText(xmlDoc, dateCell, item.dateLabel || '');
+      odsSetCellFloat(xmlDoc, amtCell, item.amount, fmtGBP(item.amount));
+      parent.insertBefore(newRow, insertBefore);
+    });
+  }
+
+  // Sets the "Materials" section's value, in the row directly below its label - both real
+  // templates cross-checked this session (Just Jules, Ruth Malloy) use that layout.
+  // Optional: a template without a Materials section is left alone rather than erroring.
+  function odsSetMaterials(xmlDoc, table, text){
+    const found = odsFindRowByLabel(table, 'Materials');
+    if (!found) return;
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const labelRowIdx = rows.indexOf(found.row);
+    const valueRow = rows[labelRowIdx + 1];
+    if (!valueRow) return;
+    const cells = odsTableCells(valueRow);
+    if (!cells.length) return;
+    let target = odsExpandedCellScan(valueRow, 0) || cells[0];
+    odsSetCellText(xmlDoc, target, text || 'None');
+  }
+
+  // Sets the "Total:" row's amount - tries the item table's own Amount column first
+  // (the total should line up under the item amounts), falling back to the rightmost
+  // already-filled cell on that row if the column doesn't line up for some reason.
+  function odsSetTotal(xmlDoc, table, total, amtColIdx){
+    const found = odsFindRowByLabel(table, 'Total');
+    if (!found) throw new Error('Could not find a "Total:" row in this invoice template.');
+    let cell = null;
+    if (typeof amtColIdx === 'number'){
+      try { cell = odsGetCellAt(found.row, amtColIdx); } catch (e){ cell = null; }
+    }
+    if (!cell) cell = odsExpandedCellScan(found.row, found.cellIndex + 1);
+    if (!cell) throw new Error('Could not find where to write the invoice total in this template.');
+    odsSetCellFloat(xmlDoc, cell, total, fmtGBP(total));
+  }
+
+  async function findDriveFolderByName(name, parentId){
+    let q = "name = '" + name.replace(/'/g, "\\'") + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    if (parentId) q += " and '" + parentId.replace(/'/g, "\\'") + "' in parents";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
+    if (!res.ok) throw new Error('Could not search Drive for the "' + name + '" folder (status ' + res.status + ').');
+    const body = await res.json();
+    return (body.files && body.files[0]) || null;
+  }
+
+  let soleTraderInvoicesFolderId = null;
+  async function findSoleTraderInvoicesFolder(){
+    if (soleTraderInvoicesFolderId) return soleTraderInvoicesFolderId;
+    const soleTrader = await findDriveFolderByName('Sole trader', null);
+    if (!soleTrader) throw new Error('Could not find a "Sole trader" folder in your Drive.');
+    const invoices = await findDriveFolderByName('Invoices', soleTrader.id);
+    if (!invoices) throw new Error('Could not find an "Invoices" folder inside "Sole trader" in your Drive.');
+    soleTraderInvoicesFolderId = invoices.id;
+    return invoices.id;
+  }
+
+  async function listSoleTraderInvoiceFolders(){
+    const invoicesFolderId = await findSoleTraderInvoicesFolder();
+    const q = "'" + invoicesFolderId.replace(/'/g, "\\'") + "' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
+    if (!res.ok) throw new Error('Could not list folders inside "Invoices" (status ' + res.status + ').');
+    const body = await res.json();
+    return body.files || [];
+  }
+
+  // Best-guess match between a client's Hub name (e.g. "Just Jules Jewellery") and their
+  // real Drive folder name (e.g. "Just Jules") - real folder names don't always match the
+  // Hub's client name exactly, so this is shown to Jon as an editable suggestion rather
+  // than used silently.
+  async function guessClientInvoiceFolderName(client){
+    const folders = await listSoleTraderInvoiceFolders();
+    const nameLower = client.name.trim().toLowerCase();
+    let best = folders.find(function(f){ return f.name.trim().toLowerCase() === nameLower; });
+    if (!best) best = folders.find(function(f){ return nameLower.indexOf(f.name.trim().toLowerCase()) !== -1 || f.name.trim().toLowerCase().indexOf(nameLower) !== -1; });
+    if (!best){
+      const firstWord = nameLower.split(' ')[0];
+      best = folders.find(function(f){ return f.name.trim().toLowerCase().indexOf(firstWord) !== -1; });
+    }
+    return best ? best.name : client.name;
+  }
+
+  async function ensureClientInvoiceFolder(folderName){
+    const invoicesFolderId = await findSoleTraderInvoicesFolder();
+    let folder = await findDriveFolderByName(folderName, invoicesFolderId);
+    if (!folder){
+      const createRes = await driveApiFetch('/files?fields=id,name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [invoicesFolderId] })
+      });
+      if (!createRes.ok) throw new Error('Could not create a Drive folder for "' + folderName + '".');
+      folder = await createRes.json();
+    }
+    return folder.id;
+  }
+
+  async function findClientInvoiceTemplate(client, folderName){
+    const invoicesFolderId = await findSoleTraderInvoicesFolder();
+    const templatesFolder = await findDriveFolderByName('Invoice Templates', invoicesFolderId);
+    if (!templatesFolder) throw new Error('Could not find an "Invoice Templates" folder inside "Invoices" in your Drive.');
+    const q = "'" + templatesFolder.id.replace(/'/g, "\\'") + "' in parents and mimeType = 'application/vnd.oasis.opendocument.spreadsheet' and trashed = false";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
+    if (!res.ok) throw new Error('Could not list invoice templates (status ' + res.status + ').');
+    const body = await res.json();
+    const files = body.files || [];
+    if (!files.length) throw new Error('No .ods templates found in "Invoice Templates".');
+    const nameLower = client.name.trim().toLowerCase();
+    const folderLower = (folderName || '').trim().toLowerCase();
+    let best = files.find(function(f){ return f.name.toLowerCase().indexOf(nameLower) !== -1; });
+    if (!best && folderLower) best = files.find(function(f){ return f.name.toLowerCase().indexOf(folderLower) !== -1; });
+    if (!best){
+      const firstWord = nameLower.split(' ')[0];
+      best = files.find(function(f){ return f.name.toLowerCase().indexOf(firstWord) !== -1; });
+    }
+    if (!best) best = files.find(function(f){ return f.name.toLowerCase().indexOf('misc') !== -1; });
+    if (!best) best = files[0];
+    return best;
+  }
+
+  function nextInvoiceNumberFromExisting(existingNumbers, invoiceCode, yy){
+    const prefix = (invoiceCode + yy + '-').toUpperCase();
+    let maxSeq = 0;
+    existingNumbers.forEach(function(n){
+      const s = (n || '').trim().toUpperCase();
+      if (s.indexOf(prefix) === 0){
+        const seq = parseInt(s.slice(prefix.length), 10);
+        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+      }
+    });
+    return invoiceCode.toUpperCase() + yy + '-' + String(maxSeq + 1).padStart(4, '0');
+  }
+
+  // Reads every cell on the tax spreadsheet's Invoices tab looking for anything shaped
+  // like an invoice number (e.g. "R26-0008"), rather than assuming which column they're
+  // in, then works out this client's next number for the current year.
+  async function nextInvoiceNumberForClient(client){
+    if (!client.invoiceCode) throw new Error('Set an Invoice Code for ' + client.name + ' on the Clients tab first.');
+    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
+      throw new Error('Link your tax spreadsheet on the Tax spreadsheet tab first, so the next invoice number can be worked out.');
+    }
+    const { zip } = await downloadTaxSpreadsheetZip();
+    const xmlDoc = await odsLoadContentXml(zip);
+    const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+    if (!invoicesTable) throw new Error('Could not find an "Invoices" tab in your tax spreadsheet.');
+    const rows = Array.prototype.slice.call(invoicesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const existingNumbers = [];
+    rows.forEach(function(row){
+      odsTableCells(row).forEach(function(cell){
+        const txt = (cell.textContent || '').trim();
+        if (/^[A-Za-z]{1,3}\d{2}-\d{3,5}$/.test(txt)) existingNumbers.push(txt);
+      });
+    });
+    const yy = String(new Date().getFullYear()).slice(2);
+    return nextInvoiceNumberFromExisting(existingNumbers, client.invoiceCode, yy);
+  }
+
+  function randomBoundary(){ return 'ohbnd' + randomId().replace(/-/g, ''); }
+
+  async function uploadNewDriveFile(blob, name, mimeType, folderId){
+    const bytes = await blob.arrayBuffer();
+    const boundary = randomBoundary();
+    const metadata = { name: name, parents: [folderId] };
+    const metaPart = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n--' + boundary + '\r\nContent-Type: ' + mimeType + '\r\n\r\n';
+    const tailPart = '\r\n--' + boundary + '--';
+    const body = new Blob([metaPart, bytes, tailPart]);
+    const res = await driveUploadFetch('/files?uploadType=multipart&fields=id,name,webViewLink', {
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+      body: body
+    });
+    if (!res.ok){
+      const b = await res.json().catch(function(){ return {}; });
+      throw new Error((b.error && b.error.message) || ('Could not upload ' + name + ' to Drive (status ' + res.status + ').'));
+    }
+    return res.json();
+  }
+
+  // No server is available to render a PDF, so this leans on Drive itself: upload the
+  // filled .ods as a Google Sheets-native file (Drive auto-converts on import when the
+  // metadata mimeType differs from the uploaded content's own type), export that native
+  // copy to PDF, then always delete the temporary Sheets file again.
+  async function convertOdsBlobToPdf(odsBlob, tempName){
+    const bytes = await odsBlob.arrayBuffer();
+    const boundary = randomBoundary();
+    const metadata = { name: tempName, mimeType: 'application/vnd.google-apps.spreadsheet' };
+    const metaPart = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n--' + boundary + '\r\nContent-Type: application/vnd.oasis.opendocument.spreadsheet\r\n\r\n';
+    const tailPart = '\r\n--' + boundary + '--';
+    const body = new Blob([metaPart, bytes, tailPart]);
+    const createRes = await driveUploadFetch('/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+      body: body
+    });
+    if (!createRes.ok){
+      const b = await createRes.json().catch(function(){ return {}; });
+      throw new Error((b.error && b.error.message) || 'Could not convert the invoice to a PDF.');
+    }
+    const created = await createRes.json();
+    const tempId = created.id;
+    try {
+      const exportRes = await driveApiFetch('/files/' + tempId + '/export?mimeType=application/pdf');
+      if (!exportRes.ok) throw new Error('Could not export the invoice as a PDF (status ' + exportRes.status + ').');
+      return await exportRes.blob();
+    } finally {
+      await driveApiFetch('/files/' + tempId, { method: 'DELETE' }).catch(function(){});
+    }
+  }
+
+  async function generateSoleTraderInvoice(opts){
+    // opts: { templateFileId, folderId, invoiceNumber, invoiceDateIso, items, materialsText }
+    const metaRes = await driveApiFetch('/files/' + opts.templateFileId + '?fields=id,name,trashed');
+    if (!metaRes.ok) throw new Error('Could not read the invoice template from Drive (status ' + metaRes.status + ').');
+    const meta = await metaRes.json();
+    if (meta.trashed) throw new Error('The invoice template "' + meta.name + '" is in Drive’s trash — restore it first.');
+    const contentRes = await driveApiFetch('/files/' + opts.templateFileId + '?alt=media');
+    if (!contentRes.ok) throw new Error('Could not download the invoice template (status ' + contentRes.status + ').');
+    const buf = await contentRes.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    const xmlDoc = await odsLoadContentXml(zip);
+    const table = xmlDoc.getElementsByTagNameNS(ODF_NS.table, 'table')[0];
+    if (!table) throw new Error('This invoice template has no sheet to fill in.');
+
+    const dateLabel = ddmmyy(opts.invoiceDateIso);
+    odsSetLabelledValue(xmlDoc, table, 'Invoice Number:', opts.invoiceNumber);
+    odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel, { asDate: true, isoDate: opts.invoiceDateIso });
+    const header = odsFindItemHeader(table);
+    if (!header) throw new Error('Could not find the invoice’s item table (a "Description" header row).');
+    odsRebuildInvoiceItems(xmlDoc, table, opts.items);
+    odsSetMaterials(xmlDoc, table, opts.materialsText);
+    const total = opts.items.reduce(function(sum, it){ return sum + it.amount; }, 0);
+    odsSetTotal(xmlDoc, table, total, header.amtIdx);
+
+    const savedBlob = await odsSaveContentXml(zip, xmlDoc);
+
+    // A second pass just for the PDF: strip every sheet but the first, so an unused extra
+    // tab in the template (seen in real templates as blank "Sheet2"/"Sheet3") doesn't turn
+    // into extra blank pages in the exported PDF. The saved .ods above keeps all sheets.
+    const pdfXmlDoc = new DOMParser().parseFromString(new XMLSerializer().serializeToString(xmlDoc), 'application/xml');
+    const pdfTables = Array.prototype.slice.call(pdfXmlDoc.getElementsByTagNameNS(ODF_NS.table, 'table'));
+    pdfTables.forEach(function(t, i){ if (i > 0 && t.parentNode) t.parentNode.removeChild(t); });
+    const pdfSourceBlob = await odsSaveContentXml(zip, pdfXmlDoc);
+
+    const odsUpload = await uploadNewDriveFile(savedBlob, opts.invoiceNumber + '.ods', 'application/vnd.oasis.opendocument.spreadsheet', opts.folderId);
+    const pdfBlob = await convertOdsBlobToPdf(pdfSourceBlob, opts.invoiceNumber + ' (temp conversion)');
+    const pdfUpload = await uploadNewDriveFile(pdfBlob, opts.invoiceNumber + '.pdf', 'application/pdf', opts.folderId);
+
+    return { odsFile: odsUpload, pdfFile: pdfUpload, total: total };
+  }
+
+  // ---------------------------------------------------------------- Invoices tab UI
+  let invSessions = []; // [{ key, isoDate, dateLabel, summary, hours, amount, checked }]
+
+  function renderInvoiceClientOptions(){
+    const sel = document.getElementById('invClientSelect');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Choose a client…</option>';
+    data.soleTraderClients.forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+    if (prev && data.soleTraderClients.some(function(c){ return c.id === prev; })) sel.value = prev;
+  }
+
+  function invSelectedClient(){
+    const sel = document.getElementById('invClientSelect');
+    const id = sel && sel.value;
+    if (!id) return null;
+    return data.soleTraderClients.find(function(c){ return c.id === id; }) || null;
+  }
+
+  function invUpdateRateHint(){
+    const hint = document.getElementById('invRateHint');
+    if (!hint) return;
+    const client = invSelectedClient();
+    if (!client){ hint.textContent = ''; return; }
+    if (!client.dayRate){
+      hint.innerHTML = '<span style="color:#b45309;">No day rate set for ' + escapeHtml(client.name) + ' yet — set one on the Clients tab first.</span>';
+    } else {
+      hint.textContent = client.name + ': ' + fmtGBP(client.dayRate) + ' / day at ' + client.dayHours + ' hours — a session is charged pro-rata against that.';
+    }
+  }
+
+  function invSessionAmount(client, hours){
+    if (!client || !client.dayRate || !client.dayHours) return 0;
+    return Math.round((client.dayRate / client.dayHours * hours) * 100) / 100;
+  }
+
+  function renderInvoiceSessions(){
+    const wrap = document.getElementById('invSessions');
     if (!wrap) return;
-    wrap.innerHTML = '';
-    if (!data.soleTraderClients.length){
-      wrap.innerHTML = '<div class="empty-note">No sole trader clients yet — add one above.</div>';
+    const client = invSelectedClient();
+    if (!invSessions.length){
+      wrap.innerHTML = '<div class="empty-note">No sessions pulled yet — pick a client and month, then "Pull sessions".</div>';
+      invUpdateInvoiceTotals();
       return;
     }
-    data.soleTraderClients.forEach(function(c){
-      const row = document.createElement('div');
-      row.className = 'task-row';
-      row.innerHTML = '<div class="body"><div class="txt"></div></div><button class="del" title="Delete">✕</button>';
-      const mileageBit = c.miles ? (' · ' + c.miles + 'mi/trip (' + fmtGBP(c.miles * 0.45) + ')') : ' · no mileage template set';
-      row.querySelector('.txt').textContent = c.name + ' — code "' + c.code + '"' + mileageBit;
-      row.querySelector('.del').addEventListener('click', function(){
-        if (!confirm('Remove ' + c.name + '? This only removes the client from this list — it won\'t touch any calendar events.')) return;
-        data.soleTraderClients = data.soleTraderClients.filter(function(x){ return x.id !== c.id; });
-        markDirty(); renderSoleTraderClients();
-      });
-      wrap.appendChild(row);
+    let html = '<div class="zoho-snapshot">';
+    invSessions.forEach(function(s){
+      html += '<div class="zoho-row" data-key="' + escapeHtml(s.key) + '">' +
+        '<label style="display:flex;align-items:center;gap:8px;flex:1;">' +
+        '<input type="checkbox" class="inv-check" ' + (s.checked ? 'checked' : '') + '>' +
+        '<span>' + escapeHtml(s.isoDate) + ' — ' + escapeHtml(s.summary) + '</span>' +
+        '</label>' +
+        '<span style="display:flex;align-items:center;gap:8px;">' +
+        '<input type="number" class="inv-hours" min="0" step="0.25" value="' + s.hours + '" style="width:70px;">' +
+        '<span class="inv-amount" style="min-width:70px;text-align:right;display:inline-block;">' + fmtGBP(s.amount) + '</span>' +
+        '</span></div>';
     });
+    html += '</div>';
+    wrap.innerHTML = html;
+    Array.prototype.forEach.call(wrap.querySelectorAll('.zoho-row'), function(row){
+      const key = row.getAttribute('data-key');
+      const session = invSessions.find(function(s){ return s.key === key; });
+      row.querySelector('.inv-check').addEventListener('change', function(e){
+        session.checked = e.target.checked;
+        invUpdateInvoiceTotals();
+      });
+      row.querySelector('.inv-hours').addEventListener('input', function(e){
+        session.hours = Number(e.target.value) || 0;
+        session.amount = invSessionAmount(client, session.hours);
+        row.querySelector('.inv-amount').textContent = fmtGBP(session.amount);
+        invUpdateInvoiceTotals();
+      });
+    });
+    invUpdateInvoiceTotals();
+  }
+
+  function invUpdateInvoiceTotals(){
+    const totalsEl = document.getElementById('invTotals');
+    if (!totalsEl) return;
+    const checked = invSessions.filter(function(s){ return s.checked; });
+    const total = checked.reduce(function(sum, s){ return sum + s.amount; }, 0);
+    totalsEl.textContent = checked.length ? (checked.length + ' session' + (checked.length === 1 ? '' : 's') + ' selected — total ' + fmtGBP(total)) : 'No sessions selected yet.';
+  }
+
+  async function invPullSessions(){
+    const status = document.getElementById('invStatus');
+    const client = invSelectedClient();
+    const monthPicker = document.getElementById('invMonthPicker');
+    const yearMonth = monthPicker && monthPicker.value;
+    invSessions = [];
+    document.getElementById('invResult').innerHTML = '';
+    if (!client){ status.textContent = 'Choose a client first.'; return; }
+    if (!yearMonth){ status.textContent = 'Pick a month first.'; return; }
+    status.textContent = 'Pulling sessions…';
+    try {
+      const events = await fetchSoleTraderMonth(yearMonth);
+      const matched = events.filter(function(ev){ const c = matchEventToSoleTraderClient(ev); return c && c.id === client.id; });
+      invSessions = matched.map(function(ev, i){
+        const isoD = soleTraderEventDateLabel(ev);
+        const hours = client.dayHours || 8;
+        return {
+          key: isoD + '-' + i,
+          isoDate: isoD,
+          summary: (ev.summary || '').replace(new RegExp('^' + client.code + '\\s*[-–—:]*\\s*', 'i'), '') || (ev.summary || ''),
+          hours: hours,
+          amount: invSessionAmount(client, hours),
+          checked: true
+        };
+      }).sort(function(a, b){ return a.isoDate.localeCompare(b.isoDate); });
+      status.textContent = invSessions.length ? ('Found ' + invSessions.length + ' session' + (invSessions.length === 1 ? '' : 's') + ' for ' + client.name + '.') : ('No calendar sessions matched to ' + client.name + ' that month.');
+      renderInvoiceSessions();
+
+      const folderEl = document.getElementById('invFolderName');
+      const templateHint = document.getElementById('invTemplateHint');
+      if (folderEl && !folderEl.value){
+        templateHint.textContent = 'Looking up their Drive folder…';
+        try {
+          folderEl.value = await guessClientInvoiceFolderName(client);
+          templateHint.textContent = 'Guessed from your Drive — check it before generating, and edit it if it’s wrong.';
+        } catch (e){
+          templateHint.textContent = e.message || 'Could not look up a folder — you can still type one in.';
+        }
+      }
+    } catch (e){
+      status.textContent = '';
+      document.getElementById('invResult').innerHTML = '<div class="empty-note">' + escapeHtml(e.message || 'Could not read the calendar.') + '</div>';
+    }
+  }
+
+  async function invGenerateInvoice(){
+    const status = document.getElementById('invStatus');
+    const resultEl = document.getElementById('invResult');
+    const genBtn = document.getElementById('invGenerateBtn');
+    const client = invSelectedClient();
+    resultEl.innerHTML = '';
+    if (!client){ status.textContent = 'Choose a client first.'; return; }
+    if (!client.dayRate || !client.dayHours){ status.textContent = 'Set a day rate and hours/day for ' + client.name + ' on the Clients tab first.'; return; }
+    const checked = invSessions.filter(function(s){ return s.checked; });
+    if (!checked.length){ status.textContent = 'Tick at least one session to invoice.'; return; }
+    const folderEl = document.getElementById('invFolderName');
+    const folderName = (folderEl.value || '').trim() || client.name;
+    const materialsEl = document.getElementById('invMaterials');
+    const materialsText = (materialsEl.value || '').trim() || 'None';
+
+    genBtn.disabled = true;
+    try {
+      status.textContent = 'Working out the next invoice number…';
+      const invoiceNumber = await nextInvoiceNumberForClient(client);
+      status.textContent = 'Finding "' + folderName + '" in Drive…';
+      const folderId = await ensureClientInvoiceFolder(folderName);
+      status.textContent = 'Finding an invoice template…';
+      const template = await findClientInvoiceTemplate(client, folderName);
+      status.textContent = 'Filling "' + template.name + '"…';
+      const items = checked.map(function(s){ return { description: s.summary, isoDate: s.isoDate, amount: s.amount }; });
+      const todayIso = isoDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+      status.textContent = 'Saving the invoice and converting it to PDF (this can take a few seconds)…';
+      const result = await generateSoleTraderInvoice({
+        templateFileId: template.id, folderId: folderId, invoiceNumber: invoiceNumber,
+        invoiceDateIso: todayIso, items: items, materialsText: materialsText
+      });
+      status.textContent = 'Done.';
+      resultEl.innerHTML = '<div class="zoho-snapshot"><div class="zoho-row"><strong>' + escapeHtml(invoiceNumber) + '</strong><strong>' + fmtGBP(result.total) + '</strong></div>' +
+        '<div class="zoho-row"><span>Saved to "' + escapeHtml(folderName) + '" in Drive</span><span></span></div>' +
+        (result.odsFile.webViewLink ? '<div class="zoho-row"><a href="' + escapeHtml(result.odsFile.webViewLink) + '" target="_blank" rel="noopener">Open .ods</a><a href="' + escapeHtml(result.pdfFile.webViewLink || '#') + '" target="_blank" rel="noopener">Open PDF</a></div>' : '') +
+        '</div>';
+      toast('Invoice ' + invoiceNumber + ' saved to Drive.');
+    } catch (e){
+      status.textContent = '';
+      resultEl.innerHTML = '<div class="empty-note">' + escapeHtml(e.message || 'Could not generate the invoice.') + '</div>';
+    } finally {
+      genBtn.disabled = false;
+    }
+  }
+
+  (function(){
+    const clientSel = document.getElementById('invClientSelect');
+    if (clientSel) clientSel.addEventListener('change', function(){
+      invUpdateRateHint();
+      invSessions = [];
+      renderInvoiceSessions();
+      document.getElementById('invFolderName').value = '';
+      document.getElementById('invTemplateHint').textContent = '';
+      document.getElementById('invStatus').textContent = '';
+      document.getElementById('invResult').innerHTML = '';
+    });
+    const monthPicker = document.getElementById('invMonthPicker');
+    if (monthPicker && !monthPicker.value){
+      const now = new Date();
+      monthPicker.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+    const pullBtn = document.getElementById('invPullBtn');
+    if (pullBtn) pullBtn.addEventListener('click', invPullSessions);
+    const genBtn = document.getElementById('invGenerateBtn');
+    if (genBtn) genBtn.addEventListener('click', invGenerateInvoice);
+  })();
+
+  function renderSoleTraderClients(){
+    const wrap = document.getElementById('stClientList');
+    if (wrap){
+      wrap.innerHTML = '';
+      if (!data.soleTraderClients.length){
+        wrap.innerHTML = '<div class="empty-note">No sole trader clients yet — add one above.</div>';
+      } else {
+        data.soleTraderClients.forEach(function(c){
+          const row = document.createElement('div');
+          row.className = 'task-row';
+          row.innerHTML = '<div class="body"><div class="txt"></div></div><button class="btn btn-ghost edit" title="Edit" style="width:auto;padding:4px 10px;font-size:12px;margin-right:6px;">Edit</button><button class="del" title="Delete">✕</button>';
+          const mileageBit = c.miles ? (' · ' + c.miles + 'mi/trip (' + fmtGBP(c.miles * 0.45) + ')') : ' · no mileage template set';
+          const invoiceBit = c.invoiceCode ? (', invoice code "' + c.invoiceCode + '"') : ', no invoice code set';
+          const rateBit = c.dayRate ? (', ' + fmtGBP(c.dayRate) + '/day at ' + c.dayHours + 'h') : ', no day rate set';
+          row.querySelector('.txt').textContent = c.name + ' — calendar code "' + c.code + '"' + invoiceBit + rateBit + mileageBit;
+          row.querySelector('.edit').addEventListener('click', function(){ beginEditSoleTraderClient(c); });
+          row.querySelector('.del').addEventListener('click', function(){
+            if (!confirm('Remove ' + c.name + '? This only removes the client from this list — it won\'t touch any calendar events.')) return;
+            data.soleTraderClients = data.soleTraderClients.filter(function(x){ return x.id !== c.id; });
+            if (editingSoleTraderClientId === c.id) cancelEditSoleTraderClient();
+            markDirty(); renderSoleTraderClients();
+          });
+          wrap.appendChild(row);
+        });
+      }
+    }
+    renderInvoiceClientOptions();
+  }
+
+  // Edit-in-place for an existing sole trader client, added 16 Sep 2026 - repopulates the
+  // same add-form used for new clients and flips its button into a "Save changes" mode
+  // rather than duplicating the form markup.
+  let editingSoleTraderClientId = null;
+  function beginEditSoleTraderClient(c){
+    editingSoleTraderClientId = c.id;
+    document.getElementById('stClientName').value = c.name;
+    document.getElementById('stClientCode').value = c.code;
+    document.getElementById('stClientInvoiceCode').value = c.invoiceCode || '';
+    document.getElementById('stClientDayRate').value = c.dayRate || '';
+    document.getElementById('stClientDayHours').value = c.dayHours || 8;
+    document.getElementById('stClientJourney').value = c.journey || '';
+    document.getElementById('stClientReason').value = c.reason || '';
+    document.getElementById('stClientMiles').value = c.miles || '';
+    const addBtn = document.getElementById('stClientAddBtn');
+    if (addBtn) addBtn.textContent = 'Save changes';
+    const cancelBtn = document.getElementById('stClientCancelEditBtn');
+    if (cancelBtn) cancelBtn.style.display = '';
+  }
+  function cancelEditSoleTraderClient(){
+    editingSoleTraderClientId = null;
+    ['stClientName', 'stClientCode', 'stClientInvoiceCode', 'stClientDayRate', 'stClientJourney', 'stClientReason', 'stClientMiles'].forEach(function(id){
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const dayHoursEl = document.getElementById('stClientDayHours'); if (dayHoursEl) dayHoursEl.value = '';
+    const addBtn = document.getElementById('stClientAddBtn');
+    if (addBtn) addBtn.textContent = 'Add client';
+    const cancelBtn = document.getElementById('stClientCancelEditBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
   }
 
   (function(){
@@ -2599,23 +3256,41 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (addBtn) addBtn.addEventListener('click', function(){
       const nameEl = document.getElementById('stClientName');
       const codeEl = document.getElementById('stClientCode');
+      const invoiceCodeEl = document.getElementById('stClientInvoiceCode');
+      const dayRateEl = document.getElementById('stClientDayRate');
+      const dayHoursEl = document.getElementById('stClientDayHours');
       const journeyEl = document.getElementById('stClientJourney');
       const reasonEl = document.getElementById('stClientReason');
       const milesEl = document.getElementById('stClientMiles');
       const name = nameEl.value.trim();
       const code = codeEl.value.trim().toUpperCase();
+      const invoiceCode = invoiceCodeEl.value.trim().toUpperCase();
       if (!name || !code) return;
-      if (data.soleTraderClients.some(function(c){ return c.code.toUpperCase() === code; })){
-        alert('That code is already used by another client — pick a different one.');
+      const editingId = editingSoleTraderClientId;
+      if (data.soleTraderClients.some(function(c){ return c.code.toUpperCase() === code && c.id !== editingId; })){
+        alert('That Calendar Code is already used by another client — pick a different one.');
         return;
       }
-      data.soleTraderClients.push({
-        id: randomId(), name: name, code: code,
+      if (invoiceCode && data.soleTraderClients.some(function(c){ return c.invoiceCode && c.invoiceCode.toUpperCase() === invoiceCode && c.id !== editingId; })){
+        alert('That Invoice Code is already used by another client — pick a different one.');
+        return;
+      }
+      const fields = {
+        name: name, code: code, invoiceCode: invoiceCode,
+        dayRate: Number(dayRateEl.value) || 0, dayHours: Number(dayHoursEl.value) || 8,
         journey: journeyEl.value.trim(), reason: reasonEl.value.trim(), miles: Number(milesEl.value) || 0
-      });
-      nameEl.value = ''; codeEl.value = ''; journeyEl.value = ''; reasonEl.value = ''; milesEl.value = '';
+      };
+      if (editingId){
+        const existing = data.soleTraderClients.find(function(c){ return c.id === editingId; });
+        if (existing) Object.assign(existing, fields);
+      } else {
+        data.soleTraderClients.push(Object.assign({ id: randomId() }, fields));
+      }
+      cancelEditSoleTraderClient();
       markDirty(); renderSoleTraderClients();
     });
+    const cancelEditBtn = document.getElementById('stClientCancelEditBtn');
+    if (cancelEditBtn) cancelEditBtn.addEventListener('click', cancelEditSoleTraderClient);
     const connectBtn = document.getElementById('stCalConnectBtn');
     if (connectBtn) connectBtn.addEventListener('click', function(){
       getCalendarAccessToken(true).then(renderSoleTraderCalStatus).catch(function(e){
