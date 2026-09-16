@@ -95,7 +95,15 @@
   .dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:6px;}
   .gh-badge{font-size:11px;opacity:.8;padding:6px 10px;}
 
-  .global-search-wrap{position:relative;max-width:920px;margin:14px auto 0;padding:0 24px;}
+  /* Imagescape / Self-employed context switch, added 16 Sep 2026 */
+  .ctx-switch{display:flex;gap:2px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);
+    border-radius:9px;padding:3px;flex:0 0 auto;}
+  .ctx-switch button{background:none;border:none;color:rgba(255,255,255,.78);font-size:12.5px;font-weight:700;
+    padding:7px 15px;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  .ctx-switch button.active{background:#fff;color:var(--navy-deep);}
+  .ctx-switch button:not(.active):hover{color:#fff;}
+
+  .global-search-wrap{position:relative;max-width:1400px;margin:14px auto 0;padding:0 24px;}
   .global-search-wrap input{width:100%;padding:10px 14px;border:1px solid var(--border);
     border-radius:10px;font-size:13.5px;font-family:inherit;box-sizing:border-box;}
   .global-search-wrap input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold-deep);}
@@ -123,7 +131,7 @@
   nav.tabs button.group-btn{display:flex;align-items:center;gap:4px;}
   nav.tabs button.group-btn .chev{font-size:9px;opacity:.7;}
 
-  main.hub-main{max-width:920px;margin:0 auto;padding:26px 24px 80px;}
+  main.hub-main{max-width:1400px;margin:0 auto;padding:26px 24px 80px;}
   .panel{display:none;}
   .panel.active{display:block;}
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
@@ -562,7 +570,8 @@
     --oh-gold:#B8902F; --oh-navy:#4A5473; --oh-bg:#0A0B0F; --oh-bg-alt:#12151D; --oh-bg-card:#0D0F15;
     --oh-muted:#9AA1AB; --oh-line:rgba(184,144,47,0.18); --oh-ok:#4CAF6A; --oh-warn:#D98C2B;
     --oh-info:#4C90AF; --oh-neutral:#8C8578;
-    height:min(78vh, 760px); min-height:480px; display:flex; flex-direction:column;
+    /* was min(78vh, 760px) — Jon asked for this to fill the screen much more; 16 Sep 2026 */
+    height:min(89vh, 1500px); min-height:560px; display:flex; flex-direction:column;
     background:var(--oh-bg); color:#F1F2F3; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     border-radius:10px; overflow:hidden; border:1px solid var(--oh-line);
   }
@@ -744,6 +753,10 @@
       <span class="mark"></span>
       <div><strong>ImageScape Studios</strong><span>Management Hub</span></div>
     </div>
+    <div class="ctx-switch" id="ctxSwitch">
+      <button type="button" class="active" data-ctx="imagescape">Imagescape</button>
+      <button type="button" data-ctx="selfemployed">Self-employed</button>
+    </div>
     <div class="actions">
       <button class="btn btn-ghost gh-badge" id="driveBadgeBtn" title="Change Google Drive connection">⇄ <span id="driveBadgeLabel"></span></button>
       <button class="btn btn-ghost" id="changePwBtn">Change password</button>
@@ -763,7 +776,7 @@
     <button id="alertViewBtn">View tasks →</button>
   </div>
 
-  <nav class="tabs tabs-primary">
+  <nav class="tabs tabs-primary" id="tabsImagescape">
     <button data-panel="home" class="active">Dashboard</button>
     <button data-panel="cal">Calendar</button>
     <button data-group="client" class="group-btn">Client Work <span class="chev">▾</span></button>
@@ -784,7 +797,15 @@
     <button data-panel="blog">Blog</button>
     <button data-panel="links">Site &amp; Hosting</button>
     <button data-panel="social">Website &amp; Socials</button>
-    <button data-panel="soletrader">Sole Trader</button>
+  </nav>
+  <!-- Self-employed context's own top-level tab row, added 16 Sep 2026 — swapped in for
+       tabsImagescape (and both sub-navs) by setContext() below, rather than nested inside
+       Business Admin, so it's no longer buried. -->
+  <nav class="tabs tabs-primary" id="tabsSelfEmployed" style="display:none;">
+    <button data-panel="sedash" class="active">Dashboard</button>
+    <button data-panel="secal">Calendar</button>
+    <button data-panel="seclients">Clients</button>
+    <button data-panel="setax">Tax spreadsheet</button>
   </nav>
 
   <main class="hub-main">
@@ -1125,10 +1146,41 @@
       </div>
     </div>
 
-    <div class="panel" id="panel-soletrader">
+    <!-- Self-employed context panels, split out of the old single "Sole Trader" panel (was
+         buried in Business Admin) on 16 Sep 2026 so this work has its own first-class area,
+         reached via the "Self-employed" button in the top bar. Every input/status id below is
+         unchanged from the old panel-soletrader markup, so all existing JS wiring (event
+         listeners, render functions, Drive/Calendar logic) keeps working without any changes. -->
+    <div class="panel" id="panel-sedash">
+      <div class="card" id="sedashGreeting">
+        <h2>Self-employed</h2>
+        <div class="sub">Client mileage tracking, calendar matching, and your tax spreadsheet link — kept separate from the Imagescape side. Use the tabs above to add clients, pull your work calendar, or check the spreadsheet link.</div>
+      </div>
+      <div class="stat-grid" id="sedashStats"></div>
+    </div>
+
+    <div class="panel" id="panel-secal">
+      <div class="card">
+        <h2>Work calendar</h2>
+        <div class="sub">Reads your jcookeinv@gmail.com Google Calendar — read-only, this can't create, edit, or delete anything on your calendar. Pull a month and it matches each event to a client (see the Clients tab) by the code at the start of its title; anything that doesn't match is listed separately rather than guessed at.</div>
+        <div class="wp-status">
+          <span class="pill disconnected" id="stCalStatusPill"><span class="dot"></span><span id="stCalStatusText">Not connected</span></span>
+          <button class="btn btn-ghost" id="stCalConnectBtn" style="padding:6px 12px;font-size:12.5px;">Connect calendar</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+          <input type="month" id="stMonthPicker" style="max-width:170px;">
+          <button class="btn btn-primary" id="stPullMonthBtn" style="width:auto;">Pull month</button>
+          <span id="stPullStatus" class="hint"></span>
+        </div>
+        <div class="cal-grid" id="stCalGrid" style="margin-top:14px;"></div>
+        <div id="stMonthResults" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-seclients">
       <div class="card">
         <h2>Sole trader clients</h2>
-        <div class="sub">Each client gets a short code. Start every calendar event's title with a client's code (e.g. "RM - mentoring") and the work calendar below can match it automatically. The journey/reason/miles are what get written to the Expenses tab of your tax spreadsheet for each matched session — total is always miles &times; 45p, HMRC's mileage rate, worked out fresh each time rather than stored.</div>
+        <div class="sub">Each client gets a short code. Start every calendar event's title with a client's code (e.g. "RM - mentoring") and the work calendar can match it automatically. The journey/reason/miles are what get written to the Expenses tab of your tax spreadsheet for each matched session — total is always miles &times; 45p, HMRC's mileage rate, worked out fresh each time rather than stored.</div>
         <div class="link-add">
           <input type="text" id="stClientName" placeholder="Client name">
           <input type="text" id="stClientCode" placeholder="Code (e.g. RM)" style="max-width:110px;text-transform:uppercase;" maxlength="6">
@@ -1140,25 +1192,12 @@
         <div class="optional-hint">Journey/reason/miles are optional if you'll only ever use the calendar pull for matching, not for writing Expenses rows.</div>
         <div id="stClientList" style="margin-top:10px;"></div>
       </div>
+    </div>
 
-      <div class="card">
-        <h2>Work calendar</h2>
-        <div class="sub">Reads your jcookeinv@gmail.com Google Calendar — read-only, this can't create, edit, or delete anything on your calendar. Pull a month and it matches each event to a client above by the code at the start of its title; anything that doesn't match is listed separately rather than guessed at.</div>
-        <div class="wp-status">
-          <span class="pill disconnected" id="stCalStatusPill"><span class="dot"></span><span id="stCalStatusText">Not connected</span></span>
-          <button class="btn btn-ghost" id="stCalConnectBtn" style="padding:6px 12px;font-size:12.5px;">Connect calendar</button>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-          <input type="month" id="stMonthPicker" style="max-width:170px;">
-          <button class="btn btn-primary" id="stPullMonthBtn" style="width:auto;">Pull month</button>
-          <span id="stPullStatus" class="hint"></span>
-        </div>
-        <div id="stMonthResults" style="margin-top:14px;"></div>
-      </div>
-
+    <div class="panel" id="panel-setax">
       <div class="card">
         <h2>Tax spreadsheet</h2>
-        <div class="sub">Your "Tax return....ods" file on Drive — the same one you get from Claude in chat. Once linked, sessions pulled above that aren't already logged can be added here as new Expenses rows, written straight back to that file. This never touches the Income/Invoices figures or the FY tax-calculation tabs — just Expenses mileage rows.</div>
+        <div class="sub">Your "Tax return....ods" file on Drive — the same one you get from Claude in chat. Once linked, sessions pulled on the Calendar tab that aren't already logged can be added as new Expenses rows, written straight back to that file. This never touches the Income/Invoices figures or the FY tax-calculation tabs — just Expenses mileage rows.</div>
         <div class="wp-status">
           <span class="pill disconnected" id="stSheetStatusPill"><span class="dot"></span><span id="stSheetStatusText">Not linked</span></span>
           <button class="btn btn-ghost" id="stSheetLocateBtn" style="padding:6px 12px;font-size:12.5px;">Locate spreadsheet</button>
@@ -2124,6 +2163,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let viewYear, viewMonth;
   let revealedIds = new Set();
   let pendingUnlockNote = '';
+  // Imagescape / Self-employed top-bar context — a pure UI preference (which tab row and
+  // panels are showing), never part of the encrypted vault. Remembered per-browser only.
+  let currentContext = 'imagescape';
+  try { currentContext = localStorage.getItem('imagescapeHub.context.v1') || 'imagescape'; } catch(e){}
 
   function ConflictError(message){ this.name = 'ConflictError'; this.message = message; }
   ConflictError.prototype = Object.create(Error.prototype);
@@ -2350,10 +2393,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const picker = document.getElementById('stMonthPicker');
     const status = document.getElementById('stPullStatus');
     const results = document.getElementById('stMonthResults');
+    const grid = document.getElementById('stCalGrid');
     const yearMonth = picker.value;
     if (!yearMonth){ status.textContent = 'Pick a month first.'; return; }
     status.textContent = 'Pulling…';
     results.innerHTML = '';
+    if (grid) grid.innerHTML = '';
     pendingExpenseEntries = [];
     try {
       const events = await fetchSoleTraderMonth(yearMonth);
@@ -2366,6 +2411,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!byClient.has(client.id)) byClient.set(client.id, { client: client, events: [] });
         byClient.get(client.id).events.push(ev);
       });
+      renderSoleTraderCalGrid(yearMonth, byClient, unmatched);
 
       // If the tax spreadsheet is linked, work out which matched sessions aren't already
       // logged as Expenses rows - a separate try/catch so a Drive hiccup here still leaves
@@ -2436,6 +2482,68 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } catch (e){
       status.textContent = '';
       results.innerHTML = '<div class="empty-note">' + escapeHtml(e.message || 'Could not read the calendar.') + '</div>';
+    }
+  }
+
+  // Visual month grid for the self-employed Calendar tab, added 16 Sep 2026 so pulled/matched
+  // sessions read like a real calendar rather than only the text list below it. Purely a
+  // rendering layer on top of the byClient/unmatched data pullSoleTraderMonth() already builds
+  // — it fetches nothing itself and writes nothing back, so it can't affect the Expenses-tab
+  // matching or the Drive write logic above.
+  function renderSoleTraderCalGrid(yearMonth, byClientMap, unmatchedList){
+    const grid = document.getElementById('stCalGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const parts = yearMonth.split('-');
+    const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1;
+    const dowLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    dowLabels.forEach(function(d){
+      const el = document.createElement('div'); el.className = 'dow'; el.textContent = d; grid.appendChild(el);
+    });
+    const firstDay = new Date(y, m, 1);
+    const leading = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const today = new Date();
+    const todayIso = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
+
+    const dayMap = {};
+    byClientMap.forEach(function(group){
+      group.events.forEach(function(ev){
+        const iso = soleTraderEventDateLabel(ev);
+        if (!iso) return;
+        (dayMap[iso] = dayMap[iso] || []).push({ text: group.client.code + ' · ' + (ev.summary || ''), matched: true });
+      });
+    });
+    unmatchedList.forEach(function(ev){
+      const iso = soleTraderEventDateLabel(ev);
+      if (!iso) return;
+      (dayMap[iso] = dayMap[iso] || []).push({ text: ev.summary || '(no title)', matched: false });
+    });
+
+    for (let i = 0; i < leading; i++){
+      const el = document.createElement('div'); el.className = 'cal-cell empty'; grid.appendChild(el);
+    }
+    for (let day = 1; day <= daysInMonth; day++){
+      const iso = isoDate(y, m, day);
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell' + (iso === todayIso ? ' today' : '');
+      cell.style.cursor = 'default';
+      const num = document.createElement('span');
+      num.className = 'daynum'; num.textContent = day;
+      cell.appendChild(num);
+      const items = dayMap[iso] || [];
+      items.slice(0, 2).forEach(function(it){
+        const chip = document.createElement('span');
+        chip.className = 'chip' + (it.matched ? '' : ' chip-due');
+        chip.textContent = it.text;
+        cell.appendChild(chip);
+      });
+      if (items.length > 2){
+        const more = document.createElement('span');
+        more.className = 'chip more'; more.textContent = '+' + (items.length - 2) + ' more';
+        cell.appendChild(more);
+      }
+      grid.appendChild(cell);
     }
   }
 
@@ -3298,7 +3406,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderSoleTraderCalStatus();
     renderSoleTraderSheetStatus();
     renderHome();
-    activatePanel('home');
+    setContext(currentContext);
     const mtgDateEl = document.getElementById('mtgDate');
     if (mtgDateEl && !mtgDateEl.value) mtgDateEl.value = lastFridayIso();
     resetAutoLockTimer();
@@ -3311,7 +3419,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // listed here (home, cal) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
     clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client', galleries: 'Client',
-    tasks: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin', soletrader: 'Admin'
+    tasks: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
   // clicking "Client Work" again) returns you where you left off instead of always
@@ -3351,6 +3459,70 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       activatePanel(lastPanelForGroup[group]);
     });
   });
+
+  // ---------------------------------------------------------------- Imagescape / Self-employed context
+  // Swaps the whole top-level tab row (and lands on that context's first panel), per Jon's
+  // 16 Sep 2026 request for a top-bar selector between the two, added because the sole
+  // trader work was previously buried as a single tab inside Business Admin. This never
+  // touches vault data — it only shows/hides nav rows and panels already in the DOM.
+  const lastPanelForContext = { imagescape: 'home', selfemployed: 'sedash' };
+  function setContext(ctx){
+    if (ctx !== 'imagescape' && ctx !== 'selfemployed') ctx = 'imagescape';
+    currentContext = ctx;
+    try { localStorage.setItem('imagescapeHub.context.v1', ctx); } catch(e){}
+    document.querySelectorAll('.ctx-switch button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.ctx === ctx);
+    });
+    const imTabs = document.getElementById('tabsImagescape');
+    const seTabs = document.getElementById('tabsSelfEmployed');
+    if (ctx === 'selfemployed'){
+      if (imTabs) imTabs.style.display = 'none';
+      document.querySelectorAll('nav.tabs.tabs-sub').forEach(function(sub){ sub.style.display = 'none'; });
+      if (seTabs) seTabs.style.display = 'flex';
+    } else {
+      if (seTabs) seTabs.style.display = 'none';
+      if (imTabs) imTabs.style.display = 'flex';
+    }
+    activatePanel(lastPanelForContext[ctx]);
+    if (document.getElementById('panel-' + lastPanelForContext[ctx]).id === 'panel-sedash') renderSelfEmployedDash();
+  }
+  document.querySelectorAll('.ctx-switch button').forEach(function(btn){
+    btn.addEventListener('click', function(){ setContext(btn.dataset.ctx); });
+  });
+  // Remember the panel visited within whichever context is active, same idea as
+  // lastPanelForGroup above, so switching contexts and back returns you where you left off.
+  document.querySelectorAll('#tabsImagescape button[data-panel], #tabsSelfEmployed button[data-panel]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      lastPanelForContext[currentContext] = btn.dataset.panel;
+      if (btn.dataset.panel === 'sedash') renderSelfEmployedDash();
+    });
+  });
+
+  function renderSelfEmployedDash(){
+    const wrap = document.getElementById('sedashStats');
+    if (!wrap || !data) return;
+    wrap.innerHTML = '';
+    const clientCount = data.soleTraderClients.length;
+    const sheetLinked = data.soleTraderTaxFile && data.soleTraderTaxFile.fileId;
+    const tiles = [
+      { num: String(clientCount), label: clientCount === 1 ? 'sole trader client' : 'sole trader clients', bg: 'var(--info-soft)', fg: 'var(--info)', panel: 'seclients' },
+      { num: sheetLinked ? 'Linked' : 'Not linked', label: 'tax spreadsheet', bg: sheetLinked ? 'var(--good-soft)' : 'var(--warn-soft)', fg: sheetLinked ? 'var(--good)' : 'var(--warn)', panel: 'setax' },
+      { num: 'Open', label: 'work calendar', bg: 'var(--soon-soft)', fg: 'var(--soon)', panel: 'secal' }
+    ];
+    tiles.forEach(function(t){
+      const el = document.createElement('div');
+      el.className = 'stat-tile';
+      el.style.background = t.bg; el.style.color = t.fg;
+      el.innerHTML = '<div class="stat-num"></div><div class="stat-label"></div>';
+      el.querySelector('.stat-num').textContent = t.num;
+      el.querySelector('.stat-label').textContent = t.label;
+      el.addEventListener('click', function(){
+        lastPanelForContext.selfemployed = t.panel;
+        activatePanel(t.panel);
+      });
+      wrap.appendChild(el);
+    });
+  }
 
   function markDirty(){
     dirty = true;
