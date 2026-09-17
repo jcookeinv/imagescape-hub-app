@@ -491,6 +491,29 @@
     border-radius:6px;font-size:14px;font-family:inherit;}
   .topic-card .tc-noteadd button{background:var(--navy);color:#fff;border:none;border-radius:6px;padding:6px 12px;
     font-size:14px;cursor:pointer;}
+  /* By-task grouped view (added 17 Sep 2026): reuses the topic-card look, one card per
+     task that has at least one meeting note linked to it. Inside, tg-entry rows keep
+     each linked note as its own dated block - never merged - so the notes still read
+     exactly as they were written that day, just gathered under the shared task. */
+  .topic-card .tc-head .tg-task-link{background:none;border:none;padding:0;font:inherit;font-weight:700;
+    font-size:15.5px;color:var(--navy);cursor:pointer;text-align:left;}
+  .topic-card .tc-head .tg-task-link:hover{text-decoration:underline;}
+  .topic-card .tg-log .tg-entry{display:flex;gap:8px;padding:8px 0;font-size:14.5px;border-top:1px solid var(--border);
+    flex-wrap:wrap;}
+  .topic-card .tg-log .tg-entry:first-child{border-top:none;}
+  .topic-card .tg-log .tg-date{color:var(--muted);font-size:13px;flex-shrink:0;width:78px;padding-top:1px;}
+  .topic-card .tg-log .tg-body{flex:1;min-width:160px;}
+  .topic-card .tg-log .tg-action{white-space:pre-wrap;line-height:1.4;}
+  .topic-card .tg-log .tg-meta{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .topic-card .tg-log .tg-jump{background:none;border:none;padding:0;font-size:12.5px;color:var(--navy);
+    cursor:pointer;text-decoration:underline;margin-left:6px;}
+  .action-item .link-existing{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;
+    font-size:13px;cursor:pointer;color:var(--muted);font-family:inherit;}
+  .action-item .link-existing:hover{border-color:var(--navy);color:var(--navy);}
+  .action-item select.link-existing-select{font-size:13px;padding:3px 6px;border:1px solid var(--border);
+    border-radius:6px;font-family:inherit;max-width:200px;}
+  .action-item .linked-task-link{background:none;border:1px solid var(--good);border-radius:6px;padding:3px 9px;
+    font-size:13px;cursor:pointer;color:var(--good);background:var(--good-soft);font-family:inherit;}
   .mtg-touched-row{cursor:pointer;}
   .mtg-touched-row:hover .resp-text{text-decoration:underline;}
   .mtg-bydate-layout{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;}
@@ -982,6 +1005,7 @@
         <div class="mtg-viewtabs">
           <button type="button" class="active" data-view="bydate">By date</button>
           <button type="button" data-view="topics">All topics</button>
+          <button type="button" data-view="bytask">By task</button>
         </div>
 
         <div id="mtgByDateView">
@@ -1025,6 +1049,18 @@
             </div>
           </div>
           <div id="topicList"></div>
+        </div>
+
+        <div id="mtgByTaskView" style="display:none;">
+          <div class="sub" style="margin-top:0;">Every task that a meeting action item was linked to, with the dated notes that fed it — grouped by task, each note still exactly as written on the day.</div>
+          <div class="task-filter-row">
+            <div class="task-filter" id="taskGroupFilter">
+              <button type="button" data-tgstatus="all" class="active">All</button>
+              <button type="button" data-tgstatus="open">Open</button>
+              <button type="button" data-tgstatus="done">Completed</button>
+            </div>
+          </div>
+          <div id="taskGroupList"></div>
         </div>
 
         <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--border);">
@@ -5346,6 +5382,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           t.completedAt = '';
         }
         markDirty(); renderTasks();
+        // Keeps the Meeting Notes "By task" view's open/completed badge and filter in
+        // sync, since it groups by this same task's done state.
+        if (mtgView === 'bytask') renderByTaskView();
       });
       row.addEventListener('click', function(){ openTaskEditModal(t.id); });
       row.querySelector('.del').addEventListener('click', function(e){
@@ -5353,6 +5392,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!confirm('Delete "' + t.text + '"? This can\'t be undone.')) return;
         data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
         markDirty(); renderTasks();
+        if (mtgView === 'bytask') renderByTaskView();
       });
       list.appendChild(row);
     });
@@ -5410,6 +5450,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!confirm('Delete "' + (t.text || 'this task') + '"? This can\'t be undone.')) return;
       data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
       markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome();
+      if (mtgView === 'bytask') renderByTaskView();
       toast('Task deleted.');
     });
     backdrop.querySelector('#taskEditSave').addEventListener('click', function(){
@@ -5425,6 +5466,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       t.done = nowDone;
       markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome();
+      if (mtgView === 'bytask') renderByTaskView();
       toast('Task updated.');
     });
   }
@@ -5589,14 +5631,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return isoDate(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
-  // Meetings panel has two views: "By date" (browse via month tabs -> date sub-tabs,
-  // one meeting at a time, same as before) and "All topics" (every discussion topic's
-  // full cross-meeting history in one place). mtgView/mtgActiveMonth/mtgActiveDate hold
-  // the by-date view's navigation state between re-renders.
+  // Meetings panel has three views: "By date" (browse via month tabs -> date sub-tabs,
+  // one meeting at a time, same as before), "All topics" (every discussion topic's
+  // full cross-meeting history in one place), and "By task" (every task a meeting
+  // action item was linked to, with the linked notes grouped underneath it - added
+  // 17 Sep 2026). mtgView/mtgActiveMonth/mtgActiveDate hold the by-date view's
+  // navigation state between re-renders.
   let mtgView = 'bydate';
   let mtgActiveMonth = null;
   let mtgActiveDate = null;
   let topicFilterStatus = 'all';
+  let taskGroupFilterStatus = 'all';
   // Mini-calendar (shown beside the by-date view) pages independently of the month
   // tabs, so browsing it doesn't yank the main content around - only clicking a
   // highlighted day does that. Null until first rendered, then synced explicitly
@@ -5707,10 +5752,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function renderMeetings(){
     document.getElementById('mtgByDateView').style.display = mtgView === 'bydate' ? '' : 'none';
     document.getElementById('mtgTopicsView').style.display = mtgView === 'topics' ? '' : 'none';
+    document.getElementById('mtgByTaskView').style.display = mtgView === 'bytask' ? '' : 'none';
     document.querySelectorAll('.mtg-viewtabs button[data-view]').forEach(function(b){
       b.classList.toggle('active', b.dataset.view === mtgView);
     });
     if (mtgView === 'topics') renderTopicsView();
+    else if (mtgView === 'bytask') renderByTaskView();
     else renderMeetingsByDate();
   }
 
@@ -5735,19 +5782,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       (m.attendees ? ('Attendees: ' + m.attendees) : '') + (m.clientId ? ('  ·  ' + clientName(m.clientId)) : '');
     row.querySelector('.mtg-notes').textContent = m.notes || '';
     const actionsWrap = row.querySelector('.mtg-actionwrap');
+    // Action items link into data.tasks via ai.taskId. Linking to an EXISTING task
+    // (rather than always creating a fresh one) is what lets the "By task" view group
+    // notes from several different meetings under one shared task - "Add as task" now
+    // also auto-reuses a matching open task by exact text, and "Link to existing..."
+    // lets you point an action item at any open task by hand. Added 17 Sep 2026.
     (m.actionItems || []).forEach(function(ai){
       const aRow = document.createElement('div');
       aRow.className = 'action-item';
-      aRow.innerHTML = '<span class="txt"></span><button></button>';
+      aRow.innerHTML = '<span class="txt"></span><span class="action-linkwrap"></span>';
       aRow.querySelector('.txt').textContent = ai.text;
-      const btn = aRow.querySelector('button');
-      if (ai.taskId){
-        btn.textContent = '✓ Task added';
-        btn.className = 'linked';
-        btn.disabled = true;
+      const wrap = aRow.querySelector('.action-linkwrap');
+      const linkedTask = ai.taskId ? data.tasks.find(function(t){ return t.id === ai.taskId; }) : null;
+      if (ai.taskId && !linkedTask){
+        // The linked task was deleted separately from the Tasks panel - fall back to unlinked.
+        ai.taskId = null;
+      }
+      if (linkedTask){
+        const linkedBtn = document.createElement('button');
+        linkedBtn.type = 'button';
+        linkedBtn.className = 'linked-task-link';
+        linkedBtn.textContent = '✓ ' + linkedTask.text;
+        linkedBtn.title = 'Open this task';
+        linkedBtn.addEventListener('click', function(){ openTaskEditModal(linkedTask.id); });
+        wrap.appendChild(linkedBtn);
       } else {
-        btn.textContent = 'Add as task';
-        btn.addEventListener('click', function(){
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.textContent = 'Add as task';
+        addBtn.addEventListener('click', function(){
+          const norm = ai.text.trim().toLowerCase();
+          const existing = data.tasks.find(function(t){ return !t.done && t.text.trim().toLowerCase() === norm; });
+          if (existing){
+            ai.taskId = existing.id;
+            markDirty(); renderTasks(); renderMeetings();
+            toast('Linked to matching existing task.');
+            return;
+          }
           const task = { id: randomId(), text: ai.text, done: false, due: '' };
           data.tasks.push(task);
           ai.taskId = task.id;
@@ -5756,6 +5827,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           renderMeetings();
           toast('Added to Tasks.');
         });
+        wrap.appendChild(addBtn);
+
+        const linkBtn = document.createElement('button');
+        linkBtn.type = 'button';
+        linkBtn.className = 'link-existing';
+        linkBtn.textContent = 'Link to existing…';
+        linkBtn.addEventListener('click', function(){
+          const already = wrap.querySelector('select');
+          if (already){ already.remove(); return; }
+          const openTasks = data.tasks.filter(function(t){ return !t.done; });
+          if (!openTasks.length){ toast('No open tasks to link to yet.'); return; }
+          const sel = document.createElement('select');
+          sel.className = 'link-existing-select';
+          sel.innerHTML = '<option value="">Choose a task…</option>' +
+            openTasks.map(function(t){ return '<option value="' + t.id + '">' + escapeHtml(t.text) + '</option>'; }).join('');
+          sel.addEventListener('change', function(){
+            if (!sel.value) return;
+            ai.taskId = sel.value;
+            markDirty(); renderMeetings();
+            toast('Linked to existing task.');
+          });
+          wrap.appendChild(sel);
+        });
+        wrap.appendChild(linkBtn);
       }
       actionsWrap.appendChild(aRow);
     });
@@ -6045,11 +6140,116 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  function taskGroupLastDate(entries){
+    return entries.reduce(function(max, e){ return e.date > max ? e.date : max; }, '');
+  }
+
+  // "By task" view: every action item that's linked to a task (ai.taskId) is grouped
+  // under that task, pulled together from however many different meetings it came up
+  // in - the "commonality of tasks" grouping. Each linked note stays its own dated
+  // entry inside the group rather than being merged, so it still reads exactly as
+  // written on the day. Added 17 Sep 2026.
+  function renderByTaskView(){
+    document.querySelectorAll('#taskGroupFilter button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tgstatus === taskGroupFilterStatus);
+    });
+    const listWrap = document.getElementById('taskGroupList');
+    listWrap.innerHTML = '';
+
+    const groups = {}; // taskId -> entries[]
+    data.meetings.forEach(function(m){
+      (m.actionItems || []).forEach(function(ai){
+        if (!ai.taskId) return;
+        const task = data.tasks.find(function(t){ return t.id === ai.taskId; });
+        if (!task) return; // task was deleted separately from the Tasks panel
+        groups[ai.taskId] = groups[ai.taskId] || [];
+        groups[ai.taskId].push({
+          date: m.date, attendees: m.attendees, clientId: m.clientId,
+          actionText: ai.text
+        });
+      });
+    });
+
+    let taskIds = Object.keys(groups);
+    if (taskGroupFilterStatus !== 'all'){
+      taskIds = taskIds.filter(function(id){
+        const task = data.tasks.find(function(t){ return t.id === id; });
+        if (!task) return false;
+        return taskGroupFilterStatus === 'done' ? !!task.done : !task.done;
+      });
+    }
+
+    if (!taskIds.length){
+      listWrap.innerHTML = '<div class="empty-note">' +
+        (Object.keys(groups).length ? 'Nothing matches this filter.' :
+          'No meeting notes linked to a task yet — use "Add as task" or "Link to existing…" on an action item to group notes here.') +
+        '</div>';
+      return;
+    }
+
+    taskIds.slice().sort(function(a, b){
+      const la = taskGroupLastDate(groups[a]), lb = taskGroupLastDate(groups[b]);
+      return la < lb ? 1 : (la > lb ? -1 : 0);
+    }).forEach(function(taskId){
+      const task = data.tasks.find(function(t){ return t.id === taskId; });
+      const entries = groups[taskId];
+      const card = document.createElement('div');
+      card.className = 'topic-card';
+      card.innerHTML =
+        '<div class="tc-head"><button type="button" class="tg-task-link"></button><span class="topic-badge"></span></div>' +
+        '<div class="tc-client"></div>' +
+        '<div class="tg-log"></div>';
+      const taskLink = card.querySelector('.tg-task-link');
+      taskLink.textContent = task.text;
+      taskLink.title = 'Open this task';
+      taskLink.addEventListener('click', function(){ openTaskEditModal(task.id); });
+      const badge = card.querySelector('.topic-badge');
+      badge.textContent = task.done ? 'Completed' : 'Open';
+      badge.classList.add('status-' + (task.done ? 'complete' : 'ongoing'));
+      const metaBits = [];
+      if (task.clientId) metaBits.push(clientName(task.clientId));
+      if (task.due) metaBits.push((task.done ? 'was due ' : 'due ') + task.due);
+      card.querySelector('.tc-client').textContent = metaBits.join('  ·  ');
+      const logWrap = card.querySelector('.tg-log');
+      entries.slice().sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); }).forEach(function(entry){
+        const eRow = document.createElement('div');
+        eRow.className = 'tg-entry';
+        eRow.innerHTML = '<span class="tg-date"></span><div class="tg-body"><div class="tg-action"></div><div class="tg-meta"></div></div>';
+        eRow.querySelector('.tg-date').textContent = entry.date || 'Undated';
+        eRow.querySelector('.tg-action').textContent = entry.actionText;
+        const metaLine = eRow.querySelector('.tg-meta');
+        const metaParts = [];
+        if (entry.attendees) metaParts.push('Attendees: ' + entry.attendees);
+        if (entry.clientId) metaParts.push(clientName(entry.clientId));
+        metaLine.textContent = metaParts.join('  ·  ');
+        if (entry.date){
+          const jump = document.createElement('button');
+          jump.type = 'button';
+          jump.className = 'tg-jump';
+          jump.textContent = 'Jump to meeting note';
+          jump.addEventListener('click', function(){
+            mtgView = 'bydate';
+            mtgActiveMonth = mtgMonthKey(entry.date);
+            mtgActiveDate = entry.date;
+            syncMtgCalToMonth(mtgActiveMonth);
+            renderMeetings();
+          });
+          metaLine.appendChild(jump);
+        }
+        logWrap.appendChild(eRow);
+      });
+      listWrap.appendChild(card);
+    });
+  }
+
   document.querySelectorAll('.mtg-viewtabs button[data-view]').forEach(function(btn){
     btn.addEventListener('click', function(){ mtgView = btn.dataset.view; renderMeetings(); });
   });
   document.querySelectorAll('#topicFilter button').forEach(function(btn){
     btn.addEventListener('click', function(){ topicFilterStatus = btn.dataset.tstatus; renderTopicsView(); });
+  });
+  document.querySelectorAll('#taskGroupFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){ taskGroupFilterStatus = btn.dataset.tgstatus; renderByTaskView(); });
   });
   document.getElementById('topicAddBtn').addEventListener('click', function(){
     const titleEl = document.getElementById('topicNewTitle');
@@ -7185,6 +7385,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           t.done = e.target.checked;
           t.completedAt = t.done ? todayIso_() : '';
           markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
+          if (mtgView === 'bytask') renderByTaskView();
         });
         row.addEventListener('click', function(){ backdrop.remove(); openTaskEditModal(t.id); });
         row.querySelector('.del').addEventListener('click', function(e){
@@ -7192,6 +7393,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           if (!confirm('Delete "' + t.text + '"? This can\'t be undone.')) return;
           data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
           markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
+          if (mtgView === 'bytask') renderByTaskView();
         });
         wrap.appendChild(row);
       });
