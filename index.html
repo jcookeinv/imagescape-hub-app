@@ -83,6 +83,8 @@
   header.hub-header{background:var(--navy);color:#fff;padding:14px 24px;display:flex;
     align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
   header.hub-header .brand{display:flex;align-items:center;gap:10px;}
+  header.hub-header #homeBrand{cursor:pointer;border-radius:8px;padding:4px 6px;margin:-4px -6px;transition:background .15s;}
+  header.hub-header #homeBrand:hover,header.hub-header #homeBrand:focus-visible{background:rgba(255,255,255,.08);}
   header.hub-header .brand .mark{width:28px;height:28px;border:2px solid var(--gold);border-radius:5px;
     position:relative;flex-shrink:0;}
   header.hub-header .brand .mark::after{content:'';position:absolute;top:6px;left:6px;right:6px;bottom:6px;
@@ -94,6 +96,12 @@
   header.hub-header .btn-ghost:hover{background:rgba(255,255,255,.16);border-color:#fff;}
   .dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:6px;}
   .gh-badge{font-size:11px;opacity:.8;padding:6px 10px;}
+  /* The dot used to sit inline before "Save", so the flex layout centred the dot+text
+     pair together rather than the text alone - "Save" read as pushed right of centre
+     whenever the dot was showing. Taking it out of flow with absolute positioning keeps
+     "Save" dead-centre on the button in both states. Fixed 17 Sep 2026. */
+  #saveBtn{position:relative;}
+  #saveBtn #dirtyDot{position:absolute;left:9px;top:50%;transform:translateY(-50%);margin-right:0;}
 
   /* Unsaved-changes highlight + bottom bar, added 16 Sep 2026 */
   header.hub-header #saveBtn.save-pending{background:var(--gold);border-color:var(--gold);color:var(--navy-deep);animation:savePulse 1.6s ease-in-out infinite;}
@@ -107,7 +115,7 @@
     padding:6px 14px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;}
   .unsaved-bar button:hover{background:var(--gold-deep);color:#fff;}
 
-  /* Imagescape / Self-employed context switch, added 16 Sep 2026 */
+  /* ImageScape / Self-employed context switch, added 16 Sep 2026 */
   .ctx-switch{display:flex;gap:2px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);
     border-radius:9px;padding:3px;flex:0 0 auto;}
   .ctx-switch button{background:none;border:none;color:rgba(255,255,255,.78);font-size:12.5px;font-weight:700;
@@ -193,7 +201,7 @@
      nowrap chip's full unwrapped text width) — without it, one long, unbreakable chip title
      forces its whole column wider than an equal 1/7 share, squeezing or pushing other
      columns out of view. Added 16 Sep 2026 after long real calendar event titles surfaced
-     this on the self-employed calendar; same fix benefits the Imagescape one too. */
+     this on the self-employed calendar; same fix benefits the ImageScape one too. */
   .cal-cell{background:#fff;min-height:64px;padding:5px;font-size:12px;cursor:pointer;position:relative;min-width:0;}
   .cal-cell:hover{background:#fafbfd;}
   .cal-cell.empty{background:#fafafb;cursor:default;}
@@ -773,12 +781,12 @@
 <!-- ============================= DASHBOARD (after unlock) ============================= -->
 <div id="dashboard" style="display:none;">
   <header class="hub-header">
-    <div class="brand">
+    <div class="brand" id="homeBrand" role="button" tabindex="0" title="Back to Home">
       <span class="mark"></span>
       <div><strong>ImageScape Studios</strong><span>Management Hub</span></div>
     </div>
     <div class="ctx-switch" id="ctxSwitch">
-      <button type="button" class="active" data-ctx="imagescape">Imagescape</button>
+      <button type="button" class="active" data-ctx="imagescape">ImageScape</button>
       <button type="button" data-ctx="selfemployed">Self-employed</button>
     </div>
     <div class="actions">
@@ -1179,7 +1187,7 @@
     <div class="panel" id="panel-sedash">
       <div class="card" id="sedashGreeting">
         <h2>Self-employed</h2>
-        <div class="sub">Client mileage tracking, calendar matching, and your tax spreadsheet link — kept separate from the Imagescape side. Use the tabs above to add clients, pull your work calendar, or check the spreadsheet link.</div>
+        <div class="sub">Client mileage tracking, calendar matching, and your tax spreadsheet link — kept separate from the ImageScape side. Use the tabs above to add clients, pull your work calendar, or check the spreadsheet link.</div>
       </div>
       <div class="stat-grid" id="sedashStats"></div>
     </div>
@@ -2325,7 +2333,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let viewYear, viewMonth;
   let revealedIds = new Set();
   let pendingUnlockNote = '';
-  // Imagescape / Self-employed top-bar context — a pure UI preference (which tab row and
+  // ImageScape / Self-employed top-bar context — a pure UI preference (which tab row and
   // panels are showing), never part of the encrypted vault. Remembered per-browser only.
   let currentContext = 'imagescape';
   try { currentContext = localStorage.getItem('imagescapeHub.context.v1') || 'imagescape'; } catch(e){}
@@ -4639,7 +4647,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   });
 
-  // ---------------------------------------------------------------- Imagescape / Self-employed context
+  // ---------------------------------------------------------------- ImageScape / Self-employed context
   // Swaps the whole top-level tab row (and lands on that context's first panel), per Jon's
   // 16 Sep 2026 request for a top-bar selector between the two, added because the sole
   // trader work was previously buried as a single tab inside Business Admin. This never
@@ -4667,6 +4675,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   document.querySelectorAll('.ctx-switch button').forEach(function(btn){
     btn.addEventListener('click', function(){ setContext(btn.dataset.ctx); });
+  });
+  // Clicking the logo/name in the header always returns to Home on the ImageScape side,
+  // regardless of which panel or context was last open - a hard reset, unlike the
+  // ImageScape ctx-switch button above (which returns to wherever you last were in that
+  // context). Added 17 Sep 2026.
+  function goHome(){
+    lastPanelForContext.imagescape = 'home';
+    setContext('imagescape');
+  }
+  const homeBrandEl = document.getElementById('homeBrand');
+  homeBrandEl.addEventListener('click', goHome);
+  homeBrandEl.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); goHome(); }
   });
   // Remember the panel visited within whichever context is active, same idea as
   // lastPanelForGroup above, so switching contexts and back returns you where you left off.
