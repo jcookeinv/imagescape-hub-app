@@ -42,6 +42,10 @@
     --bg:#f5f6f8; --card:#ffffff; --ink:#22262f; --muted:#6a7080; --border:#e2e4ea;
     --good:#1a8f5e; --good-soft:#e6f6ee; --warn:#b6541c; --warn-soft:#fdeee2;
     --soon:#a3833f; --soon-soft:#fbf2df; --info:#3a6ea5; --info-soft:#e7eff7;
+    /* Self-employed context's own shade (a distinct deep teal, rather than reusing --navy)
+       so the header/active-tab colour itself signals which side of the Hub you're on,
+       not just the small ctx-switch pill. Added 18 Sep 2026. */
+    --navy-se:#3C5C56; --navy-se-deep:#2B423D;
     --radius:12px;
   }
   *{box-sizing:border-box;}
@@ -81,7 +85,14 @@
   @keyframes spin{to{transform:rotate(360deg);}}
 
   header.hub-header{background:var(--navy);color:#fff;padding:14px 24px;display:flex;
-    align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+    align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;transition:background .2s;}
+  /* Self-employed context gets its own header shade (teal, not navy) plus a matching
+     active-tab colour, so which side of the Hub you're on is obvious at a glance without
+     having to read the small ctx-switch pill. Toggled via body.ctx-se in setContext().
+     Added 18 Sep 2026. */
+  body.ctx-se header.hub-header{background:var(--navy-se);}
+  body.ctx-se .ctx-switch button.active{color:var(--navy-se-deep);}
+  body.ctx-se nav.tabs button.active{color:var(--navy-se-deep);}
   header.hub-header .brand{display:flex;align-items:center;gap:10px;}
   header.hub-header #homeBrand{cursor:pointer;border-radius:8px;padding:4px 6px;margin:-4px -6px;transition:background .15s;}
   header.hub-header #homeBrand:hover,header.hub-header #homeBrand:focus-visible{background:rgba(255,255,255,.08);}
@@ -465,8 +476,13 @@
     font-size:14.5px;cursor:pointer;}
   .mtg-subtabs button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
   .mtg-subtabs.mtg-datetabs button{font-size:14px;padding:6px 10px;background:#fff;}
-  .topic-badge{display:inline-block;font-size:11.5px;font-weight:700;text-transform:uppercase;
-    letter-spacing:.03em;padding:3px 8px;border-radius:20px;margin-left:6px;flex-shrink:0;}
+  /* Fixed min-width + centred text so "Ongoing"/"Complete" (and "Open"/"Completed" on the
+     By-task view) all render as the same size pill rather than each shrink-wrapping to its
+     own text length - was looking uneven next to each other. 94px comfortably fits the
+     longest label ("Completed") at this font-size. Fixed 18 Sep 2026. */
+  .topic-badge{display:inline-block;min-width:94px;text-align:center;font-size:11.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.03em;padding:3px 8px;border-radius:20px;margin-left:6px;
+    flex-shrink:0;box-sizing:border-box;}
   .topic-badge.status-ongoing{background:var(--info-soft);color:var(--info);}
   .topic-badge.status-complete{background:var(--good-soft);color:var(--good);}
   .topic-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
@@ -881,7 +897,7 @@
         <div class="dash-section-head"><h2>Next 7 days</h2>
           <button type="button" class="see-all" id="dashSeeCalendar">Full calendar →</button>
         </div>
-        <div class="sub">Manual events plus paperwork due/sent dates, whichever comes first.</div>
+        <div class="sub">Manual events plus paperwork due/sent dates and task due dates, whichever comes first.</div>
         <div id="dashUpcomingList"></div>
       </div>
     </div>
@@ -898,6 +914,11 @@
           <button class="btn btn-ghost" id="calAddBtn">+ Add event</button>
         </div>
         <div class="event-list" id="eventList"></div>
+      </div>
+      <div class="card">
+        <div class="dash-section-head"><h2>Tasks due within 7 days</h2></div>
+        <div class="sub">Every open task with a due date in the next week, overdue ones first — same red/amber colouring as the Dashboard.</div>
+        <div id="calTaskDueList"></div>
       </div>
     </div>
 
@@ -1079,6 +1100,14 @@
           <input type="text" id="docDesc" placeholder="Description (optional)">
           <select id="docClient"><option value="">No client</option></select>
           <input type="date" id="docExpiry" title="Expiry date (optional) — mirrors onto the Calendar">
+          <select id="docCategory" title="Category — same colour-coding as Tasks">
+            <option value="">No category</option>
+            <option value="website">Website</option>
+            <option value="client">Client work</option>
+            <option value="compliance">Compliance</option>
+            <option value="equipment">Equipment</option>
+            <option value="documents">Documents</option>
+          </select>
           <button class="btn btn-primary" id="docAddBtn" style="width:auto;">Add document</button>
         </div>
         <div class="link-grid" id="docGrid"></div>
@@ -1128,6 +1157,14 @@
           </select>
           <input type="date" id="pwDue" title="Required by">
           <select id="pwClient"><option value="">No client</option></select>
+          <select id="pwCategory" title="Category — same colour-coding as Tasks">
+            <option value="">No category</option>
+            <option value="website">Website</option>
+            <option value="client">Client work</option>
+            <option value="compliance">Compliance</option>
+            <option value="equipment">Equipment</option>
+            <option value="documents">Documents</option>
+          </select>
           <button class="btn btn-primary" id="pwAddBtn" style="width:auto;">Add</button>
         </div>
         <div class="task-filter-row">
@@ -2085,6 +2122,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     d.events.forEach(function(e){ e.paperworkId = e.paperworkId || ''; e.kind = e.kind || ''; });
     d.tasks = d.tasks || [];
     d.tasks.forEach(function(t){ t.clientId = t.clientId || ''; });
+    // Backfill task-due calendar events for vaults saved before this existed (18 Sep 2026) -
+    // works directly on d rather than the syncTaskEvent()/data-global helper below, since
+    // this runs before `data` itself is assigned to d. Mirrors syncTaskEvent's own rule:
+    // an event exists only while the task has a due date and isn't done yet.
+    d.tasks.forEach(function(t){
+      const existing = d.events.find(function(e){ return e.taskId === t.id; });
+      if (!t.due || t.done){
+        if (existing) d.events = d.events.filter(function(e){ return e !== existing; });
+        return;
+      }
+      const title = '✅ ' + t.text;
+      if (existing){
+        existing.date = t.due; existing.title = title;
+      } else {
+        d.events.push({ id: randomId(), date: t.due, title: title, notes: '', taskId: t.id, kind: 'task-due' });
+      }
+    });
     d.links = d.links || [];
     // Same "genuinely missing only" backfill as taskChecklists below - a fresh factory
     // object each time so one vault's default entries can never share a reference with
@@ -2127,7 +2181,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     });
     d.documents = d.documents || [];
-    d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; doc.expiryDate = doc.expiryDate || ''; });
+    d.documents.forEach(function(doc){ doc.clientId = doc.clientId || ''; doc.expiryDate = doc.expiryDate || ''; doc.category = doc.category || ''; });
     d.blogPosts = d.blogPosts || [];
     d.wpConnection = d.wpConnection || null;
     // The Ops Hub embed's own shared WordPress connection (site URL, page ID, username,
@@ -2198,6 +2252,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       p.clientId = p.clientId || '';
       p.label = p.label || '';
       p.status = p.status || 'required';
+      p.category = p.category || '';
       p.dueDate = p.dueDate || '';
       p.sentDate = p.sentDate || '';
       p.receivedDate = p.receivedDate || '';
@@ -4693,6 +4748,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (ctx !== 'imagescape' && ctx !== 'selfemployed') ctx = 'imagescape';
     currentContext = ctx;
     try { localStorage.setItem('imagescapeHub.context.v1', ctx); } catch(e){}
+    document.body.classList.toggle('ctx-se', ctx === 'selfemployed');
     document.querySelectorAll('.ctx-switch button').forEach(function(b){
       b.classList.toggle('active', b.dataset.ctx === ctx);
     });
@@ -5125,7 +5181,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const dayEvents = data.events.filter(function(e){ return e.date === iso; });
       dayEvents.slice(0, 2).forEach(function(ev){
         const chip = document.createElement('span');
-        chip.className = 'chip' + (ev.kind === 'due' ? ' chip-due' : ev.kind === 'sent' ? ' chip-sent' : (ev.kind === 'expiry' || ev.kind === 'doc-expiry') ? ' chip-expiry' : '');
+        chip.className = 'chip' + (ev.kind === 'due' || ev.kind === 'task-due' ? ' chip-due' : ev.kind === 'sent' ? ' chip-sent' : (ev.kind === 'expiry' || ev.kind === 'doc-expiry') ? ' chip-expiry' : '');
         chip.textContent = ev.title;
         cell.appendChild(chip);
       });
@@ -5138,6 +5194,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       grid.appendChild(cell);
     }
     renderEventList();
+    renderCalTaskDueList();
   }
 
   function renderEventList(){
@@ -5171,6 +5228,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         tag.textContent = 'Linked to a document\'s expiry date — edit it from the Documents tab.';
         row.querySelector('.body').appendChild(tag);
       }
+      if (ev.taskId){
+        const tag = document.createElement('div');
+        tag.className = 'hint';
+        tag.textContent = 'Linked to a task\'s due date — edit or complete it from the Tasks tab.';
+        row.querySelector('.body').appendChild(tag);
+      }
       row.querySelector('.del').addEventListener('click', function(){
         if (ev.paperworkId){
           alert('This event is linked to a paperwork item, so it\'s kept in sync automatically. Edit or delete the paperwork item instead (client\'s Paperwork section, or the Paperwork tab) — that updates this event for you.');
@@ -5180,11 +5243,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           alert('This event is linked to a document\'s expiry date, so it\'s kept in sync automatically. Edit or delete the document instead (Documents tab) — that updates this event for you.');
           return;
         }
+        if (ev.taskId){
+          alert('This event is linked to a task\'s due date, so it\'s kept in sync automatically. Edit, clear the due date on, or complete the task instead (Tasks tab) — that updates this event for you.');
+          return;
+        }
         data.events = data.events.filter(function(e){ return e.id !== ev.id; });
         markDirty(); renderCalendar();
         if (document.getElementById('dashStats')) renderHome();
       });
       list.appendChild(row);
+    });
+  }
+
+  // Tasks due within 7 days, shown on the Calendar tab itself (previously tasks never
+  // appeared there at all - only paperwork/document dates did). Reuses dateUrgency() and
+  // the exact same .attention-row/.lvl-overdue/.lvl-soon markup as the Dashboard's "Needs
+  // attention" list, so overdue tasks read red and due-soon tasks read amber everywhere in
+  // the app, not just here. Added 18 Sep 2026.
+  function renderCalTaskDueList(){
+    const wrap = document.getElementById('calTaskDueList');
+    if (!wrap) return;
+    const items = data.tasks
+      .filter(function(t){ return dateUrgency(t.due, t.done) === 'overdue' || dateUrgency(t.due, t.done) === 'soon'; })
+      .map(function(t){ return { level: dateUrgency(t.due, t.done), task: t }; })
+      .sort(function(a, b){
+        if (a.level !== b.level) return a.level === 'overdue' ? -1 : 1;
+        return a.task.due < b.task.due ? -1 : 1;
+      });
+    wrap.innerHTML = '';
+    if (!items.length){
+      wrap.innerHTML = '<div class="empty-note">No tasks overdue or due in the next 7 days.</div>';
+      return;
+    }
+    items.forEach(function(item){
+      const t = item.task;
+      const row = document.createElement('div');
+      row.className = 'attention-row lvl-' + item.level;
+      row.style.cursor = 'pointer';
+      row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div><div class="sub"></div></div><div class="when"></div>';
+      row.querySelector('.txt').textContent = t.text;
+      row.querySelector('.sub').textContent = t.clientId ? clientName(t.clientId) : (CATEGORY_LABELS[t.category] || 'Task');
+      row.querySelector('.when').textContent = (item.level === 'overdue' ? 'Was due ' : 'Due ') + t.due;
+      row.addEventListener('click', function(){ openTaskEditModal(t.id); });
+      wrap.appendChild(row);
     });
   }
 
@@ -5252,6 +5353,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function removeDocumentEvents(itemId){
     data.events = data.events.filter(function(e){ return e.documentId !== itemId; });
+  }
+
+  // ---------------------------------------------------------------- task <-> calendar sync
+  // Mirrors syncPaperworkEvents/syncDocumentEvents above: a task's own due date becomes a
+  // Calendar event (kind: 'task-due'), styled with the same "due" colour as paperwork due
+  // dates so it reads as one consistent scheme on the calendar. Removed again once the task
+  // is completed, deleted, or its due date is cleared - call this after any task create/edit/
+  // done-toggle/delete. Added 18 Sep 2026, since tasks previously never showed up on the
+  // Calendar tab at all.
+  function taskEventTitle(t){ return '✅ ' + t.text; }
+  function syncTaskEvent(t){
+    const existing = data.events.find(function(e){ return e.taskId === t.id; });
+    if (!t.due || t.done){
+      if (existing) data.events = data.events.filter(function(e){ return e !== existing; });
+      return;
+    }
+    const title = taskEventTitle(t);
+    if (existing){
+      existing.date = t.due; existing.title = title;
+    } else {
+      data.events.push({ id: randomId(), date: t.due, title: title, notes: '', taskId: t.id, kind: 'task-due' });
+    }
+  }
+  function removeTaskEvent(taskId){
+    data.events = data.events.filter(function(e){ return e.taskId !== taskId; });
   }
 
   function openEventForm(iso){
@@ -5381,7 +5507,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         } else {
           t.completedAt = '';
         }
-        markDirty(); renderTasks();
+        syncTaskEvent(t);
+        markDirty(); renderTasks(); renderCalendar();
         // Keeps the Meeting Notes "By task" view's open/completed badge and filter in
         // sync, since it groups by this same task's done state.
         if (mtgView === 'bytask') renderByTaskView();
@@ -5391,7 +5518,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         e.stopPropagation();
         if (!confirm('Delete "' + t.text + '"? This can\'t be undone.')) return;
         data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
-        markDirty(); renderTasks();
+        removeTaskEvent(t.id);
+        markDirty(); renderTasks(); renderCalendar();
         if (mtgView === 'bytask') renderByTaskView();
       });
       list.appendChild(row);
@@ -5449,7 +5577,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#taskEditDelete').addEventListener('click', function(){
       if (!confirm('Delete "' + (t.text || 'this task') + '"? This can\'t be undone.')) return;
       data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
-      markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome();
+      removeTaskEvent(t.id);
+      markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome(); renderCalendar();
       if (mtgView === 'bytask') renderByTaskView();
       toast('Task deleted.');
     });
@@ -5465,7 +5594,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         t.completedAt = '';
       }
       t.done = nowDone;
-      markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome();
+      syncTaskEvent(t);
+      markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome(); renderCalendar();
       if (mtgView === 'bytask') renderByTaskView();
       toast('Task updated.');
     });
@@ -5616,8 +5746,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: clientEl.value || '' };
     if (catEl.value) entry.category = catEl.value;
     data.tasks.push(entry);
+    syncTaskEvent(entry);
     textEl.value = ''; dueEl.value = ''; clientEl.value = ''; catEl.value = '';
-    markDirty(); renderTasks();
+    markDirty(); renderTasks(); renderCalendar();
   });
   document.getElementById('taskText').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('taskAddBtn').click();
@@ -6361,6 +6492,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="url"></div>' +
         '<div class="doc-desc"></div>' +
         '<div class="doc-expiry"></div>' +
+        (d.category ? '<span class="cat-badge cat-' + escapeHtml(d.category) + '">' + escapeHtml(CATEGORY_LABELS[d.category] || d.category) + '</span>' : '') +
         (d.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientNameIndexed(clientIdx, d.clientId)) + '</span>' : '');
       const a = card.querySelector('a');
       a.href = safeHref(d.url); a.textContent = d.label;
@@ -6392,15 +6524,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const descEl = document.getElementById('docDesc');
     const clientEl = document.getElementById('docClient');
     const expiryEl = document.getElementById('docExpiry');
+    const categoryEl = document.getElementById('docCategory');
     const label = labelEl.value.trim();
     let url = urlEl.value.trim();
     const description = descEl.value.trim();
     if (!label || !url) return;
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    const doc = { id: randomId(), label: label, url: url, description: description, clientId: clientEl.value || '', expiryDate: expiryEl.value || '' };
+    const doc = { id: randomId(), label: label, url: url, description: description, clientId: clientEl.value || '', expiryDate: expiryEl.value || '', category: categoryEl.value || '' };
     data.documents.push(doc);
     syncDocumentEvents(doc);
-    labelEl.value = ''; urlEl.value = ''; descEl.value = ''; clientEl.value = ''; expiryEl.value = '';
+    labelEl.value = ''; urlEl.value = ''; descEl.value = ''; clientEl.value = ''; expiryEl.value = ''; categoryEl.value = '';
     markDirty(); renderDocuments(); renderCalendar(); renderAlerts(); renderHome();
   });
 
@@ -6419,6 +6552,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="field"><label>URL</label><input type="text" id="docEditUrl" placeholder="https://…"></div>' +
         '<div class="field"><label>Description</label><input type="text" id="docEditDesc"></div>' +
         '<div class="field"><label>Client</label><select id="docEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Category</label><select id="docEditCategory">' +
+          '<option value="">No category</option>' +
+          Object.keys(CATEGORY_LABELS).map(function(k){ return '<option value="' + k + '">' + CATEGORY_LABELS[k] + '</option>'; }).join('') +
+        '</select></div>' +
         '<div class="field"><label>Expiry date</label><input type="date" id="docEditExpiry"></div>' +
         '<div class="hint">An expiry date stays mirrored onto the Calendar automatically.</div>' +
         '<div class="row" style="margin-top:10px;">' +
@@ -6438,6 +6575,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#docEditUrl').value = d.url || '';
     backdrop.querySelector('#docEditDesc').value = d.description || '';
     clientSel.value = d.clientId || '';
+    backdrop.querySelector('#docEditCategory').value = d.category || '';
     backdrop.querySelector('#docEditExpiry').value = d.expiryDate || '';
 
     backdrop.querySelector('#docEditCancel').addEventListener('click', function(){ backdrop.remove(); });
@@ -6455,6 +6593,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       d.url = url || d.url;
       d.description = backdrop.querySelector('#docEditDesc').value.trim();
       d.clientId = clientSel.value || '';
+      d.category = backdrop.querySelector('#docEditCategory').value || '';
       d.expiryDate = backdrop.querySelector('#docEditExpiry').value || '';
       syncDocumentEvents(d);
       markDirty(); backdrop.remove(); renderDocuments(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
@@ -6822,7 +6961,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } else {
       upcoming.forEach(function(ev){
         const row = document.createElement('div');
-        row.className = 'attention-row' + (ev.kind === 'due' ? ' lvl-soon' : '');
+        row.className = 'attention-row' + (ev.kind === 'due' || ev.kind === 'task-due' ? ' lvl-soon' : '');
         row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div></div><div class="when"></div>';
         row.querySelector('.txt').textContent = ev.title;
         row.querySelector('.when').textContent = ev.date;
@@ -6859,7 +6998,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       row.className = 'task-row' + (p.status === 'complete' ? ' done' : '');
       row.style.cursor = 'pointer';
       row.innerHTML =
-        '<div class="body"><div class="txt"><span class="pwLabelText"></span><span class="pw-badge"></span></div><div class="due"></div></div>' +
+        '<div class="body"><div class="txt">' +
+        (p.category ? '<span class="cat-badge cat-' + escapeHtml(p.category) + '">' + escapeHtml(CATEGORY_LABELS[p.category] || p.category) + '</span>' : '') +
+        '<span class="pwLabelText"></span><span class="pw-badge"></span></div><div class="due"></div></div>' +
         '<button class="del" title="Delete">✕</button>';
       const clientLabel = p.clientId ? (clientNameIndexed(clientIdx, p.clientId) || 'Unlinked client') : 'No client';
       row.querySelector('.pwLabelText').textContent = (p.label || 'Untitled') + '  ·  ' + clientLabel;
@@ -6900,15 +7041,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const statusEl = document.getElementById('pwStatus');
     const dueEl = document.getElementById('pwDue');
     const clientEl = document.getElementById('pwClient');
+    const categoryEl = document.getElementById('pwCategory');
     const label = labelEl.value.trim();
     if (!label) return;
     const item = {
       id: randomId(), clientId: clientEl.value || '', label: label, status: statusEl.value || 'required',
-      dueDate: dueEl.value || '', sentDate: '', receivedDate: '', notes: '', documentId: ''
+      category: categoryEl.value || '', dueDate: dueEl.value || '', sentDate: '', receivedDate: '', notes: '', documentId: ''
     };
     data.paperwork.push(item);
     syncPaperworkEvents(item);
-    labelEl.value = ''; dueEl.value = ''; statusEl.value = 'required'; clientEl.value = '';
+    labelEl.value = ''; dueEl.value = ''; statusEl.value = 'required'; clientEl.value = ''; categoryEl.value = '';
     markDirty(); renderPaperwork(); renderCalendar(); renderClients(); renderAlerts(); renderHome();
   });
 
@@ -6927,6 +7069,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="field"><label>Status</label><select id="pwEditStatus">' +
           '<option value="required">Required</option><option value="sent">Sent</option>' +
           '<option value="received">Received</option><option value="complete">Complete</option>' +
+        '</select></div>' +
+        '<div class="field"><label>Category</label><select id="pwEditCategory">' +
+          '<option value="">No category</option>' +
+          Object.keys(CATEGORY_LABELS).map(function(k){ return '<option value="' + k + '">' + CATEGORY_LABELS[k] + '</option>'; }).join('') +
         '</select></div>' +
         '<div class="field"><label>Required by</label><input type="date" id="pwEditDue"></div>' +
         '<div class="field"><label>Sent</label><input type="date" id="pwEditSent"></div>' +
@@ -6950,6 +7096,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#pwEditLabel').value = p.label || '';
     clientSel.value = p.clientId || '';
     backdrop.querySelector('#pwEditStatus').value = p.status || 'required';
+    backdrop.querySelector('#pwEditCategory').value = p.category || '';
     backdrop.querySelector('#pwEditDue').value = p.dueDate || '';
     backdrop.querySelector('#pwEditSent').value = p.sentDate || '';
     backdrop.querySelector('#pwEditReceived').value = p.receivedDate || '';
@@ -6968,6 +7115,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       p.label = backdrop.querySelector('#pwEditLabel').value.trim() || p.label;
       p.clientId = clientSel.value || '';
       p.status = backdrop.querySelector('#pwEditStatus').value;
+      p.category = backdrop.querySelector('#pwEditCategory').value || '';
       p.dueDate = backdrop.querySelector('#pwEditDue').value || '';
       p.sentDate = backdrop.querySelector('#pwEditSent').value || '';
       p.receivedDate = backdrop.querySelector('#pwEditReceived').value || '';
@@ -7384,7 +7532,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
           t.done = e.target.checked;
           t.completedAt = t.done ? todayIso_() : '';
-          markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
+          syncTaskEvent(t);
+          markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline(); renderCalendar();
           if (mtgView === 'bytask') renderByTaskView();
         });
         row.addEventListener('click', function(){ backdrop.remove(); openTaskEditModal(t.id); });
@@ -7392,7 +7541,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           e.stopPropagation();
           if (!confirm('Delete "' + t.text + '"? This can\'t be undone.')) return;
           data.tasks = data.tasks.filter(function(x){ return x.id !== t.id; });
-          markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
+          removeTaskEvent(t.id);
+          markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline(); renderCalendar();
           if (mtgView === 'bytask') renderByTaskView();
         });
         wrap.appendChild(row);
@@ -7404,9 +7554,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const dueEl = backdrop.querySelector('#cdTaskDue');
       const text = textEl.value.trim();
       if (!text) return;
-      data.tasks.push({ id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: id });
+      const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: id };
+      data.tasks.push(entry);
+      syncTaskEvent(entry);
       textEl.value = ''; dueEl.value = '';
-      markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline();
+      markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline(); renderCalendar();
     });
 
     backdrop.querySelector('#cdChecklistApplyBtn').addEventListener('click', function(){
@@ -7416,9 +7568,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const cl = data.taskChecklists.find(function(x){ return x.id === clId; });
       if (!cl || !cl.items.length) { toast('That checklist has no steps.'); return; }
       cl.items.forEach(function(it){
-        data.tasks.push({ id: randomId(), text: it.text, done: false, due: addDaysIso(anchor, it.offsetDays || 0), category: 'client', clientId: id });
+        const entry = { id: randomId(), text: it.text, done: false, due: addDaysIso(anchor, it.offsetDays || 0), category: 'client', clientId: id };
+        data.tasks.push(entry);
+        syncTaskEvent(entry);
       });
-      markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderHome(); renderClientTimeline();
+      markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderHome(); renderClientTimeline(); renderCalendar();
       toast('Added ' + cl.items.length + ' task' + (cl.items.length === 1 ? '' : 's') + ' from "' + cl.name + '".');
     });
 
