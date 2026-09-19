@@ -1040,9 +1040,10 @@
         </div>
         <div class="row" style="margin-top:10px;align-items:center;gap:10px;">
           <button class="btn btn-ghost" id="zohoSyncBtn" style="width:auto;">Sync now</button>
+          <button class="btn btn-ghost" id="zohoReviewBtn" style="width:auto;display:none;">Contacts to review</button>
           <span class="hint" id="zohoSyncedLabel"></span>
         </div>
-        <div class="hint" style="margin-top:10px;">"Sync now" just asks the Apps Script to run — the script also refreshes itself on its own schedule (see setup guide). Because of how Apps Script's cross-origin handling works, the Hub can't confirm the request landed; check the "last synced" time above after a minute to know it worked.</div>
+        <div class="hint" style="margin-top:10px;">"Sync now" just asks the Apps Script to run — the script also refreshes itself on its own schedule (see setup guide). Because of how Apps Script's cross-origin handling works, the Hub can't confirm the request landed; check the "last synced" time above after a minute to know it worked. Clients and Zoho contacts are matched automatically by email; anything that can't be matched shows up in "Contacts to review" instead of being created without asking.</div>
       </div>
     </div>
 
@@ -2339,6 +2340,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       p.expiryDate = p.expiryDate || '';
     });
     d.zohoConnection = d.zohoConnection || null;
+    // Contact sync state, added 18 Sep 2026. zohoPending survives lock/reload on purpose -
+    // a write fired just before you locked the Hub should still resolve once you're back
+    // in, not silently vanish. zohoSyncIgnored remembers "not now"/"ignore" choices in the
+    // review queue so dismissing something doesn't just bring it right back next reconcile.
+    d.zohoPending = d.zohoPending || [];
+    d.zohoSyncIgnored = d.zohoSyncIgnored || { hubClientIds: [], zohoContactIds: [] };
+    d.zohoSyncIgnored.hubClientIds = d.zohoSyncIgnored.hubClientIds || [];
+    d.zohoSyncIgnored.zohoContactIds = d.zohoSyncIgnored.zohoContactIds || [];
     d.quoteRates = d.quoteRates || [];
     d.quoteRates.forEach(function(r){ r.unit = r.unit || 'hour'; });
     d.quotes = d.quotes || [];
@@ -2358,6 +2367,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // (suggestImageScapeDocNumber) reads these back to avoid reusing a number.
       q.imageScapeRef = q.imageScapeRef || '';
       q.imageScapeInvoiceRef = q.imageScapeInvoiceRef || '';
+      // Set once "Send to Zoho as invoice" actually lands (see zohoApplyPendingResults) -
+      // this is the REAL Zoho invoice, separate from imageScapeInvoiceRef above which is
+      // just the filename/number of the generated document.
+      q.zohoInvoiceId = q.zohoInvoiceId || '';
+      q.zohoInvoiceNumber = q.zohoInvoiceNumber || '';
+      q.zohoPayments = q.zohoPayments || [];
       // Ad-hoc costs the job actually incurred (an assistant, props, printing, travel) -
       // never sent to the client, used only to work out this job's real profit below its
       // quoted/invoiced total.
@@ -5239,7 +5254,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
 
     resetAutoLockTimer();
-    if (data.zohoConnection){ fetchZohoSnapshot().then(function(){ renderZohoStatus(); renderUseTemplateQuoteAndInvoiceOptions(); }); }
+    zohoReconcile();
     hydrateOpsHubConn();
   }
 
@@ -7939,6 +7954,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           chip.textContent = soonTotal + ' due soon';
           uWrap.appendChild(chip);
         }
+        if (data.zohoConnection && !c.zohoContactId){
+          const zchip = document.createElement('span');
+          zchip.className = 'urgency-chip overdue';
+          zchip.textContent = c.email ? 'Zoho: not linked' : 'Zoho: no email';
+          zchip.title = c.email
+            ? 'Not yet linked to a Zoho contact — check "Contacts to review" on this tab.'
+            : 'No email set — Zoho can\'t auto-link this client. Add an email, or link manually via the Zoho Contact ID field in this client\'s detail panel.';
+          uWrap.appendChild(zchip);
+        }
         card.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
           if (!confirm('Delete ' + c.name + '? Linked tasks/documents/paperwork/meeting notes keep their data but lose the client link.')) return;
@@ -8413,7 +8437,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!wrap) return;
       if (!data.zohoConnection){ wrap.innerHTML = ''; return; }
       if (!c.zohoContactId){
-        wrap.innerHTML = '<div class="hint">Add a Zoho contact ID above, save, then use "Sync now" on the Zoho Books connection (Clients tab) to pull their balance and invoices here.</div>';
+        const noEmailWarn = c.email ? '' : '<div class="hint" style="color:var(--warn);font-weight:700;">⚠ No email set — Zoho can\'t auto-link this client until one is added.</div>';
+        wrap.innerHTML = noEmailWarn + '<div class="hint">Add a Zoho contact ID above, save, then use "Sync now" on the Zoho Books connection (Clients tab) to pull their balance and invoices here.</div>';
         return;
       }
       const snap = zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
@@ -8578,14 +8603,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const label = document.getElementById('zohoSyncedLabel');
     try {
       await ensureZohoSnapshotFile();
-      const contactIds = data.clients.filter(function(c){ return c.zohoContactId; }).map(function(c){ return c.zohoContactId; });
       await fetch(conn.webAppUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ secret: conn.sharedSecret, contactIds: contactIds })
+        body: JSON.stringify({ secret: conn.sharedSecret, action: 'requestSync' })
       });
-      if (label){ label.textContent = 'Sync requested — check back in a minute, then reopen a client to see it.'; }
+      if (label){ label.textContent = 'Sync requested — check back in a minute (it also refreshes itself every 30 minutes on its own).'; }
+      setTimeout(function(){ if (!offlineReadOnly) zohoReconcile(); }, 8000);
     } catch (e){
       if (label){ label.textContent = 'Sync request failed to send: ' + e.message; }
     }
@@ -8595,6 +8620,244 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!data.zohoConnection){ toast('Connect a Zoho Books destination first.'); return; }
     syncZohoNow();
   });
+
+  // ---------------------------------------------------------------- Zoho contact sync
+  // Keeps Hub clients and Zoho contacts as a verified 1:1 set. The Hub is the only thing
+  // that ever writes a client's zohoContactId, and only in two moments: an exact email
+  // match found automatically (safe, no duplicate risk — same email = same real contact),
+  // or you resolving an item in the review queue below. Nothing here ever edits or merges
+  // an existing contact on either side, and a brand-new contact with no possible match at
+  // all is never created without you clicking to confirm it (per how this was scoped).
+  //
+  // Writes (new contact / invoice / payment) go through the same fire-and-forget pattern
+  // as everything else Zoho — see the comment above the "Zoho Books connection" block.
+  // A pending write is tracked in data.zohoPending until its result shows up in the next
+  // snapshot read, which is why it's part of the saved vault, not just in-memory state:
+  // a pending item should survive a lock/reload just as honestly as it survived here.
+
+  function zohoRequestId(){ return 'req_' + Date.now().toString(36) + Math.random().toString(16).slice(2, 8); }
+  function normalizeZohoEmail(e){ return (e || '').trim().toLowerCase(); }
+
+  // Fires a write to the Apps Script bridge and remembers it as pending until the next
+  // snapshot read resolves it. `meta` is whatever zohoApplyPendingResults() needs later
+  // to know what the result is *for* (which client, which quote).
+  async function zohoFireWrite(kind, payload, meta){
+    const conn = data.zohoConnection;
+    if (!conn || !conn.webAppUrl){ toast('Connect a Zoho Books destination first (Clients tab).'); return null; }
+    const requestId = zohoRequestId();
+    data.zohoPending.push({ requestId: requestId, kind: kind, meta: meta || {}, sentAt: new Date().toISOString() });
+    markDirty();
+    try {
+      await fetch(conn.webAppUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ secret: conn.sharedSecret, action: 'write', kind: kind, requestId: requestId, payload: payload })
+      });
+    } catch (e){ /* still tracked as pending — a later reconcile will just never resolve it, which is honest */ }
+    setTimeout(function(){ if (!offlineReadOnly) zohoReconcile(); }, 8000);
+    return requestId;
+  }
+
+  // Applies any write results that have shown up in the snapshot since they were fired,
+  // then drops them from the pending list. Returns a short summary for a toast.
+  function zohoApplyPendingResults(){
+    if (!data.zohoPending.length || !zohoSnapshotCache || !zohoSnapshotCache.writeResults) return null;
+    const results = zohoSnapshotCache.writeResults;
+    const stillPending = [];
+    let applied = 0, failed = 0;
+    data.zohoPending.forEach(function(p){
+      const r = results[p.requestId];
+      if (!r){ stillPending.push(p); return; }
+      if (!r.ok){
+        failed++;
+        toast('Zoho action failed (' + p.kind + '): ' + (r.error || 'unknown error'));
+        return;
+      }
+      applied++;
+      if (p.kind === 'createContact'){
+        const c = data.clients.find(function(x){ return x.id === p.meta.clientId; });
+        if (c){ c.zohoContactId = r.result.contactId; }
+      } else if (p.kind === 'createInvoiceFromQuote'){
+        const q = data.quotes.find(function(x){ return x.id === p.meta.quoteId; });
+        if (q){ q.zohoInvoiceId = r.result.invoiceId; q.zohoInvoiceNumber = r.result.invoiceNumber; }
+      } else if (p.kind === 'recordPayment'){
+        const q = data.quotes.find(function(x){ return x.id === p.meta.quoteId; });
+        if (q){ q.zohoPayments.push({ paymentId: r.result.paymentId, amount: r.result.amount, date: p.meta.date || '' }); }
+      }
+    });
+    data.zohoPending = stillPending;
+    if (applied || failed){ markDirty(); }
+    if (applied) return applied + ' Zoho update' + (applied === 1 ? '' : 's') + ' landed.';
+    return null;
+  }
+
+  // Exact-email auto-link only — anything less certain goes to the review queue instead.
+  function zohoAutoLinkPass(){
+    if (!zohoSnapshotCache || !zohoSnapshotCache.allContacts) return 0;
+    let linked = 0;
+    data.clients.forEach(function(c){
+      if (c.zohoContactId || !c.email) return;
+      const em = normalizeZohoEmail(c.email);
+      const match = zohoSnapshotCache.allContacts.filter(function(zc){ return normalizeZohoEmail(zc.email) === em; });
+      if (match.length === 1){ c.zohoContactId = match[0].contactId; linked++; }
+    });
+    if (linked) markDirty();
+    return linked;
+  }
+
+  // Everything NOT auto-linkable: Hub clients with no Zoho match, and Zoho contacts with
+  // no Hub match — minus whatever's been explicitly ignored. Recomputed fresh each time,
+  // never stored, so ignoring/resolving one just makes it disappear next render.
+  function computeZohoReviewQueue(){
+    const empty = { newInHub: [], newInZoho: [] };
+    if (!data.zohoConnection || !zohoSnapshotCache || !zohoSnapshotCache.allContacts) return empty;
+    const zohoContacts = zohoSnapshotCache.allContacts;
+    const zohoEmails = {};
+    zohoContacts.forEach(function(zc){ if (zc.email) zohoEmails[normalizeZohoEmail(zc.email)] = zc; });
+    const hubEmails = {};
+    data.clients.forEach(function(c){ if (c.email) hubEmails[normalizeZohoEmail(c.email)] = c; });
+    const linkedZohoIds = {};
+    data.clients.forEach(function(c){ if (c.zohoContactId) linkedZohoIds[c.zohoContactId] = true; });
+
+    const newInHub = data.clients.filter(function(c){
+      if (c.zohoContactId) return false;
+      if (data.zohoSyncIgnored.hubClientIds.indexOf(c.id) !== -1) return false;
+      if (c.email && zohoEmails[normalizeZohoEmail(c.email)]) return false; // would've auto-linked
+      return true;
+    });
+    const newInZoho = zohoContacts.filter(function(zc){
+      if (linkedZohoIds[zc.contactId]) return false;
+      if (data.zohoSyncIgnored.zohoContactIds.indexOf(zc.contactId) !== -1) return false;
+      if (zc.email && hubEmails[normalizeZohoEmail(zc.email)]) return false; // matches an unlinked Hub client - auto-link handles it
+      return true;
+    });
+    return { newInHub: newInHub, newInZoho: newInZoho };
+  }
+
+  function renderZohoReviewBadge(){
+    const btn = document.getElementById('zohoReviewBtn');
+    if (!btn) return;
+    const q = computeZohoReviewQueue();
+    const n = q.newInHub.length + q.newInZoho.length;
+    if (!data.zohoConnection || !n){ btn.style.display = 'none'; return; }
+    btn.style.display = '';
+    btn.textContent = 'Contacts to review (' + n + ')';
+  }
+
+  function openZohoReviewModal(){
+    const q = computeZohoReviewQueue();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:640px;">' +
+        '<h3>Zoho contact sync</h3>' +
+        '<div class="sub">Nothing here is created automatically — pick an action for each, or leave it and check back later.</div>' +
+        '<div id="zohoReviewList" style="max-height:52vh;overflow:auto;margin-top:10px;"></div>' +
+        '<div class="row" style="justify-content:flex-end;margin-top:14px;"><button class="btn btn-ghost" id="zohoReviewClose" style="width:auto;">Close</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener('click', function(e){ if (e.target === backdrop) backdrop.remove(); });
+    backdrop.querySelector('#zohoReviewClose').addEventListener('click', function(){ backdrop.remove(); });
+
+    function row(labelHtml, buttons){
+      const r = document.createElement('div');
+      r.className = 'zoho-row';
+      r.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);';
+      const label = document.createElement('div');
+      label.innerHTML = labelHtml;
+      const btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0;';
+      buttons.forEach(function(b){
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-ghost';
+        btn.style.cssText = 'width:auto;padding:5px 10px;font-size:12px;';
+        btn.textContent = b.label;
+        btn.addEventListener('click', b.onClick);
+        btnWrap.appendChild(btn);
+      });
+      r.appendChild(label); r.appendChild(btnWrap);
+      return r;
+    }
+
+    function refreshList(){
+      const wrap = backdrop.querySelector('#zohoReviewList');
+      wrap.innerHTML = '';
+      const qq = computeZohoReviewQueue();
+      if (!qq.newInHub.length && !qq.newInZoho.length){
+        wrap.innerHTML = '<div class="empty-note">Nothing to review — every client and contact is matched.</div>';
+        return;
+      }
+      if (qq.newInHub.length){
+        const h = document.createElement('div'); h.className = 'hint'; h.style.marginTop = '4px';
+        h.textContent = 'In the Hub, not yet in Zoho:'; wrap.appendChild(h);
+        qq.newInHub.forEach(function(c){
+          wrap.appendChild(row(
+            '<strong>' + escapeHtml(c.name) + '</strong>' + (c.company ? ' — ' + escapeHtml(c.company) : '') +
+              '<div class="hint">' + (c.email ? escapeHtml(c.email) : 'No email set — add one for automatic matching next time.') + '</div>',
+            [
+              { label: 'Create in Zoho', onClick: function(){
+                  zohoFireWrite('createContact', { name: c.name, email: c.email, company: c.company }, { clientId: c.id });
+                  toast('Creating "' + c.name + '" in Zoho — check back shortly.');
+                  refreshList(); renderZohoReviewBadge();
+                } },
+              { label: 'Not now', onClick: function(){
+                  data.zohoSyncIgnored.hubClientIds.push(c.id); markDirty();
+                  refreshList(); renderZohoReviewBadge();
+                } }
+            ]
+          ));
+        });
+      }
+      if (qq.newInZoho.length){
+        const h = document.createElement('div'); h.className = 'hint'; h.style.marginTop = '10px';
+        h.textContent = 'In Zoho, not yet in the Hub:'; wrap.appendChild(h);
+        qq.newInZoho.forEach(function(zc){
+          wrap.appendChild(row(
+            '<strong>' + escapeHtml(zc.name || '(no name)') + '</strong>' + (zc.company ? ' — ' + escapeHtml(zc.company) : '') +
+              '<div class="hint">' + (zc.email ? escapeHtml(zc.email) : 'No email on this Zoho contact.') + '</div>',
+            [
+              { label: 'Add as Hub client', onClick: function(){
+                  const c = { id: randomId(), name: zc.name || 'Unnamed', company: zc.company || '', email: zc.email || '',
+                    phone: '', address: '', status: 'active', notes: '', referralSource: '', zohoContactId: zc.contactId,
+                    invoiceCode: '', dayRate: 0, dayHours: 8, journey: '', reason: '', miles: 0 };
+                  data.clients.push(c); markDirty(); renderClients();
+                  toast('Added "' + c.name + '" as a Hub client, linked to Zoho.');
+                  refreshList(); renderZohoReviewBadge();
+                } },
+              { label: 'Ignore', onClick: function(){
+                  data.zohoSyncIgnored.zohoContactIds.push(zc.contactId); markDirty();
+                  refreshList(); renderZohoReviewBadge();
+                } }
+            ]
+          ));
+        });
+      }
+    }
+    refreshList();
+  }
+
+  (function(){
+    const btn = document.getElementById('zohoReviewBtn');
+    if (btn) btn.addEventListener('click', openZohoReviewModal);
+  })();
+
+  // Called on unlock (showDashboard) and every 90s thereafter while unlocked. Cheap: it's
+  // just a re-read of one small Drive file, the same one the client-detail balance panel
+  // already reads. No-ops instantly if there's no Zoho connection or we're offline.
+  function zohoReconcile(){
+    if (!data || offlineReadOnly || !data.zohoConnection) return Promise.resolve();
+    return fetchZohoSnapshot().then(function(){
+      const linked = zohoAutoLinkPass();
+      const summary = zohoApplyPendingResults();
+      renderZohoStatus();
+      renderZohoReviewBadge();
+      renderUseTemplateQuoteAndInvoiceOptions();
+      if (linked) toast('Linked ' + linked + ' client' + (linked === 1 ? '' : 's') + ' to an existing Zoho contact by email.');
+      else if (summary) toast(summary);
+    });
+  }
+  setInterval(function(){ zohoReconcile(); }, 90000);
 
   // ---------------------------------------------------------------- quotes
   function computeQuoteTotals(q){
@@ -8751,6 +9014,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<button class="btn btn-ghost" id="qAddCostBtn" style="width:auto;margin-top:2px;">+ Add cost</button>' +
         '<div class="quote-totals" id="qProfit"></div>' +
         '<div class="field" style="margin-top:12px;"><label>Notes</label><textarea id="qNotes" rows="2"></textarea></div>' +
+        '<div id="qZohoBlock"></div>' +
         '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
           '<button class="btn btn-ghost" id="qClose">Close</button>' +
           '<button class="btn btn-ghost" id="qDelete">Delete quote</button>' +
@@ -8860,19 +9124,83 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
         row.querySelector('.del').addEventListener('click', function(){
           q.lineItems = q.lineItems.filter(function(x){ return x.id !== li.id; });
-          markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes();
+          markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes(); renderZohoQuoteBlock();
         });
         wrap.appendChild(row);
       });
     }
+    // Only ever offers "send to Zoho" once the client is already linked - contact
+    // creation itself stays in the review queue (Clients tab), never a side-door here,
+    // so there's exactly one place a new Zoho contact ever gets created from.
+    function renderZohoQuoteBlock(){
+      const wrap = backdrop.querySelector('#qZohoBlock');
+      if (!data.zohoConnection){ wrap.innerHTML = ''; return; }
+      const c = data.clients.find(function(x){ return x.id === q.clientId; });
+      const pendingInvoice = data.zohoPending.find(function(p){ return p.kind === 'createInvoiceFromQuote' && p.meta.quoteId === q.id; });
+      const pendingPayment = data.zohoPending.find(function(p){ return p.kind === 'recordPayment' && p.meta.quoteId === q.id; });
+      let html = '<div class="card" style="margin-top:12px;padding:12px;"><h3 style="font-size:13px;margin:0 0 8px;">Zoho Books</h3>';
+      if (!c){
+        html += '<div class="hint">Select a client above to send this to Zoho.</div>';
+      } else if (!c.zohoContactId){
+        html += '<div class="hint">"' + escapeHtml(c.name) + '" isn\'t linked to a Zoho contact yet — resolve that from "Contacts to review" on the Clients tab, then reopen this quote.</div>';
+      } else if (q.zohoInvoiceId){
+        html += '<div class="zoho-row"><strong>Invoice ' + escapeHtml(q.zohoInvoiceNumber || q.zohoInvoiceId) + '</strong></div>';
+        (q.zohoPayments || []).forEach(function(p){
+          html += '<div class="zoho-row"><span>Payment' + (p.date ? ' — ' + escapeHtml(p.date) : '') + '</span><span>' + fmtGBP(Number(p.amount) || 0) + '</span></div>';
+        });
+        if (pendingPayment){
+          html += '<div class="hint">Recording a payment — check back shortly.</div>';
+        } else {
+          html +=
+            '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">' +
+              '<input type="number" id="qZohoPayAmount" step="0.01" placeholder="Amount" style="width:100px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;">' +
+              '<input type="date" id="qZohoPayDate" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;">' +
+              '<button class="btn btn-ghost" id="qZohoRecordPayBtn" style="width:auto;">Record a payment</button>' +
+            '</div>';
+        }
+      } else if (pendingInvoice){
+        html += '<div class="hint">Sending to Zoho as an invoice — check back shortly.</div>';
+      } else {
+        html += '<div class="hint">Linked to a Zoho contact.</div>' +
+          '<button class="btn btn-ghost" id="qZohoSendInvoiceBtn" style="width:auto;margin-top:6px;"' +
+          (q.lineItems.length ? '' : ' disabled title="Add at least one line item first"') + '>Send to Zoho as invoice</button>';
+      }
+      html += '</div>';
+      wrap.innerHTML = html;
+
+      const sendBtn = wrap.querySelector('#qZohoSendInvoiceBtn');
+      if (sendBtn) sendBtn.addEventListener('click', function(){
+        const client = data.clients.find(function(x){ return x.id === q.clientId; });
+        if (!client || !client.zohoContactId) return;
+        zohoFireWrite('createInvoiceFromQuote', {
+          contactId: client.zohoContactId,
+          referenceNumber: q.imageScapeInvoiceRef || q.imageScapeRef || '',
+          notes: q.notes || '',
+          lineItems: q.lineItems.map(function(li){ return { description: li.label + (li.description ? (' — ' + li.description) : ''), rate: li.rate, quantity: li.qty }; })
+        }, { quoteId: q.id });
+        toast('Sending "' + q.title + '" to Zoho as an invoice — check back shortly.');
+        renderZohoQuoteBlock();
+      });
+      const payBtn = wrap.querySelector('#qZohoRecordPayBtn');
+      if (payBtn) payBtn.addEventListener('click', function(){
+        const amount = Number(wrap.querySelector('#qZohoPayAmount').value);
+        const date = wrap.querySelector('#qZohoPayDate').value;
+        if (!amount || amount <= 0){ toast('Enter an amount first.'); return; }
+        zohoFireWrite('recordPayment', { invoiceId: q.zohoInvoiceId, amount: amount, date: date || undefined }, { quoteId: q.id, date: date });
+        toast('Recording payment — check back shortly.');
+        renderZohoQuoteBlock();
+      });
+    }
+
     renderLineItems();
     renderTotals();
     renderCostItems();
     renderProfit();
+    renderZohoQuoteBlock();
 
     backdrop.querySelector('#qAddBlankBtn').addEventListener('click', function(){
       q.lineItems.push({ id: randomId(), label: '', qty: 1, rate: 0, description: '' });
-      markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes();
+      markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes(); renderZohoQuoteBlock();
     });
     backdrop.querySelector('#qAddPresetBtn').addEventListener('click', function(){
       const presetId = presetSel.value;
@@ -8880,7 +9208,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const preset = data.quoteRates.find(function(x){ return x.id === presetId; });
       if (!preset) return;
       q.lineItems.push({ id: randomId(), label: preset.label, qty: 1, rate: preset.rate, description: '' });
-      markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes();
+      markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes(); renderZohoQuoteBlock();
     });
     backdrop.querySelector('#qAddCostBtn').addEventListener('click', function(){
       q.costs.push({ id: randomId(), label: '', amount: 0 });
@@ -8888,7 +9216,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
 
     backdrop.querySelector('#qTitle').addEventListener('input', function(e){ q.title = e.target.value; markDirty(); });
-    clientSel.addEventListener('change', function(e){ q.clientId = e.target.value; markDirty(); renderQuotes(); });
+    clientSel.addEventListener('change', function(e){ q.clientId = e.target.value; markDirty(); renderQuotes(); renderZohoQuoteBlock(); });
     backdrop.querySelector('#qStatus').addEventListener('change', function(e){ q.status = e.target.value; markDirty(); renderQuotes(); });
     backdrop.querySelector('#qDiscount').addEventListener('input', function(e){ q.discountPct = e.target.value; markDirty(); renderTotals(); renderProfit(); });
     backdrop.querySelector('#qNotes').addEventListener('input', function(e){ q.notes = e.target.value; markDirty(); });
