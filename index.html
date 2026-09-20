@@ -2517,6 +2517,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CONN_KEY = 'imagescapeHub.driveConnection.v1';
   const DRIVE_API = 'https://www.googleapis.com/drive/v3';
   const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+  // Sheets API v4 - used only for the one narrow job of switching off a temp file's
+  // on-screen/export gridlines before converting an invoice to PDF (see
+  // convertOdsBlobToPdf). No extra consent needed: the Sheets API accepts the same full
+  // `drive` scope this app already requests as one of its authorised scopes.
+  const SHEETS_API = 'https://sheets.googleapis.com/v4';
   const DRIVE_FOLDER_NAME = 'ImageScape Hub';
   const VAULT_FILE_NAME = 'vault.json';
   // OAuth Client ID — a public identifier, safe to ship in client-side source. This app
@@ -2967,9 +2972,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!byClient.has(client.id)) byClient.set(client.id, { client: client, events: [] });
         byClient.get(client.id).events.push(ev);
       });
-      lastCalRender = { yearMonth: yearMonth, byClient: byClient, unmatched: unmatched };
-      renderSoleTraderCalGrid(yearMonth, byClient, unmatched);
-
       // If the tax spreadsheet is linked, work out which matched sessions aren't already
       // logged as Expenses rows - a separate try/catch so a Drive hiccup here still leaves
       // the calendar-matching results above visible rather than blanking the whole pull.
@@ -2988,53 +2990,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
       }
 
-      if (!events.length){
-        results.innerHTML = '<div class="empty-note">No events found on the calendar for that month.</div>';
-      } else {
-        let html = '';
-        data.soleTraderClients.forEach(function(c){
-          const group = byClient.get(c.id);
-          if (!group || !group.events.length) return;
-          html += '<div class="zoho-snapshot" style="margin-bottom:10px;"><div class="zoho-row"><strong>' +
-            escapeHtml(c.name) + '</strong><strong>' + group.events.length + ' session' + (group.events.length === 1 ? '' : 's') + '</strong></div>';
-          group.events.slice().sort(function(a, b){ return soleTraderEventDateLabel(a).localeCompare(soleTraderEventDateLabel(b)); }).forEach(function(ev){
-            const isoDate = soleTraderEventDateLabel(ev);
-            let flag = '';
-            if (existingDates){
-              if (existingDates.has(isoDate)){
-                flag = ' <span class="hint">already logged</span>';
-              } else if (c.journey && c.reason && c.miles){
-                flag = ' <span class="hint" style="color:#b45309;">not yet in Expenses</span>';
-                pendingExpenseEntries.push({ isoDate: isoDate, client: c });
-              } else {
-                flag = ' <span class="hint">not logged — set a journey/reason/miles for ' + escapeHtml(c.name) + ' above to add it</span>';
-              }
-            }
-            html += '<div class="zoho-row"><span>' + escapeHtml(isoDate) + '</span><span>' + escapeHtml(ev.summary || '') + flag + '</span></div>';
-          });
-          html += '</div>';
-        });
-        if (unmatched.length){
-          html += '<div class="zoho-snapshot"><div class="zoho-row"><strong>Unmatched</strong><strong>' + unmatched.length + '</strong></div>';
-          unmatched.slice().sort(function(a, b){ return soleTraderEventDateLabel(a).localeCompare(soleTraderEventDateLabel(b)); }).forEach(function(ev){
-            html += '<div class="zoho-row"><span>' + escapeHtml(soleTraderEventDateLabel(ev)) + '</span><span>' + escapeHtml(ev.summary || '(no title)') + '</span></div>';
-          });
-          html += '</div><div class="hint">These didn\'t start with a known client code — add the client above, or fix the event title, then pull the month again.</div>';
-        }
-        if (sheetCheckError){
-          html += '<div class="hint" style="color:#b45309;">Couldn’t check what’s already on the spreadsheet: ' + escapeHtml(sheetCheckError) + '</div>';
-        } else if (!sheetLinked){
-          html += '<div class="hint">Link the tax spreadsheet below to see which of these are already logged as mileage.</div>';
-        } else if (pendingExpenseEntries.length){
-          html += '<div class="zoho-snapshot" style="margin-top:10px;"><div class="zoho-row"><strong>' + pendingExpenseEntries.length +
-            ' session' + (pendingExpenseEntries.length === 1 ? '' : 's') + ' not yet in Expenses</strong></div></div>' +
-            '<button class="btn btn-primary" id="stWriteMissingBtn" style="width:auto;margin-top:8px;">Add ' + pendingExpenseEntries.length + ' missing entries to spreadsheet</button>' +
-            '<span id="stWriteStatus" class="hint" style="margin-left:10px;"></span>';
-        }
-        results.innerHTML = html || '<div class="empty-note">No events matched a client this month.</div>';
-        const writeBtn = document.getElementById('stWriteMissingBtn');
-        if (writeBtn) writeBtn.addEventListener('click', writeSoleTraderExpenseEntriesFromUi);
-      }
+      // Cache everything the results list and the grid need, so toggling "recognised codes
+      // only" can re-render both instantly from memory rather than re-pulling the calendar
+      // and re-checking the spreadsheet. Added 20 Sep 2026.
+      lastCalRender = {
+        yearMonth: yearMonth, byClient: byClient, unmatched: unmatched, eventsCount: events.length,
+        existingDates: existingDates, sheetCheckError: sheetCheckError, sheetLinked: sheetLinked
+      };
+      renderSoleTraderCalGrid(yearMonth, byClient, unmatched);
+      renderSoleTraderMonthResults();
       status.textContent = 'Pulled ' + events.length + ' event' + (events.length === 1 ? '' : 's') + '.';
     } catch (e){
       status.textContent = '';
@@ -3042,11 +3006,83 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
+  // Rebuilds the per-client session list (and, unless "recognised codes only" is on, the
+  // Unmatched block beneath it) purely from lastCalRender — called after every pull, and
+  // again whenever the toggle changes, so hiding unmatched entries doesn't need a re-pull.
+  // The toggle hides the Unmatched block here for the same reason it hides unmatched chips
+  // on the grid above: "recognised only" should mean recognised only, everywhere on the tab.
+  function renderSoleTraderMonthResults(){
+    const results = document.getElementById('stMonthResults');
+    if (!results || !lastCalRender) return;
+    const { byClient, unmatched, eventsCount, existingDates, sheetCheckError, sheetLinked } = lastCalRender;
+    const recognizedOnlyToggle = document.getElementById('stCalRecognizedOnlyToggle');
+    const recognizedOnly = !recognizedOnlyToggle || recognizedOnlyToggle.checked;
+    pendingExpenseEntries = [];
+
+    if (!eventsCount){
+      results.innerHTML = '<div class="empty-note">No events found on the calendar for that month.</div>';
+      return;
+    }
+    let html = '';
+    data.soleTraderClients.forEach(function(c){
+      const group = byClient.get(c.id);
+      if (!group || !group.events.length) return;
+      html += '<div class="zoho-snapshot" style="margin-bottom:10px;"><div class="zoho-row"><strong>' +
+        escapeHtml(c.name) + '</strong><strong>' + group.events.length + ' session' + (group.events.length === 1 ? '' : 's') + '</strong></div>';
+      group.events.slice().sort(function(a, b){ return soleTraderEventDateLabel(a).localeCompare(soleTraderEventDateLabel(b)); }).forEach(function(ev){
+        const isoDate = soleTraderEventDateLabel(ev);
+        let flag = '';
+        if (existingDates){
+          if (existingDates.has(isoDate)){
+            flag = ' <span class="hint">already logged</span>';
+          } else if (c.journey && c.reason && c.miles){
+            flag = ' <span class="hint" style="color:#b45309;">not yet in Expenses</span>';
+            pendingExpenseEntries.push({ isoDate: isoDate, client: c });
+          } else {
+            flag = ' <span class="hint">not logged — set a journey/reason/miles for ' + escapeHtml(c.name) + ' above to add it</span>';
+          }
+        }
+        html += '<div class="zoho-row"><span>' + escapeHtml(isoDate) + '</span><span>' + escapeHtml(ev.summary || '') + flag + '</span></div>';
+      });
+      html += '</div>';
+    });
+    if (!recognizedOnly && unmatched.length){
+      html += '<div class="zoho-snapshot"><div class="zoho-row"><strong>Unmatched</strong><strong>' + unmatched.length + '</strong></div>';
+      unmatched.slice().sort(function(a, b){ return soleTraderEventDateLabel(a).localeCompare(soleTraderEventDateLabel(b)); }).forEach(function(ev){
+        html += '<div class="zoho-row"><span>' + escapeHtml(soleTraderEventDateLabel(ev)) + '</span><span>' + escapeHtml(ev.summary || '(no title)') + '</span></div>';
+      });
+      html += '</div><div class="hint">These didn\'t start with a known client code — add the client above, or fix the event title, then pull the month again.</div>';
+    }
+    if (sheetCheckError){
+      html += '<div class="hint" style="color:#b45309;">Couldn’t check what’s already on the spreadsheet: ' + escapeHtml(sheetCheckError) + '</div>';
+    } else if (!sheetLinked){
+      html += '<div class="hint">Link the tax spreadsheet below to see which of these are already logged as mileage.</div>';
+    } else if (pendingExpenseEntries.length){
+      html += '<div class="zoho-snapshot" style="margin-top:10px;"><div class="zoho-row"><strong>' + pendingExpenseEntries.length +
+        ' session' + (pendingExpenseEntries.length === 1 ? '' : 's') + ' not yet in Expenses</strong></div></div>' +
+        '<button class="btn btn-primary" id="stWriteMissingBtn" style="width:auto;margin-top:8px;">Add ' + pendingExpenseEntries.length + ' missing entries to spreadsheet</button>' +
+        '<span id="stWriteStatus" class="hint" style="margin-left:10px;"></span>';
+    }
+    results.innerHTML = html || '<div class="empty-note">No events matched a client this month.</div>';
+    const writeBtn = document.getElementById('stWriteMissingBtn');
+    if (writeBtn) writeBtn.addEventListener('click', writeSoleTraderExpenseEntriesFromUi);
+  }
+
   // Visual month grid for the self-employed Calendar tab, added 16 Sep 2026 so pulled/matched
   // sessions read like a real calendar rather than only the text list below it. Purely a
   // rendering layer on top of the byClient/unmatched data pullSoleTraderMonth() already builds
   // — it fetches nothing itself and writes nothing back, so it can't affect the Expenses-tab
   // matching or the Drive write logic above.
+  // Google Calendar's classic event colours for the codes Jon asked to be recognisable on
+  // sight (20 Sep 2026) — read directly off his live calendar events rather than guessed:
+  // "Shop" events are colorId 1 (Lavender), "Josh" events are colorId 2 (Sage). Hex values
+  // are Google's own published palette for those colorIds. Extend this map if more codes
+  // should get the same treatment later.
+  const SOLE_TRADER_CODE_GCAL_COLORS = {
+    SHOP: '#7986cb', // colorId 1, Lavender
+    JOSH: '#33b679'  // colorId 2, Sage
+  };
+
   function renderSoleTraderCalGrid(yearMonth, byClientMap, unmatchedList){
     const grid = document.getElementById('stCalGrid');
     if (!grid) return;
@@ -3075,7 +3111,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       group.events.forEach(function(ev){
         const iso = soleTraderEventDateLabel(ev);
         if (!iso) return;
-        (dayMap[iso] = dayMap[iso] || []).push({ text: group.client.code + ' · ' + (ev.summary || ''), matched: true });
+        (dayMap[iso] = dayMap[iso] || []).push({ text: group.client.code + ' · ' + (ev.summary || ''), matched: true, code: group.client.code });
       });
     });
     if (!recognizedOnly){
@@ -3102,6 +3138,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const chip = document.createElement('span');
         chip.className = 'chip' + (it.matched ? '' : ' chip-due');
         chip.textContent = it.text;
+        // Colour-match Shop/Josh chips to their actual Google Calendar event colour, so
+        // they read as familiar at a glance rather than the generic gold "matched" chip —
+        // confirmed live against the calendar 20 Sep 2026 (Shop = colorId 1 Lavender,
+        // Josh = colorId 2 Sage). Any other code keeps the default gold chip.
+        if (it.matched && it.code){
+          const gcalColor = SOLE_TRADER_CODE_GCAL_COLORS[it.code.toUpperCase()];
+          if (gcalColor){
+            chip.style.background = gcalColor;
+            chip.style.color = '#fff';
+          }
+        }
         cell.appendChild(chip);
       });
       if (items.length > 2){
@@ -3252,19 +3299,65 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (!itemRows.length) throw new Error('Could not find any item rows to replace in this invoice template.');
 
+    // The real "Just Jules Template.ods" leaves one genuinely blank row between the
+    // last item row and "Materials" - confirmed 20 Sep 2026 by pulling that live
+    // template and comparing it directly against a generated invoice, which had
+    // "Materials" sitting flush against the last item with no gap at all. The scan
+    // above has no way to tell that spacer row apart from a real item row (it's just
+    // as blank either way until filled), so it always got swept into itemRows and
+    // replaced one-for-one with however many sessions this invoice has - losing the
+    // gap for good, every single time, regardless of item count. Popping any blank
+    // row(s) off the END of itemRows leaves them in the DOM untouched, so the new
+    // item rows below get inserted before them exactly as before, and the gap stays.
+    // Never pops the last remaining entry - a template with zero real item rows (all
+    // blank) is a degenerate case the anchor-row / "no item rows to replace" checks
+    // above already exist to catch, not something to paper over here.
+    while (itemRows.length > 1 && odsRowIsBlank(itemRows[itemRows.length - 1])) itemRows.pop();
+
     const parent = itemRows[0].parentNode;
     const insertBefore = itemRows[itemRows.length - 1].nextSibling;
     itemRows.forEach(function(row){ parent.removeChild(row); });
 
     items.forEach(function(item){
       const newRow = anchor.cloneNode(true);
-      const descCell = odsGetCellAt(newRow, header.descIdx);
       const dateCell = odsGetCellAt(newRow, header.dateIdx);
       const amtCell = odsGetCellAt(newRow, header.amtIdx);
-      odsSetCellText(xmlDoc, descCell, item.description);
-      if (item.isoDate) odsSetCellDate(xmlDoc, dateCell, item.isoDate, item.dateLabel || ddmmyy(item.isoDate));
-      else odsSetCellText(xmlDoc, dateCell, item.dateLabel || '');
-      odsSetCellFloat(xmlDoc, amtCell, item.amount, fmtGBP(item.amount));
+      // Only touch the description cell when the caller actually supplies one. Some
+      // templates (the sole-trader ones, confirmed 20 Sep 2026) print fixed per-client
+      // wording here - e.g. "Work for Just Jules Jewellery" - on every line regardless of
+      // the session, never varying by item; header.descIdx is where the HEADER's own
+      // "Description" label sits, which isn't necessarily the same column the template's
+      // real per-row text lives in (the sole-trader templates indent it one column right
+      // of the label). Leaving the cell alone when there's no item.description keeps the
+      // cloned anchor row's existing template text exactly as it was, in whichever column
+      // it actually lives in, instead of stamping something unrelated into the wrong,
+      // normally-blank column next to it. Callers that DO need per-item text (ImageScape
+      // quotes/invoices, where Jon types a real description per line) keep working exactly
+      // as before.
+      if (item.description){
+        const descCell = odsGetCellAt(newRow, header.descIdx);
+        odsSetCellText(xmlDoc, descCell, item.description);
+      }
+      // dateLabel (pre-formatted UK dd/mm/yy text) takes priority over isoDate when both
+      // are given, and is written as a plain string rather than a typed date value.
+      // Typed date cells inherit whatever number-format style the cloned anchor row
+      // happened to have, and Google Sheets re-renders that live using its OWN locale
+      // when the file is opened to export a PDF - ignoring the literal text we wrote - so
+      // an ambiguous day/month (anything 1st-12th) can silently come out the wrong way
+      // round (e.g. 02/09/26 shown as 9/2/26). Plain text sidesteps that entirely, the
+      // same fix already used for the ImageScape templates' own date fields. Found and
+      // fixed 20 Sep 2026 by comparing a real generated invoice against Jon's corrected
+      // copy of a previous one - callers that only ever supplied isoDate (none currently
+      // do) still get the old typed-date behaviour as a fallback.
+      if (item.dateLabel) odsSetCellText(xmlDoc, dateCell, item.dateLabel);
+      else if (item.isoDate) odsSetCellDate(xmlDoc, dateCell, item.isoDate, ddmmyy(item.isoDate));
+      else odsSetCellText(xmlDoc, dateCell, '');
+      // Amount is written as plain text too, for the same Sheets-recalculation reason as
+      // dates above - a typed float cell lost its £/decimal formatting entirely when
+      // Sheets recalculated it for PDF export (observed showing bare "110" instead of
+      // "£110.00"). Nothing downstream needs this cell to be numeric: the invoice total
+      // is computed in JS from the same item amounts, not summed by the spreadsheet.
+      odsSetCellText(xmlDoc, amtCell, fmtGBP(item.amount));
       parent.insertBefore(newRow, insertBefore);
     });
   }
@@ -3299,6 +3392,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (!itemRows.length) throw new Error('Could not find any item rows to replace in this quote template.');
 
+    // Same defensive fix as odsRebuildInvoiceItems above, applied here by symmetry
+    // rather than a bug report specific to this template - if this template also
+    // keeps a blank spacer row before "Total", this stops it being silently
+    // swallowed and never put back; if it doesn't, odsRowIsBlank simply never
+    // matches here and nothing changes.
+    while (itemRows.length > 1 && odsRowIsBlank(itemRows[itemRows.length - 1])) itemRows.pop();
+
     const parent = itemRows[0].parentNode;
     const insertBefore = itemRows[itemRows.length - 1].nextSibling;
     itemRows.forEach(function(row){ parent.removeChild(row); });
@@ -3324,7 +3424,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const amtCell = odsGetCellAt(newRow, header.amtIdx);
       descCell.setAttributeNS(ODF_NS.table, 'table:style-name', wrapCellStyle);
       odsSetCellText(xmlDoc, descCell, item.description);
-      odsSetCellFloat(xmlDoc, amtCell, item.amount, fmtGBP(item.amount));
+      // Plain text, not a typed float - see the matching note in odsRebuildInvoiceItems
+      // above for why (Google Sheets re-renders typed numeric cells using its own default
+      // format when recalculating for PDF export, which can drop the £/decimal formatting
+      // baked into the literal text). Nothing downstream needs this cell to be numeric.
+      odsSetCellText(xmlDoc, amtCell, fmtGBP(item.amount));
       parent.insertBefore(newRow, insertBefore);
     });
   }
@@ -3385,19 +3489,54 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     odsSetCellText(xmlDoc, target, text || 'None');
   }
 
-  // Sets the "Total:" row's amount - tries the item table's own Amount column first
-  // (the total should line up under the item amounts), falling back to the rightmost
-  // already-filled cell on that row if the column doesn't line up for some reason.
+  // Sets the "Total:" row's amount. Fixed 20 Sep 2026 after comparing a real generated
+  // invoice against Jon's corrected copy of a previous one, which showed the total
+  // doubled (£880 instead of £440) and the "Total:" label itself missing entirely.
+  //
+  // Two bugs compounded: (1) in the sole-trader templates, "Total:" and its amount are on
+  // TWO SEPARATE rows - the label on one row, the value directly below it, both in the
+  // same column (the same "label row, value row below" layout odsSetMaterials and
+  // odsSetAddressBlock already assume elsewhere) - but this function used to write into
+  // the LABEL's own row, which had nothing at that column to overwrite except blank space
+  // right next to "Total:"... except when the amount column happens to be the exact same
+  // column the label text itself sits in (true for these templates), which instead
+  // clobbered "Total:" with a plain number. (2) The real value row's cell already carried
+  // a leftover SUM formula from whenever the template was last hand-edited, with an
+  // absolute row range baked in (e.g. "SUM(I22:I29)") that doesn't shrink or grow with
+  // however many item rows THIS invoice actually has - Google Sheets recalculates that
+  // formula fresh on PDF export, and its stale range ended up covering the row this
+  // function had just (wrongly) written a number into, double-counting it into the total.
+  //
+  // Fix: if the amount column coincides with the label's own column (nowhere to put a
+  // number without overwriting "Total:" itself), use the row below instead; and always
+  // strip any table:formula left on the target cell before writing, so what ends up there
+  // is a plain, non-recalculating value - this app computes the total in JS already, the
+  // spreadsheet never needs to sum it itself.
   function odsSetTotal(xmlDoc, table, total, amtColIdx){
     const found = odsFindRowByLabel(table, 'Total');
     if (!found) throw new Error('Could not find a "Total:" row in this invoice template.');
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const labelRowIdx = rows.indexOf(found.row);
+
     let cell = null;
-    if (typeof amtColIdx === 'number'){
+    if (typeof amtColIdx === 'number' && amtColIdx !== found.cellIndex){
       try { cell = odsGetCellAt(found.row, amtColIdx); } catch (e){ cell = null; }
+    }
+    if (!cell){
+      const valueRow = rows[labelRowIdx + 1];
+      if (valueRow){
+        if (typeof amtColIdx === 'number'){
+          try { cell = odsGetCellAt(valueRow, amtColIdx); } catch (e){ cell = null; }
+        }
+        if (!cell) cell = odsExpandedCellScan(valueRow, 0);
+      }
     }
     if (!cell) cell = odsExpandedCellScan(found.row, found.cellIndex + 1);
     if (!cell) throw new Error('Could not find where to write the invoice total in this template.');
-    odsSetCellFloat(xmlDoc, cell, total, fmtGBP(total));
+    cell.removeAttributeNS(ODF_NS.table, 'formula');
+    // Plain text, not a typed float - see the matching note in odsRebuildInvoiceItems for
+    // why typed numeric/date cells can't be trusted through the PDF-export pipeline.
+    odsSetCellText(xmlDoc, cell, fmtGBP(total));
   }
 
   async function findDriveFolderByName(name, parentId){
@@ -3701,6 +3840,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const created = await createRes.json();
     const tempId = created.id;
     try {
+      // Switch off this temp sheet's gridlines before exporting. Found 20 Sep 2026: a
+      // freshly-converted ODS-to-Sheets file has never had its print/view setup touched by
+      // anyone, so Sheets falls back to its own default of gridlines ON across the sheet's
+      // full formatted extent - which for these invoice templates (styled well past the
+      // actual content, a leftover from however the template was originally built) showed
+      // as a full page of faint grid lines behind and below the invoice in the exported
+      // PDF, nothing like the clean original. Drive's basic /export endpoint has no
+      // gridlines parameter of its own (that only exists on the old docs.google.com export
+      // URL, which needs a browser session cookie and can't be called from here), but the
+      // Sheets API's gridProperties.hideGridlines is a real, persisted property of the file
+      // itself, and IS what that export endpoint honours - and it needs no extra sign-in,
+      // since Sheets API accepts this app's existing full `drive` scope. Best-effort: if
+      // this fails for any reason, still produce the PDF rather than blocking the whole
+      // invoice over a cosmetic setting.
+      try {
+        const metaRes = await sheetsApiFetch('/spreadsheets/' + tempId + '?fields=sheets.properties.sheetId');
+        if (metaRes.ok){
+          const metaBody = await metaRes.json();
+          const sheetIds = ((metaBody.sheets || []).map(function(s){ return s.properties && s.properties.sheetId; })).filter(function(id){ return id !== undefined && id !== null; });
+          if (sheetIds.length){
+            await sheetsApiFetch('/spreadsheets/' + tempId + ':batchUpdate', {
+              method: 'POST',
+              body: JSON.stringify({ requests: sheetIds.map(function(sheetId){
+                return { updateSheetProperties: { properties: { sheetId: sheetId, gridProperties: { hideGridlines: true } }, fields: 'gridProperties.hideGridlines' } };
+              }) })
+            });
+          }
+        }
+      } catch (e){ /* cosmetic only - fall through to export regardless */ }
       const exportRes = await driveApiFetch('/files/' + tempId + '/export?mimeType=application/pdf');
       if (!exportRes.ok) throw new Error('Could not export the invoice as a PDF (status ' + exportRes.status + ').');
       return await exportRes.blob();
@@ -3742,7 +3910,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const dateLabel = ddmmyy(opts.invoiceDateIso);
     odsSetLabelledValue(xmlDoc, table, 'Invoice Number:', opts.invoiceNumber);
-    odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel, { asDate: true, isoDate: opts.invoiceDateIso });
+    // Plain text, not a typed date - see the note on odsRebuildInvoiceItems for why: a
+    // typed date cell can come out day/month-swapped when Sheets recalculates it for PDF
+    // export, and unlike the item rows (fixed 20 Sep 2026), this field's day can land
+    // anywhere 1st-31st, so it's just as exposed to that same ambiguity.
+    odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel);
     const header = odsFindItemHeader(table);
     if (!header) throw new Error('Could not find the invoice’s item table (a "Description" header row).');
     odsRebuildInvoiceItems(xmlDoc, table, opts.items);
@@ -3799,12 +3971,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let addrResult;
     if (kind === 'quote'){
       odsSetLabelledValue(xmlDoc, table, 'Quote Ref:', opts.number);
-      odsSetLabelledValue(xmlDoc, table, 'Date:', dateLabel, { asDate: true, isoDate: opts.dateIso });
+      // Plain text, not a typed date - same Sheets PDF-export recalculation risk as the
+      // sole-trader invoice's own date fields (fixed 20 Sep 2026); applying the same fix
+      // here defensively since it's the identical shared code path.
+      odsSetLabelledValue(xmlDoc, table, 'Date:', dateLabel);
       addrResult = odsSetAddressBlock(xmlDoc, table, 'Prepared for:', opts.client.name, addressLines);
       odsRebuildQuoteItems(xmlDoc, table, opts.items);
     } else {
       odsSetLabelledValue(xmlDoc, table, 'Invoice Number:', opts.number);
-      odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel, { asDate: true, isoDate: opts.dateIso });
+      // Plain text, not a typed date - same reasoning as above.
+      odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel);
       if (opts.quoteRef) odsSetLabelledValue(xmlDoc, table, 'Quote Ref:', opts.quoteRef);
       addrResult = odsSetAddressBlock(xmlDoc, table, 'To:', opts.client.name, addressLines);
       // The Date(s) column in this template is a plain string cell with no
@@ -3925,7 +4101,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       html += '<div class="zoho-row" data-key="' + escapeHtml(s.key) + '">' +
         '<label style="display:flex;align-items:center;gap:8px;flex:1;' + (blocked ? 'opacity:.55;' : '') + '">' +
         '<input type="checkbox" class="inv-check" ' + (s.checked && !blocked ? 'checked' : '') + (blocked ? ' disabled' : '') + '>' +
-        '<span>' + escapeHtml(s.isoDate) + ' — ' + escapeHtml(s.summary) + '</span>' +
+        '<span>' + escapeHtml(s.isoDate) + (s.summary ? ' — ' + escapeHtml(s.summary) : '') + '</span>' +
         '</label>' +
         '<span style="display:flex;align-items:center;gap:8px;">' +
         '<input type="number" class="inv-hours" min="0" step="0.25" value="' + s.hours + '" style="width:70px;"' + (blocked ? ' disabled' : '') + '>' +
@@ -3988,7 +4164,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         return {
           key: isoD + '-' + i,
           isoDate: isoD,
-          summary: (ev.summary || '').replace(new RegExp('^' + client.code + '\\s*[-–—:]*\\s*', 'i'), '') || (ev.summary || ''),
+          // No "|| ev.summary" fallback here on purpose: an event titled exactly the
+          // client's own code (e.g. a bare "Shop" or "Josh" calendar entry, with nothing
+          // else in the title) strips down to "" - correct, since there's no extra detail
+          // beyond the code itself. The old fallback re-inserted the raw, unstripped code
+          // ("Shop") as if it were a real description, which then got written into the
+          // generated invoice as literal text next to the template's own fixed wording.
+          // Found and fixed 20 Sep 2026 after comparing a real generated invoice against
+          // Jon's corrected copy of a previous one.
+          summary: (ev.summary || '').replace(new RegExp('^' + client.code + '\\s*[-–—:]*\\s*', 'i'), ''),
           hours: hours,
           amount: invSessionAmount(client, hours),
           checked: true
@@ -4049,7 +4233,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       status.textContent = 'Finding an invoice template…';
       const template = await findClientInvoiceTemplate(client, folderName);
       status.textContent = 'Filling "' + template.name + '"…';
-      const items = checked.map(function(s){ return { description: s.summary, isoDate: s.isoDate, amount: s.amount }; });
+      // No "description" here on purpose: the sole-trader invoice templates carry their
+      // own fixed "Work for <Client>" wording per line item, never varying it per session
+      // (confirmed against Jon's own previously-sent invoices) - odsRebuildInvoiceItems
+      // leaves that template text untouched when an item has no description. dateLabel is
+      // supplied pre-formatted (UK dd/mm/yy) so the date cell is written as plain text
+      // rather than a typed date value - see the note on odsRebuildInvoiceItems for why.
+      const items = checked.map(function(s){ return { isoDate: s.isoDate, dateLabel: ddmmyy(s.isoDate), amount: s.amount }; });
       const todayIso = isoDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
       status.textContent = 'Saving the invoice and converting it to PDF (this can take a few seconds)…';
       const result = await generateSoleTraderInvoice({
@@ -4375,8 +4565,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const recognizedOnlyToggle = document.getElementById('stCalRecognizedOnlyToggle');
     if (recognizedOnlyToggle) recognizedOnlyToggle.addEventListener('change', function(){
       // Re-render from the cached last pull rather than hitting the Calendar API again —
-      // this toggle only changes what's displayed, not what was fetched.
-      if (lastCalRender) renderSoleTraderCalGrid(lastCalRender.yearMonth, lastCalRender.byClient, lastCalRender.unmatched);
+      // this toggle only changes what's displayed, not what was fetched. Covers both the
+      // grid above and the per-client/Unmatched list below it.
+      if (lastCalRender){
+        renderSoleTraderCalGrid(lastCalRender.yearMonth, lastCalRender.byClient, lastCalRender.unmatched);
+        renderSoleTraderMonthResults();
+      }
     });
     const monthPicker = document.getElementById('stMonthPicker');
     if (monthPicker && !monthPicker.value){
@@ -4398,6 +4592,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const token = await getAccessToken(true);
     const headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opts.headers || {});
     return fetch(DRIVE_UPLOAD_API + path, Object.assign({}, opts, { headers: headers }));
+  }
+  async function sheetsApiFetch(path, opts){
+    opts = opts || {};
+    const token = await getAccessToken(true);
+    const headers = Object.assign({ 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }, opts.headers || {});
+    return fetch(SHEETS_API + path, Object.assign({}, opts, { headers: headers }));
   }
 
   async function ensureDriveFolder(){
@@ -4508,6 +4708,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // prints "TOTAL:" under the Date(s) column, not Description, while its Quote
   // template prints "TOTAL" under Description - a fixed column guess is only ever
   // right for one of the two).
+  // True when a row has no real text in any of its cells - used to tell a genuine blank
+  // spacer row apart from an item row, when deciding what to remove and replace.
+  function odsRowIsBlank(row){
+    return !odsTableCells(row).some(function(c){ return (c.textContent || '').trim(); });
+  }
+
   function odsRowHasLabelPrefix(row, prefixes){
     const cells = odsTableCells(row);
     for (let ci = 0; ci < cells.length; ci++){
