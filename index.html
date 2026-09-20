@@ -42,10 +42,11 @@
     --bg:#f5f6f8; --card:#ffffff; --ink:#22262f; --muted:#6a7080; --border:#e2e4ea;
     --good:#1a8f5e; --good-soft:#e6f6ee; --warn:#b6541c; --warn-soft:#fdeee2;
     --soon:#a3833f; --soon-soft:#fbf2df; --info:#3a6ea5; --info-soft:#e7eff7;
-    /* Self-employed context's own shade (a distinct deep teal, rather than reusing --navy)
+    /* Self-employed context's own shade (a warm, lighter orange, rather than reusing --navy)
        so the header/active-tab colour itself signals which side of the Hub you're on,
-       not just the small ctx-switch pill. Added 18 Sep 2026. */
-    --navy-se:#3C5C56; --navy-se-deep:#2B423D;
+       not just the small ctx-switch pill. Added 18 Sep 2026; recoloured from the original
+       deep teal to this warm orange per Jon's request on 20 Sep 2026. */
+    --se-warm:#D97D3D; --se-warm-deep:#A8571F;
     --radius:12px;
   }
   *{box-sizing:border-box;}
@@ -129,13 +130,13 @@
 
   header.hub-header{background:var(--navy);color:#fff;padding:14px 24px;display:flex;
     align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;transition:background .2s;}
-  /* Self-employed context gets its own header shade (teal, not navy) plus a matching
+  /* Self-employed context gets its own header shade (a warm orange, not navy) plus a matching
      active-tab colour, so which side of the Hub you're on is obvious at a glance without
      having to read the small ctx-switch pill. Toggled via body.ctx-se in setContext().
-     Added 18 Sep 2026. */
-  body.ctx-se header.hub-header{background:var(--navy-se);}
-  body.ctx-se .ctx-switch button.active{color:var(--navy-se-deep);}
-  body.ctx-se nav.tabs button.active{color:var(--navy-se-deep);}
+     Added 18 Sep 2026, recoloured 20 Sep 2026. */
+  body.ctx-se header.hub-header{background:var(--se-warm);}
+  body.ctx-se .ctx-switch button.active{color:var(--se-warm-deep);}
+  body.ctx-se nav.tabs button.active{color:var(--se-warm-deep);}
   header.hub-header .brand{display:flex;align-items:center;gap:10px;}
   header.hub-header #homeBrand{cursor:pointer;border-radius:8px;padding:4px 6px;margin:-4px -6px;transition:background .15s;}
   header.hub-header #homeBrand:hover,header.hub-header #homeBrand:focus-visible{background:rgba(255,255,255,.08);}
@@ -905,7 +906,7 @@
       <button class="btn btn-ghost" id="changePwBtn">Change password</button>
       <button class="btn btn-ghost" id="backupBtn">Backup / Restore</button>
       <button class="btn btn-ghost" id="saveBtn"><span id="dirtyDot" class="dirty-dot" style="display:none;"></span>Save</button>
-      <button class="btn btn-ghost ro-allow" id="lockBtn" title="Also auto-locks after 15 minutes of inactivity">Lock</button>
+      <button class="btn btn-ghost ro-allow" id="lockBtn" title="Also auto-locks after 1 hour of inactivity">Lock</button>
     </div>
   </header>
 
@@ -1044,6 +1045,17 @@
           <span class="hint" id="zohoSyncedLabel"></span>
         </div>
         <div class="hint" style="margin-top:10px;">"Sync now" just asks the Apps Script to run — the script also refreshes itself on its own schedule (see setup guide). Because of how Apps Script's cross-origin handling works, the Hub can't confirm the request landed; check the "last synced" time above after a minute to know it worked. Clients and Zoho contacts are matched automatically by email; anything that can't be matched shows up in "Contacts to review" instead of being created without asking.</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          <div class="sub" style="margin:0 0 6px;">Once Zoho shows an invoice as paid, the Hub moves its saved PDF and .ods files into a "PAID" subfolder on its own — checked every time it reconciles with Zoho, no manual step. Point it at your invoices folder once and it just runs from then on.</div>
+          <div class="row" style="align-items:center;gap:10px;">
+            <span class="hint" id="invoicesFolderLabel">Invoices folder: not set</span>
+            <button class="btn btn-ghost" id="invoicesFolderBtn" style="width:auto;">Choose invoices folder…</button>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          <div class="sub" style="margin:0 0 6px;">Every button that talks to Zoho — creating a contact, sending an invoice, recording a payment, marking one sent — logs its outcome here once it lands: "Zoho updated" if it worked, or the exact error if it didn't, ready to copy and hand to Claude.</div>
+          <div id="zohoActionLog"></div>
+        </div>
       </div>
     </div>
 
@@ -1341,7 +1353,7 @@
     <div class="panel" id="panel-secal">
       <div class="card">
         <h2>Work calendar</h2>
-        <div class="sub">Reads your jcookeinv@gmail.com Google Calendar — read-only, this can't create, edit, or delete anything on your calendar. Pull a month and it matches each event to a client (see the Clients tab) by their <strong>Calendar Code</strong> at the start of its title; anything that doesn't match is listed separately rather than guessed at.</div>
+        <div class="sub">Reads your jcookeinv@gmail.com Google Calendar — read-only, this can't create, edit, or delete anything on it. Pull a month and it matches each event to a client (see the Clients tab) by their <strong>Calendar Code</strong> at the start of its title; anything that doesn't match is listed separately rather than guessed at.</div>
         <div class="wp-status">
           <span class="pill disconnected" id="stCalStatusPill"><span class="dot"></span><span id="stCalStatusText">Not connected</span></span>
           <button class="btn btn-ghost" id="stCalConnectBtn" style="padding:6px 12px;font-size:12.5px;">Connect calendar</button>
@@ -1351,6 +1363,10 @@
           <button class="btn btn-primary" id="stPullMonthBtn" style="width:auto;">Pull month</button>
           <span id="stPullStatus" class="hint"></span>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13.5px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="stCalRecognizedOnlyToggle" checked style="width:auto;">
+          Show recognised codes only
+        </label>
         <div class="cal-grid" id="stCalGrid" style="margin-top:14px;"></div>
         <div id="stMonthResults" style="margin-top:14px;"></div>
       </div>
@@ -1397,7 +1413,7 @@
           <input type="text" id="invFolderName" placeholder="Drive folder under Sole trader › Invoices (auto-filled once you pick a client)">
         </div>
         <div id="invTemplateHint" class="hint" style="margin-top:6px;"></div>
-        <button class="btn btn-primary" id="invGenerateBtn" style="width:auto;margin-top:12px;">Generate invoice</button>
+        <button class="btn btn-primary" id="invGenerateBtn" style="width:auto;margin-top:12px;">Generate invoice &amp; expenses</button>
         <div id="invStatus" class="hint" style="margin-top:10px;"></div>
         <div id="invResult" style="margin-top:10px;"></div>
       </div>
@@ -2348,6 +2364,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     d.zohoSyncIgnored = d.zohoSyncIgnored || { hubClientIds: [], zohoContactIds: [] };
     d.zohoSyncIgnored.hubClientIds = d.zohoSyncIgnored.hubClientIds || [];
     d.zohoSyncIgnored.zohoContactIds = d.zohoSyncIgnored.zohoContactIds || [];
+    // Where paid invoice files (PDF + .ods) get moved to automatically - Jon picks the
+    // top-level "invoices" folder once (see ensureInvoicesFolder / showDriveFolderPicker)
+    // and the Hub creates/reuses a "PAID" subfolder inside it from then on. Feature is
+    // simply inactive (no errors, no attempts) while this is null.
+    d.invoicesFolder = d.invoicesFolder || null;
+    // Zoho invoice IDs already handled by the paid-file-mover, so a reconcile that runs
+    // every 90s doesn't keep re-attempting (or re-toasting) the same invoice forever.
+    d.zohoPaidInvoicesHandled = d.zohoPaidInvoicesHandled || [];
+    // Persistent handshake log for every Zoho write action - a toast is easy to miss, so
+    // this stays visible (Clients tab) until it scrolls off the cap, newest first. Each
+    // entry: {kind, ok, label, error, at}. error carries whatever Code.gs's zohoFetch_
+    // threw, which already includes Zoho's own HTTP status/message - that's the "error
+    // code" to copy back to Claude if something failed.
+    d.zohoActionLog = d.zohoActionLog || [];
     d.quoteRates = d.quoteRates || [];
     d.quoteRates.forEach(function(r){ r.unit = r.unit || 'hour'; });
     d.quotes = d.quotes || [];
@@ -2683,7 +2713,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
   const CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
   // Hardcoded rather than "primary", so this always targets the right calendar regardless of
-  // which Google account happens to be active in the browser when signing in here.
+  // which Google account happens to be active in the browser when signing in here. jcookeinv
+  // is Jon's single go-to calendar (his other personal calendar, clatterjon@gmail.com, was
+  // migrated into it and unshared on 20 Sep 2026, so there's no longer a second source to read).
   const SOLE_TRADER_CALENDAR_ID = 'jcookeinv@gmail.com';
 
   let calendarTokenClient = null;
@@ -2908,6 +2940,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Holds whatever the last pull found still missing from the Expenses tab, keyed for the
   // "Add N missing entries" button below - repopulated on every pull, cleared once written.
   let pendingExpenseEntries = [];
+  // Cache of the last pulled month's matched/unmatched split, so toggling "recognised codes
+  // only" re-renders the grid instantly from what's already in memory rather than re-pulling
+  // from Google Calendar. Added 20 Sep 2026.
+  let lastCalRender = null;
 
   async function pullSoleTraderMonth(){
     const picker = document.getElementById('stMonthPicker');
@@ -2931,6 +2967,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!byClient.has(client.id)) byClient.set(client.id, { client: client, events: [] });
         byClient.get(client.id).events.push(ev);
       });
+      lastCalRender = { yearMonth: yearMonth, byClient: byClient, unmatched: unmatched };
       renderSoleTraderCalGrid(yearMonth, byClient, unmatched);
 
       // If the tax spreadsheet is linked, work out which matched sessions aren't already
@@ -3026,6 +3063,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const today = new Date();
     const todayIso = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
 
+    // "Show recognised codes only" — default on (see the checkbox above the grid). When on,
+    // events that didn't match a client's Calendar Code are left off the grid entirely rather
+    // than cluttering it with chip-due entries; the full unmatched list is still available via
+    // "Pull month" below the grid regardless of this toggle. Added 20 Sep 2026.
+    const recognizedOnlyToggle = document.getElementById('stCalRecognizedOnlyToggle');
+    const recognizedOnly = !recognizedOnlyToggle || recognizedOnlyToggle.checked;
+
     const dayMap = {};
     byClientMap.forEach(function(group){
       group.events.forEach(function(ev){
@@ -3034,11 +3078,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         (dayMap[iso] = dayMap[iso] || []).push({ text: group.client.code + ' · ' + (ev.summary || ''), matched: true });
       });
     });
-    unmatchedList.forEach(function(ev){
-      const iso = soleTraderEventDateLabel(ev);
-      if (!iso) return;
-      (dayMap[iso] = dayMap[iso] || []).push({ text: ev.summary || '(no title)', matched: false });
-    });
+    if (!recognizedOnly){
+      unmatchedList.forEach(function(ev){
+        const iso = soleTraderEventDateLabel(ev);
+        if (!iso) return;
+        (dayMap[iso] = dayMap[iso] || []).push({ text: ev.summary || '(no title)', matched: false });
+      });
+    }
 
     for (let i = 0; i < leading; i++){
       const el = document.createElement('div'); el.className = 'cal-cell empty'; grid.appendChild(el);
@@ -3535,6 +3581,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return null;
   }
 
+  // Some clients (Jules confirmed, potentially others) split a single month across two
+  // separate invoices. Counts how many rows already exist on the Invoices tab for this
+  // client whose "Inv date" (column index 4) falls within the given "YYYY-MM" month, so
+  // Raise an Invoice can warn before a third one goes out by accident. Read-only — uses
+  // the peek helpers so scanning never mutates repeated-cell blocks on a tab we're not
+  // about to write to.
+  async function countExistingInvoicesForClientMonth(client, yearMonth){
+    if (!client || !data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId) return 0;
+    const { zip } = await downloadTaxSpreadsheetZip();
+    const xmlDoc = await odsLoadContentXml(zip);
+    const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+    if (!invoicesTable) return 0;
+    const header = odsFindInvoicesLedgerHeader(invoicesTable);
+    if (!header) return 0;
+    const rows = header.rows;
+    const wantClient = (client.name || '').trim().toLowerCase();
+    let count = 0;
+    for (let r = header.rowIndex + 1; r < rows.length; r++){
+      const clientText = odsPeekCellText(rows[r], 1).toLowerCase();
+      if (!clientText || clientText !== wantClient) continue;
+      const iso = odsPeekCellDateValue(rows[r], 4);
+      if (iso && iso.slice(0, 7) === yearMonth) count++;
+    }
+    return count;
+  }
+
   // Inserts one new row at the top of the ledger's data (matching its newest-first order),
   // cloned from the first existing data row so column formatting (currency, dates) carries
   // over. The real "Due" column is normally a live formula (Inv date + 30, self-referencing
@@ -3582,7 +3654,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!invoicesTable) throw new Error('Could not find an "Invoices" tab in your tax spreadsheet.');
     odsInsertInvoiceLedgerRow(xmlDoc, invoicesTable, entry);
     const blob = await odsSaveContentXml(dl.zip, xmlDoc);
-    await uploadTaxSpreadsheet(blob, dl.sha);
+    await saveTaxSpreadsheetAsNewVersion(blob);
   }
 
   function randomBoundary(){ return 'ohbnd' + randomId().replace(/-/g, ''); }
@@ -3639,6 +3711,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function generateSoleTraderInvoice(opts){
     // opts: { templateFileId, folderId, invoiceNumber, invoiceDateIso, items, materialsText }
+
+    // Guards against the exact failure found 20 Sep 2026: "Generate invoice" doesn't log
+    // anything to the Invoices tab itself (that's the separate "Add to Invoices tab" step),
+    // so nextInvoiceNumberForClient() can hand out the SAME number twice if it's run again
+    // before that logging happens — and uploadNewDriveFile never checked for a same-name
+    // file already in the folder, so Drive silently accepted two identically-named
+    // invoices. Checking here, before doing any of the template work, fails fast instead.
+    const dupQ = "'" + opts.folderId.replace(/'/g, "\\'") + "' in parents and trashed = false and (name = '" +
+      opts.invoiceNumber.replace(/'/g, "\\'") + ".ods' or name = '" + opts.invoiceNumber.replace(/'/g, "\\'") + ".pdf')";
+    const dupRes = await driveApiFetch('/files?q=' + encodeURIComponent(dupQ) + '&fields=files(id,name)&spaces=drive');
+    if (dupRes.ok){
+      const dupBody = await dupRes.json();
+      if (dupBody.files && dupBody.files.length){
+        throw new Error('A file named "' + opts.invoiceNumber + '" already exists in this client’s Drive folder — this invoice number looks like it’s already been generated. Check the folder (and whether it needs adding to the Invoices tab) before generating again.');
+      }
+    }
+
     const metaRes = await driveApiFetch('/files/' + opts.templateFileId + '?fields=id,name,trashed');
     if (!metaRes.ok) throw new Error('Could not read the invoice template from Drive (status ' + metaRes.status + ').');
     const meta = await metaRes.json();
@@ -3770,6 +3859,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // ---------------------------------------------------------------- Invoices tab UI
   let invSessions = []; // [{ key, isoDate, dateLabel, summary, hours, amount, checked }]
+  // Set by invPullSessions when this client already has 2+ Invoices-tab rows dated within
+  // the pulled month (a split-month client like Jules). While true, renderInvoiceSessions
+  // disables every tick unless invSplitInvoiceOverride has been switched on for this pull.
+  let invSplitInvoiceBlocked = false;
+  let invSplitInvoiceOverride = false;
 
   function renderInvoiceClientOptions(){
     const sel = document.getElementById('invClientSelect');
@@ -3818,24 +3912,39 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       invUpdateInvoiceTotals();
       return;
     }
-    let html = '<div class="zoho-snapshot">';
+    const blocked = invSplitInvoiceBlocked && !invSplitInvoiceOverride;
+    let html = '';
+    if (invSplitInvoiceBlocked){
+      html += '<div class="empty-note" style="border-color:#b45309;color:#92400e;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">' +
+        '<span>' + (client ? escapeHtml(client.name) : 'This client') + ' already has 2 invoices logged on the Invoices tab for this month — sessions are locked to stop an accidental third invoice.' + (invSplitInvoiceOverride ? ' Override is on.' : '') + '</span>' +
+        '<button class="btn btn-ghost" id="invSplitOverrideBtn" style="padding:4px 10px;font-size:12px;white-space:nowrap;">' + (invSplitInvoiceOverride ? 'Cancel override' : 'Override — I mean to raise another') + '</button>' +
+        '</div>';
+    }
+    html += '<div class="zoho-snapshot">';
     invSessions.forEach(function(s){
       html += '<div class="zoho-row" data-key="' + escapeHtml(s.key) + '">' +
-        '<label style="display:flex;align-items:center;gap:8px;flex:1;">' +
-        '<input type="checkbox" class="inv-check" ' + (s.checked ? 'checked' : '') + '>' +
+        '<label style="display:flex;align-items:center;gap:8px;flex:1;' + (blocked ? 'opacity:.55;' : '') + '">' +
+        '<input type="checkbox" class="inv-check" ' + (s.checked && !blocked ? 'checked' : '') + (blocked ? ' disabled' : '') + '>' +
         '<span>' + escapeHtml(s.isoDate) + ' — ' + escapeHtml(s.summary) + '</span>' +
         '</label>' +
         '<span style="display:flex;align-items:center;gap:8px;">' +
-        '<input type="number" class="inv-hours" min="0" step="0.25" value="' + s.hours + '" style="width:70px;">' +
+        '<input type="number" class="inv-hours" min="0" step="0.25" value="' + s.hours + '" style="width:70px;"' + (blocked ? ' disabled' : '') + '>' +
         '<span class="inv-amount" style="min-width:70px;text-align:right;display:inline-block;">' + fmtGBP(s.amount) + '</span>' +
         '</span></div>';
     });
     html += '</div>';
     wrap.innerHTML = html;
+    const overrideBtn = document.getElementById('invSplitOverrideBtn');
+    if (overrideBtn) overrideBtn.addEventListener('click', function(){
+      invSplitInvoiceOverride = !invSplitInvoiceOverride;
+      renderInvoiceSessions();
+    });
     Array.prototype.forEach.call(wrap.querySelectorAll('.zoho-row'), function(row){
       const key = row.getAttribute('data-key');
       const session = invSessions.find(function(s){ return s.key === key; });
-      row.querySelector('.inv-check').addEventListener('change', function(e){
+      const checkEl = row.querySelector('.inv-check');
+      if (blocked) session.checked = false;
+      checkEl.addEventListener('change', function(e){
         session.checked = e.target.checked;
         invUpdateInvoiceTotals();
       });
@@ -3863,6 +3972,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const monthPicker = document.getElementById('invMonthPicker');
     const yearMonth = monthPicker && monthPicker.value;
     invSessions = [];
+    invSplitInvoiceBlocked = false;
+    invSplitInvoiceOverride = false;
     document.getElementById('invResult').innerHTML = '';
     hideInvoiceEmailSection();
     if (!client){ status.textContent = 'Choose a client first.'; return; }
@@ -3884,6 +3995,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         };
       }).sort(function(a, b){ return a.isoDate.localeCompare(b.isoDate); });
       status.textContent = invSessions.length ? ('Found ' + invSessions.length + ' session' + (invSessions.length === 1 ? '' : 's') + ' for ' + client.name + '.') : ('No calendar sessions matched to ' + client.name + ' that month.');
+
+      // Split-month check (e.g. Jules): if 2+ invoices are already logged for this
+      // client in this month, lock the ticks until Jon explicitly overrides. A Drive/
+      // spreadsheet read failure here fails open (not blocked) rather than stopping
+      // invoicing over an unrelated problem.
+      try {
+        const existingCount = await countExistingInvoicesForClientMonth(client, yearMonth);
+        invSplitInvoiceBlocked = existingCount >= 2;
+      } catch (e){
+        invSplitInvoiceBlocked = false;
+      }
       renderInvoiceSessions();
 
       const folderEl = document.getElementById('invFolderName');
@@ -3934,12 +4056,37 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         templateFileId: template.id, folderId: folderId, invoiceNumber: invoiceNumber,
         invoiceDateIso: todayIso, items: items, materialsText: materialsText
       });
+
+      // Also writes the matching mileage/expense line for each invoiced session date to
+      // the Expenses tab, in the same action — added 20 Sep 2026 so raising an invoice and
+      // logging its expenses can't drift apart or be forgotten. Uses the exact same
+      // eligibility rule (client.journey/.reason/.miles set) and "not already logged"
+      // check as the Calendar tab's "Add missing entries" button. A client with no mileage
+      // fields set simply has nothing to add here — that's not an error.
+      let expenseOutcome = { added: 0, skipped: true };
+      if (client.journey && client.reason && client.miles){
+        status.textContent = 'Checking for matching expense entries…';
+        try {
+          const expenseEntries = checked.map(function(s){ return { isoDate: s.isoDate, client: client }; });
+          const written = await writeSoleTraderExpenseEntries(expenseEntries);
+          expenseOutcome = { added: written.added, skipped: false };
+        } catch (e){
+          expenseOutcome = { added: 0, skipped: false, error: e.message || 'Could not write to the Expenses tab.' };
+        }
+      }
+
       status.textContent = 'Done.';
+      const expenseLine = expenseOutcome.error
+        ? '<div class="zoho-row"><span style="color:#b45309;">Expenses: ' + escapeHtml(expenseOutcome.error) + '</span><span></span></div>'
+        : expenseOutcome.skipped
+          ? '<div class="zoho-row"><span>No mileage set for ' + escapeHtml(client.name) + ' — nothing added to Expenses.</span><span></span></div>'
+          : '<div class="zoho-row"><span>' + (expenseOutcome.added ? (expenseOutcome.added + ' expense line' + (expenseOutcome.added === 1 ? '' : 's') + ' added') : 'Expenses already up to date — nothing new to add') + '</span><span></span></div>';
       resultEl.innerHTML = '<div class="zoho-snapshot"><div class="zoho-row"><strong>' + escapeHtml(invoiceNumber) + '</strong><strong>' + fmtGBP(result.total) + '</strong></div>' +
         '<div class="zoho-row"><span>Saved to "' + escapeHtml(folderName) + '" in Drive</span><span></span></div>' +
         (result.odsFile.webViewLink ? '<div class="zoho-row"><a href="' + escapeHtml(result.odsFile.webViewLink) + '" target="_blank" rel="noopener">Open .ods</a><a href="' + escapeHtml(result.pdfFile.webViewLink || '#') + '" target="_blank" rel="noopener">Open PDF</a></div>' : '') +
+        expenseLine +
         '</div>';
-      toast('Invoice ' + invoiceNumber + ' saved to Drive.');
+      toast('Invoice ' + invoiceNumber + ' saved to Drive' + (expenseOutcome.added ? ' — ' + expenseOutcome.added + ' expense line' + (expenseOutcome.added === 1 ? '' : 's') + ' added.' : '.'));
       const dueDateIso = addDaysIso(todayIso, 30);
       lastGeneratedInvoice = {
         client: client, invoiceNumber: invoiceNumber, total: result.total, pdfBlob: result.pdfBlob,
@@ -4225,6 +4372,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     const pullBtn = document.getElementById('stPullMonthBtn');
     if (pullBtn) pullBtn.addEventListener('click', pullSoleTraderMonth);
+    const recognizedOnlyToggle = document.getElementById('stCalRecognizedOnlyToggle');
+    if (recognizedOnlyToggle) recognizedOnlyToggle.addEventListener('change', function(){
+      // Re-render from the cached last pull rather than hitting the Calendar API again —
+      // this toggle only changes what's displayed, not what was fetched.
+      if (lastCalRender) renderSoleTraderCalGrid(lastCalRender.yearMonth, lastCalRender.byClient, lastCalRender.unmatched);
+    });
     const monthPicker = document.getElementById('stMonthPicker');
     if (monthPicker && !monthPicker.value){
       const now = new Date();
@@ -4330,6 +4483,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       idx += rep;
     }
     return '';
+  }
+
+  // Non-mutating read of a date-typed cell's office:date-value at a given expanded
+  // column index (same never-splits-a-repeated-block safety as odsPeekCellText above).
+  // Returns an ISO "YYYY-MM-DD" string, or null if that cell isn't date-typed / empty.
+  function odsPeekCellDateValue(row, colIdx){
+    const cells = odsTableCells(row);
+    let idx = 0;
+    for (let ci = 0; ci < cells.length; ci++){
+      const c = cells[ci];
+      const repAttr = c.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+      const rep = repAttr ? parseInt(repAttr, 10) : 1;
+      if (idx <= colIdx && colIdx < idx + rep) return odsCellDateValue(c);
+      idx += rep;
+    }
+    return null;
   }
 
   // Scans every real cell in a single row (not the whole table) for text starting with
@@ -4568,6 +4737,47 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return res.json();
   }
 
+  // Every time an invoice ledger row or an expenses row is written, we save the
+  // result as a NEW dated file rather than overwriting the linked spreadsheet in
+  // place — "Tax return YYYY-MM-DD.ods" for today's date, in the same Drive
+  // folder as the currently-linked file. If a file with that exact name already
+  // exists there (a second write on the same day), a "_mm:hh" timestamp
+  // (minutes then hours, current time) is appended so nothing is silently
+  // overwritten. The new file becomes the one data.soleTraderTaxFile points to
+  // going forward; the previous file is left untouched.
+  async function saveTaxSpreadsheetAsNewVersion(blob){
+    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
+      throw new Error('No spreadsheet linked yet — click "Locate spreadsheet" first.');
+    }
+    const parentsRes = await driveApiFetch('/files/' + data.soleTraderTaxFile.fileId + '?fields=parents');
+    if (!parentsRes.ok) throw new Error('Could not read the spreadsheet’s Drive folder (status ' + parentsRes.status + ').');
+    const parentsBody = await parentsRes.json();
+    const folderId = parentsBody.parents && parentsBody.parents[0];
+    if (!folderId) throw new Error('Could not determine which Drive folder to save the new version into.');
+
+    const today = new Date();
+    const todayIso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    const baseName = 'Tax return ' + todayIso + '.ods';
+
+    let newName = baseName;
+    const dupQ = "name = '" + baseName.replace(/'/g, "\\'") + "' and '" + folderId + "' in parents and trashed = false";
+    const dupRes = await driveApiFetch('/files?q=' + encodeURIComponent(dupQ) + '&fields=files(id)&spaces=drive');
+    if (dupRes.ok){
+      const dupBody = await dupRes.json();
+      if (dupBody.files && dupBody.files.length){
+        const mm = String(today.getMinutes()).padStart(2, '0');
+        const hh = String(today.getHours()).padStart(2, '0');
+        newName = 'Tax return ' + todayIso + '_' + mm + ':' + hh + '.ods';
+      }
+    }
+
+    const uploaded = await uploadNewDriveFile(blob, newName, 'application/vnd.oasis.opendocument.spreadsheet', folderId);
+    data.soleTraderTaxFile = { fileId: uploaded.id, fileName: uploaded.name || newName };
+    markDirty();
+    renderSoleTraderSheetStatus();
+    return uploaded;
+  }
+
   // Every dated row's ISO date already on the Expenses tab, so a write never double-logs
   // a session that's already there.
   function odsExistingExpenseDates(expensesTable){
@@ -4656,7 +4866,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     odsInsertMissingExpenseRows(xmlDoc, expensesTable, toAdd);
     odsRecomputeMileageSummary(xmlDoc, expensesTable);
     const blob = await odsSaveContentXml(dl.zip, xmlDoc);
-    await uploadTaxSpreadsheet(blob, dl.sha);
+    await saveTaxSpreadsheetAsNewVersion(blob);
     return { added: toAdd.length };
   }
 
@@ -5319,6 +5529,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.querySelectorAll('.ctx-switch button').forEach(function(b){
       b.classList.toggle('active', b.dataset.ctx === ctx);
     });
+    // Logo/name in the header swaps with context too, same idea as the colour change above —
+    // "Jon Cooke" on the self-employed side rather than the business's own brand name.
+    // Added 20 Sep 2026.
+    const homeBrandNameEl = document.querySelector('#homeBrand strong');
+    if (homeBrandNameEl) homeBrandNameEl.textContent = ctx === 'selfemployed' ? 'Jon Cooke' : 'ImageScape Studios';
     const imTabs = document.getElementById('tabsImagescape');
     const seTabs = document.getElementById('tabsSelfEmployed');
     if (ctx === 'selfemployed'){
@@ -5686,7 +5901,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // indefinitely. Resets on any user interaction while the dashboard is showing.
   // Unlike the old local-file version, the background save here needs no user
   // gesture at all (it's just a fetch() call), so it's reliable every time.
-  const AUTO_LOCK_MS = 15 * 60 * 1000;
+  const AUTO_LOCK_MS = 60 * 60 * 1000;
   let autoLockTimer = null;
 
   function dashboardShowing(){
@@ -7963,6 +8178,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             : 'No email set — Zoho can\'t auto-link this client. Add an email, or link manually via the Zoho Contact ID field in this client\'s detail panel.';
           uWrap.appendChild(zchip);
         }
+        if (data.zohoConnection && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId]){
+          const overdueInvs = (zohoSnapshotCache.contacts[c.zohoContactId].invoices || []).filter(function(inv){ return inv.status === 'overdue'; });
+          if (overdueInvs.length){
+            const overdueSum = overdueInvs.reduce(function(sum, inv){ return sum + (Number(inv.balance != null ? inv.balance : inv.total) || 0); }, 0);
+            const cur2 = zohoSnapshotCache.contacts[c.zohoContactId].currency || '£';
+            const ochip = document.createElement('span');
+            ochip.className = 'urgency-chip overdue';
+            ochip.textContent = 'Zoho: ' + cur2 + overdueSum.toFixed(2) + ' overdue';
+            ochip.title = overdueInvs.map(function(inv){ return (inv.number || inv.invoiceId) + ' — due ' + (inv.dueDate || 'unknown'); }).join(', ');
+            uWrap.appendChild(ochip);
+          }
+        }
         card.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
           if (!confirm('Delete ' + c.name + '? Linked tasks/documents/paperwork/meeting notes keep their data but lose the client link.')) return;
@@ -7985,6 +8212,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     }
     renderZohoStatus();
+    renderInvoicesFolderStatus();
+    renderZohoActionLog();
     if (document.getElementById('quoteGrid')) renderQuotes();
     if (document.getElementById('useTemplateSelect')) populateUseTemplateSelects();
     if (document.getElementById('dashStats')) renderHome();
@@ -8027,8 +8256,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML =
-      '<div class="modal" style="max-width:600px;max-height:88vh;overflow:auto;">' +
-        '<h3>Client details</h3>' +
+      '<div class="modal" style="max-width:600px;max-height:88vh;overflow:auto;padding:0;">' +
+        '<div style="position:sticky;top:0;background:#fff;z-index:5;padding:20px 26px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
+          '<h3 style="margin:0;">Client details</h3>' +
+          '<div style="display:flex;gap:8px;flex-shrink:0;"><button class="btn btn-ghost" id="cdCancel" style="width:auto;">Close</button><button class="btn btn-primary" id="cdSave" style="width:auto;">Save</button></div>' +
+        '</div>' +
+        '<div style="padding:14px 26px 26px;">' +
         '<div class="field"><label>Name</label><input type="text" id="cdName"></div>' +
         '<div class="field"><label>Company</label><input type="text" id="cdCompany"></div>' +
         '<div class="field"><label>Email</label><input type="text" id="cdEmail"></div>' +
@@ -8039,7 +8272,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="field"><label>Notes</label><textarea id="cdNotes" rows="3"></textarea></div>' +
         '<div class="field"><label>Zoho Books contact ID (optional)</label><input type="text" id="cdZoho" placeholder="e.g. 460000000123456"></div>' +
         '<div id="cdZohoSnapshot"></div>' +
-        '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="cdCancel">Close</button><button class="btn btn-primary" id="cdSave">Save</button></div>' +
 
         '<h3 style="margin-top:22px;font-size:14px;">Timeline</h3>' +
         '<div class="sub" style="margin:-4px 0 8px;">Quotes, paperwork, meetings, tasks and discussion notes linked to this client, newest first.</div>' +
@@ -8091,6 +8323,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<h3 style="margin-top:18px;font-size:14px;">Meeting notes</h3>' +
         '<div id="cdMtgList"></div>' +
         '<div class="hint">Add new meeting notes from the Meeting Notes tab — pick this client from the dropdown there.</div>' +
+        '</div>' +
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#cdName').value = c.name;
@@ -8447,14 +8680,50 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         return;
       }
       const cur = snap.currency || '£';
-      let html = '<div class="zoho-snapshot"><div class="zoho-row"><strong>Balance</strong><strong>' +
-        escapeHtml(cur) + (Number(snap.balance || 0)).toFixed(2) + '</strong></div>';
+      wrap.innerHTML = '';
+      const outer = document.createElement('div');
+      outer.className = 'zoho-snapshot';
+      const balRow = document.createElement('div');
+      balRow.className = 'zoho-row';
+      balRow.innerHTML = '<strong>Balance</strong><strong>' + escapeHtml(cur) + (Number(snap.balance || 0)).toFixed(2) + '</strong>';
+      outer.appendChild(balRow);
       (snap.invoices || []).slice(0, 6).forEach(function(inv){
-        html += '<div class="zoho-row"><span>' + escapeHtml((inv.number || '') + ' — ' + (inv.status || '')) + '</span><span>' +
-          escapeHtml(cur) + (Number(inv.total || 0)).toFixed(2) + '</span></div>';
+        const isOverdue = inv.status === 'overdue';
+        const isDraft = inv.status === 'draft';
+        const row = document.createElement('div');
+        row.className = 'zoho-row';
+        const left = document.createElement('span');
+        if (isOverdue) left.style.cssText = 'color:var(--warn);font-weight:700;';
+        left.textContent = (isOverdue ? '⚠ ' : '') + (inv.number || '') + ' — ' + (inv.status || '') +
+          (isOverdue && inv.dueDate ? ' (was due ' + inv.dueDate + ')' : '');
+        row.appendChild(left);
+        const pendingSent = data.zohoPending.find(function(p){ return p.kind === 'markInvoiceSent' && p.meta.invoiceId === inv.invoiceId; });
+        if (isDraft && pendingSent){
+          const note = document.createElement('span');
+          note.className = 'hint';
+          note.textContent = 'Marking as sent…';
+          row.appendChild(note);
+        } else if (isDraft){
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-ghost';
+          btn.style.cssText = 'width:auto;padding:3px 8px;font-size:11.5px;';
+          btn.textContent = 'Mark as sent';
+          btn.title = 'Created via API invoices start as draft in Zoho, which also means Zoho won\'t compute "overdue" for them - this tells Zoho it\'s actually been sent.';
+          btn.addEventListener('click', function(){
+            zohoFireWrite('markInvoiceSent', { invoiceId: inv.invoiceId }, { invoiceId: inv.invoiceId });
+            toast('Marking invoice ' + (inv.number || inv.invoiceId) + ' as sent in Zoho — check back shortly.');
+            renderSnapshotBlock();
+          });
+          row.appendChild(btn);
+        } else {
+          const right = document.createElement('span');
+          if (isOverdue) right.style.cssText = 'color:var(--warn);font-weight:700;';
+          right.textContent = cur + (Number(inv.total || 0)).toFixed(2);
+          row.appendChild(right);
+        }
+        outer.appendChild(row);
       });
-      html += '</div>';
-      wrap.innerHTML = html;
+      wrap.appendChild(outer);
     }
     renderSnapshotBlock();
     if (data.zohoConnection && !zohoSnapshotCache){
@@ -8661,6 +8930,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // Applies any write results that have shown up in the snapshot since they were fired,
   // then drops them from the pending list. Returns a short summary for a toast.
+  // Human label for a pending Zoho action, used for both toasts and the persistent log -
+  // built from whatever's available locally (meta) since a failed result has no r.result.
+  const ZOHO_ACTION_KIND_LABEL = {
+    createContact: 'Create contact',
+    createInvoiceFromQuote: 'Send invoice',
+    recordPayment: 'Record payment',
+    markInvoiceSent: 'Mark invoice as sent'
+  };
+  function zohoActionLabel(p, r){
+    const kindLabel = ZOHO_ACTION_KIND_LABEL[p.kind] || p.kind;
+    if (p.kind === 'createContact'){
+      const c = data.clients.find(function(x){ return x.id === p.meta.clientId; });
+      return kindLabel + ': ' + ((r && r.ok && r.result && r.result.name) || (c && c.name) || 'client');
+    }
+    if (p.kind === 'createInvoiceFromQuote'){
+      const q = data.quotes.find(function(x){ return x.id === p.meta.quoteId; });
+      return kindLabel + (q ? (' — "' + q.title + '"') : '') + ((r && r.ok && r.result && r.result.invoiceNumber) ? (' (Invoice ' + r.result.invoiceNumber + ')') : '');
+    }
+    if (p.kind === 'recordPayment'){
+      const q = data.quotes.find(function(x){ return x.id === p.meta.quoteId; });
+      return kindLabel + (q ? (' — "' + q.title + '"') : '');
+    }
+    if (p.kind === 'markInvoiceSent'){
+      return kindLabel + (p.meta.invoiceId ? (' — ' + p.meta.invoiceId) : '');
+    }
+    return kindLabel;
+  }
+
+  function zohoLogAction(entry){
+    entry.at = new Date().toISOString();
+    data.zohoActionLog.unshift(entry);
+    if (data.zohoActionLog.length > 20) data.zohoActionLog.length = 20;
+  }
+
   function zohoApplyPendingResults(){
     if (!data.zohoPending.length || !zohoSnapshotCache || !zohoSnapshotCache.writeResults) return null;
     const results = zohoSnapshotCache.writeResults;
@@ -8671,7 +8974,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!r){ stillPending.push(p); return; }
       if (!r.ok){
         failed++;
-        toast('Zoho action failed (' + p.kind + '): ' + (r.error || 'unknown error'));
+        const label = zohoActionLabel(p, r);
+        zohoLogAction({ kind: p.kind, ok: false, label: label, error: r.error || 'unknown error' });
+        toast('Zoho error — ' + label + ': ' + (r.error || 'unknown error'));
         return;
       }
       applied++;
@@ -8685,11 +8990,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const q = data.quotes.find(function(x){ return x.id === p.meta.quoteId; });
         if (q){ q.zohoPayments.push({ paymentId: r.result.paymentId, amount: r.result.amount, date: p.meta.date || '' }); }
       }
+      zohoLogAction({ kind: p.kind, ok: true, label: zohoActionLabel(p, r), error: null });
     });
     data.zohoPending = stillPending;
-    if (applied || failed){ markDirty(); }
+    if (applied || failed){ markDirty(); renderZohoActionLog(); }
     if (applied) return applied + ' Zoho update' + (applied === 1 ? '' : 's') + ' landed.';
     return null;
+  }
+
+  function renderZohoActionLog(){
+    const wrap = document.getElementById('zohoActionLog');
+    if (!wrap) return;
+    if (!data.zohoActionLog.length){ wrap.innerHTML = '<div class="empty-note">Nothing yet — actions will appear here once they land.</div>'; return; }
+    wrap.innerHTML = '';
+    data.zohoActionLog.slice(0, 20).forEach(function(entry){
+      const row = document.createElement('div');
+      row.className = 'zoho-row';
+      row.style.cssText = 'align-items:flex-start;';
+      const left = document.createElement('span');
+      left.style.cssText = entry.ok ? 'color:var(--good);' : 'color:var(--warn);font-weight:700;';
+      left.textContent = (entry.ok ? '✓ Zoho updated — ' : '✗ Zoho error — ') + entry.label + (entry.ok ? '' : (': ' + entry.error));
+      row.appendChild(left);
+      if (!entry.ok){
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'btn btn-ghost';
+        copyBtn.style.cssText = 'width:auto;padding:2px 8px;font-size:11px;flex-shrink:0;';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', function(){
+          const text = entry.label + ': ' + entry.error;
+          if (navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(text).then(function(){ toast('Copied — paste it to Claude for a status check.'); }).catch(function(){ toast('Could not copy — select the text manually: ' + text); });
+          } else {
+            toast('Could not copy — select the text manually: ' + text);
+          }
+        });
+        row.appendChild(copyBtn);
+      } else {
+        const time = document.createElement('span');
+        time.className = 'hint';
+        time.textContent = entry.at ? entry.at.slice(0, 16).replace('T', ' ') : '';
+        row.appendChild(time);
+      }
+      wrap.appendChild(row);
+    });
   }
 
   // Exact-email auto-link only — anything less certain goes to the review queue instead.
@@ -8855,9 +9198,124 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       renderUseTemplateQuoteAndInvoiceOptions();
       if (linked) toast('Linked ' + linked + ' client' + (linked === 1 ? '' : 's') + ' to an existing Zoho contact by email.');
       else if (summary) toast(summary);
+      return zohoHandleNewlyPaidInvoices();
     });
   }
   setInterval(function(){ zohoReconcile(); }, 90000);
+
+  // ------------------------------------------------- paid invoice files -> PAID subfolder
+  // Entirely the Hub's own doing, no Claude/Cowork involvement needed once the folder is
+  // set: every reconcile (on unlock, and every 90s after) checks each linked client's
+  // synced Zoho invoices for one that's newly "paid", and if so moves that invoice's saved
+  // files (matched by invoice number appearing in the filename) into a "PAID" subfolder.
+
+  function renderInvoicesFolderStatus(){
+    const label = document.getElementById('invoicesFolderLabel');
+    if (!label) return;
+    label.textContent = 'Invoices folder: ' + (data.invoicesFolder ? escapeHtml(data.invoicesFolder.name) : 'not set');
+  }
+
+  const invoicesFolderBtn = document.getElementById('invoicesFolderBtn');
+  if (invoicesFolderBtn) invoicesFolderBtn.addEventListener('click', async function(){
+    try {
+      await getAccessToken(true);
+      const picked = await showDriveFolderPicker();
+      if (!picked) return;
+      data.invoicesFolder = { id: picked.id, name: picked.name };
+      markDirty();
+      renderInvoicesFolderStatus();
+      toast('Invoices folder set to "' + picked.name + '" — paid invoices will be moved into a "PAID" subfolder there automatically.');
+    } catch (e){
+      toast('Could not set the invoices folder: ' + e.message);
+    }
+  });
+
+  let paidSubfolderId = null;
+  async function ensurePaidSubfolder(){
+    if (paidSubfolderId) return paidSubfolderId;
+    if (!data.invoicesFolder || !data.invoicesFolder.id) throw new Error('No invoices folder set yet (Clients tab, Zoho Books connection).');
+    const existing = await findDriveFolderByName('PAID', data.invoicesFolder.id);
+    if (existing){ paidSubfolderId = existing.id; return paidSubfolderId; }
+    const createRes = await driveApiFetch('/files?fields=id,name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'PAID', mimeType: 'application/vnd.google-apps.folder', parents: [data.invoicesFolder.id] })
+    });
+    if (!createRes.ok) throw new Error('Could not create the "PAID" subfolder.');
+    const created = await createRes.json();
+    paidSubfolderId = created.id;
+    return paidSubfolderId;
+  }
+
+  // Searches the invoices folder itself, plus one level of subfolders (covers the
+  // per-client subfolder convention the sole-trader invoice flow uses), for files whose
+  // name contains the given invoice number - e.g. "26001" matches "26001.ods",
+  // "Invoice_26001_Client.pdf", etc. Folders themselves are excluded from the results.
+  async function findInvoiceFilesByNumber(invoiceNumber){
+    const root = data.invoicesFolder.id;
+    const needle = String(invoiceNumber).replace(/'/g, "\\'");
+    const q = "name contains '" + needle + "' and mimeType != 'application/vnd.google-apps.folder' and trashed = false and ('" +
+      root.replace(/'/g, "\\'") + "' in parents";
+    // First pass: files directly inside the invoices folder.
+    const rootRes = await driveApiFetch('/files?q=' + encodeURIComponent(q + ")") + '&fields=files(id,name,parents)&spaces=drive');
+    let files = [];
+    if (rootRes.ok){ const body = await rootRes.json(); files = files.concat(body.files || []); }
+    // Second pass: immediate subfolders (client folders), one level deep.
+    const subRes = await driveApiFetch('/files?q=' + encodeURIComponent("'" + root.replace(/'/g, "\\'") + "' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false") + '&fields=files(id,name)&spaces=drive');
+    if (subRes.ok){
+      const subBody = await subRes.json();
+      const subFolders = (subBody.files || []).filter(function(f){ return f.name !== 'PAID'; });
+      for (const sf of subFolders){
+        const subQ = "name contains '" + needle + "' and mimeType != 'application/vnd.google-apps.folder' and trashed = false and '" + sf.id.replace(/'/g, "\\'") + "' in parents";
+        const r = await driveApiFetch('/files?q=' + encodeURIComponent(subQ) + '&fields=files(id,name,parents)&spaces=drive');
+        if (r.ok){ const b = await r.json(); files = files.concat(b.files || []); }
+      }
+    }
+    return files;
+  }
+
+  async function moveInvoiceFilesToPaid(invoiceNumber){
+    if (!data.invoicesFolder || !data.invoicesFolder.id) return { moved: 0, reason: 'no-folder' };
+    const paidId = await ensurePaidSubfolder();
+    const files = await findInvoiceFilesByNumber(invoiceNumber);
+    let moved = 0;
+    for (const f of files){
+      const currentParents = (f.parents || []).join(',');
+      const res = await driveApiFetch('/files/' + f.id + '?addParents=' + encodeURIComponent(paidId) +
+        (currentParents ? '&removeParents=' + encodeURIComponent(currentParents) : '') + '&fields=id,parents', { method: 'PATCH' });
+      if (res.ok) moved++;
+    }
+    return { moved: moved, total: files.length };
+  }
+
+  async function zohoHandleNewlyPaidInvoices(){
+    if (!data.invoicesFolder || !data.invoicesFolder.id || !zohoSnapshotCache || !zohoSnapshotCache.contacts) return;
+    const handled = data.zohoPaidInvoicesHandled;
+    const newlyPaid = [];
+    data.clients.forEach(function(c){
+      if (!c.zohoContactId) return;
+      const snap = zohoSnapshotCache.contacts[c.zohoContactId];
+      if (!snap || !snap.invoices) return;
+      snap.invoices.forEach(function(inv){
+        if (inv.status === 'paid' && handled.indexOf(inv.invoiceId) === -1) newlyPaid.push(inv);
+      });
+    });
+    if (!newlyPaid.length) return;
+    let totalMoved = 0, anyFailed = false;
+    for (const inv of newlyPaid){
+      try {
+        const result = await moveInvoiceFilesToPaid(inv.number || inv.invoiceId);
+        totalMoved += result.moved;
+      } catch (e){
+        anyFailed = true;
+      }
+      handled.push(inv.invoiceId);
+    }
+    markDirty();
+    if (totalMoved) toast('Moved ' + totalMoved + ' file' + (totalMoved === 1 ? '' : 's') + ' into "PAID" for ' + newlyPaid.length + ' newly-paid invoice' + (newlyPaid.length === 1 ? '' : 's') + '.');
+    else if (!anyFailed) toast(newlyPaid.length + ' invoice' + (newlyPaid.length === 1 ? '' : 's') + ' now shows as paid in Zoho, but no matching files were found in the invoices folder to move.');
+    else toast('Could not check for paid-invoice files to move — see console.');
+  }
 
   // ---------------------------------------------------------------- quotes
   function computeQuoteTotals(q){
@@ -9038,11 +9496,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#qNotes').value = q.notes;
 
     const presetSel = backdrop.querySelector('#qPresetSelect');
-    data.quoteRates.forEach(function(r){
-      const opt = document.createElement('option');
-      opt.value = r.id; opt.textContent = r.label + ' (' + fmtGBP(r.rate) + '/' + r.unit + ')';
-      presetSel.appendChild(opt);
-    });
+    if (data.quoteRates.length){
+      const localGroup = document.createElement('optgroup');
+      localGroup.label = 'Your presets';
+      data.quoteRates.forEach(function(r){
+        const opt = document.createElement('option');
+        opt.value = r.id; opt.textContent = r.label + ' (' + fmtGBP(r.rate) + '/' + r.unit + ')';
+        localGroup.appendChild(opt);
+      });
+      presetSel.appendChild(localGroup);
+    }
+    // Zoho's own item catalogue, read-only from the synced snapshot - lets a quote
+    // reuse whatever's already set up in Zoho Books without redefining it here too.
+    const zohoItems = (zohoSnapshotCache && zohoSnapshotCache.allItems) || [];
+    if (data.zohoConnection && zohoItems.length){
+      const zohoGroup = document.createElement('optgroup');
+      zohoGroup.label = 'Zoho catalogue';
+      zohoItems.forEach(function(it){
+        const opt = document.createElement('option');
+        opt.value = 'zoho:' + it.itemId; opt.textContent = it.name + ' (' + fmtGBP(it.rate) + ')';
+        zohoGroup.appendChild(opt);
+      });
+      presetSel.appendChild(zohoGroup);
+    }
 
     function renderTotals(){
       const t = computeQuoteTotals(q);
@@ -9138,13 +9614,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const c = data.clients.find(function(x){ return x.id === q.clientId; });
       const pendingInvoice = data.zohoPending.find(function(p){ return p.kind === 'createInvoiceFromQuote' && p.meta.quoteId === q.id; });
       const pendingPayment = data.zohoPending.find(function(p){ return p.kind === 'recordPayment' && p.meta.quoteId === q.id; });
+      const pendingSent = data.zohoPending.find(function(p){ return p.kind === 'markInvoiceSent' && p.meta.quoteId === q.id; });
       let html = '<div class="card" style="margin-top:12px;padding:12px;"><h3 style="font-size:13px;margin:0 0 8px;">Zoho Books</h3>';
       if (!c){
         html += '<div class="hint">Select a client above to send this to Zoho.</div>';
       } else if (!c.zohoContactId){
         html += '<div class="hint">"' + escapeHtml(c.name) + '" isn\'t linked to a Zoho contact yet — resolve that from "Contacts to review" on the Clients tab, then reopen this quote.</div>';
       } else if (q.zohoInvoiceId){
-        html += '<div class="zoho-row"><strong>Invoice ' + escapeHtml(q.zohoInvoiceNumber || q.zohoInvoiceId) + '</strong></div>';
+        const snapC = zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
+        const snapInv = snapC && (snapC.invoices || []).find(function(iv){ return iv.invoiceId === q.zohoInvoiceId; });
+        const isOverdue = !!(snapInv && snapInv.status === 'overdue');
+        const isDraft = !!(snapInv && snapInv.status === 'draft');
+        html += '<div class="zoho-row"><strong>Invoice ' + escapeHtml(q.zohoInvoiceNumber || q.zohoInvoiceId) + '</strong>' +
+          (snapInv ? ('<span' + (isOverdue ? ' style="color:var(--warn);font-weight:700;"' : '') + '>' +
+            (isOverdue ? '⚠ Overdue' : escapeHtml(snapInv.status || '')) +
+            (isOverdue && snapInv.dueDate ? ' (was due ' + escapeHtml(snapInv.dueDate) + ')' : '') + '</span>') : '') +
+          '</div>';
+        if (isDraft){
+          html += pendingSent
+            ? '<div class="hint">Marking as sent — check back shortly.</div>'
+            : '<button class="btn btn-ghost" id="qZohoMarkSentBtn" style="width:auto;margin:6px 0;padding:5px 10px;font-size:12px;">Mark as sent in Zoho</button>' +
+              '<div class="hint">Created invoices start as "draft" in Zoho and won\'t show as overdue until marked sent.</div>';
+        }
         (q.zohoPayments || []).forEach(function(p){
           html += '<div class="zoho-row"><span>Payment' + (p.date ? ' — ' + escapeHtml(p.date) : '') + '</span><span>' + fmtGBP(Number(p.amount) || 0) + '</span></div>';
         });
@@ -9190,6 +9681,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         toast('Recording payment — check back shortly.');
         renderZohoQuoteBlock();
       });
+      const markSentBtn = wrap.querySelector('#qZohoMarkSentBtn');
+      if (markSentBtn) markSentBtn.addEventListener('click', function(){
+        zohoFireWrite('markInvoiceSent', { invoiceId: q.zohoInvoiceId }, { quoteId: q.id });
+        toast('Marking invoice as sent in Zoho — check back shortly.');
+        renderZohoQuoteBlock();
+      });
     }
 
     renderLineItems();
@@ -9205,6 +9702,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#qAddPresetBtn').addEventListener('click', function(){
       const presetId = presetSel.value;
       if (!presetId) return;
+      if (presetId.indexOf('zoho:') === 0){
+        const zohoItemId = presetId.slice(5);
+        const zItem = ((zohoSnapshotCache && zohoSnapshotCache.allItems) || []).find(function(x){ return x.itemId === zohoItemId; });
+        if (!zItem) return;
+        q.lineItems.push({ id: randomId(), label: zItem.name, qty: 1, rate: zItem.rate, description: zItem.description || '' });
+        markDirty(); renderLineItems(); renderTotals(); renderProfit(); renderQuotes(); renderZohoQuoteBlock();
+        return;
+      }
       const preset = data.quoteRates.find(function(x){ return x.id === presetId; });
       if (!preset) return;
       q.lineItems.push({ id: randomId(), label: preset.label, qty: 1, rate: preset.rate, description: '' });
