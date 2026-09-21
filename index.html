@@ -1731,7 +1731,7 @@
         { id:'glass-options', name:'Glass Finish Options', desc:'The iPad-screen glass look — side-by-side treatment options. Design decision already made for the live site; kept for reference.', payload:'glass', kind:'tool', icon:'▦' },
         { id:'glossy-options', name:'Glossy Treatments', desc:'Six glossy surface treatments compared side by side. Design decision already made for the live site; kept for reference.', payload:'glossy', kind:'tool', icon:'▦' },
         { id:'logo-sheet', name:'Logo Exploration Sheet', desc:'The I·S·S monogram concept sheet — mark, rationale, and variations.', payload:'logo_sheet', kind:'tool', icon:'▦' },
-        { id:'home-mockup', name:'Home Redesign Mockup (early)', desc:'Earlier-stage SkySight home redesign mockup, kept for reference against the current site.', payload:'home_mockup', kind:'tool', icon:'▦' },
+        { id:'home-mockup', name:'Home Redesign Mockup (early)', desc:'Earlier-stage home redesign mockup from before the rename, kept for reference against the current site.', payload:'home_mockup', kind:'tool', icon:'▦' },
       ],
     },
     {
@@ -1746,7 +1746,7 @@
         { id:'sc-mkmask', name:'mkmask.py', desc:'Builds the bit-packed alpha masks used by the Parallax Layer Editor’s coverage checks.', payload:'sc_mkmask', kind:'doc', filename:'mkmask.py', mime:'text/x-python', icon:'⌘' },
         { id:'sc-compare-crops', name:'compare_crops.py', desc:'Zoomed side-by-side crops of shipped vs. proposed media, for judging quality by eye rather than by metric alone.', payload:'sc_compare_crops', kind:'doc', filename:'compare_crops.py', mime:'text/x-python', icon:'⌘' },
         { id:'sc-make-watermark', name:'make_watermark.py', desc:'Produces the placeholder corner watermark (monogram + gold) for the service drawer strip.', payload:'sc_make_watermark', kind:'doc', filename:'make_watermark.py', mime:'text/x-python', icon:'⌘' },
-        { id:'sc-make-media', name:'make_media.py', desc:'Generates stand-in video loops for the Motion page from aerial stills, for testing without the real SkySight clips.', payload:'sc_make_media', kind:'doc', filename:'make_media.py', mime:'text/x-python', icon:'⌘' },
+        { id:'sc-make-media', name:'make_media.py', desc:'Generates stand-in video loops for the Motion page from aerial stills, for testing without the real client clips.', payload:'sc_make_media', kind:'doc', filename:'make_media.py', mime:'text/x-python', icon:'⌘' },
         { id:'sc-build-wp', name:'build_wp.py', desc:'Builds the WordPress-ready export above from the concept page, locating boundaries by search rather than line numbers.', payload:'sc_build_wp', kind:'doc', filename:'build_wp.py', mime:'text/x-python', icon:'⌘' },
         { id:'sc-build-header', name:'build_header_template.py', desc:'Exports the Elementor Theme Builder header as an importable template JSON — built with no display conditions, so it stays inert until assigned.', payload:'sc_build_header', kind:'doc', filename:'build_header_template.py', mime:'text/x-python', icon:'⌘' },
         { id:'sc-build-grain-assets', name:'build_grain_assets.py', desc:'Cuts the grain tiles and test images the Grain Chooser previews against.', payload:'sc_build_grain_assets', kind:'doc', filename:'build_grain_assets.py', mime:'text/x-python', icon:'⌘' },
@@ -1762,12 +1762,12 @@
       group: 'Reference Documentation (older — verify before use)',
       collapsed: true,
       items: [
-        { id:'doc-migration-plan', name:'Domain & Brand Migration Plan', desc:'The SkySight → ImageScape migration plan, including the media optimisation table (1.8) the pipeline script targets. The migration itself is complete; kept for the table and history.', payload:'doc_migration_plan', kind:'doc', filename:'Domain and Brand Migration Plan to ImageScape Studios.odt', mime:'application/vnd.oasis.opendocument.text', icon:'⌘' },
-        { id:'doc-site-structure', name:'Site Structure & Media Reference', desc:'skysight.ltd’s structure, plugins and media reference from before the rename. Superseded by the Project Handover above for anything about the live site today.', payload:'doc_site_structure', kind:'doc', filename:'skysight-site-structure.md', mime:'text/markdown', icon:'⌘' },
+        { id:'doc-migration-plan', name:'Domain & Brand Migration Plan', desc:'The historic migration plan to ImageScape Studios, including the media optimisation table (1.8) the pipeline script targets. The migration itself is complete; kept for the table and history.', payload:'doc_migration_plan', kind:'doc', filename:'Domain and Brand Migration Plan to ImageScape Studios.odt', mime:'application/vnd.oasis.opendocument.text', icon:'⌘' },
+        { id:'doc-site-structure', name:'Site Structure & Media Reference', desc:'The old site’s structure, plugins and media reference from before the rename (historic). Superseded by the Project Handover above for anything about the live site today.', payload:'doc_site_structure', kind:'doc', filename:'skysight-site-structure.md', mime:'text/markdown', icon:'⌘' },
         { id:'doc-elementor-port', name:'Elementor Port Notes', desc:'Notes on fitting the concept page into WordPress and Elementor. That port already happened; kept for history.', payload:'doc_elementor_port', kind:'doc', filename:'imagescape-elementor-port.md', mime:'text/markdown', icon:'⌘' },
         { id:'doc-service-galleries', name:'Service Galleries Guide', desc:'Adding pictures to a service drawer strip without touching code. Not re-verified against the live site this pass.', payload:'doc_service_galleries', kind:'doc', filename:'imagescape-service-galleries.md', mime:'text/markdown', icon:'⌘' },
         { id:'doc-parallax-default', name:'Parallax Default Config (superseded)', desc:'An earlier standing config for the parallax stack (speeds 1.55/2.05/3, headroom 220). Confirmed stale as of 15 Aug 2026 — the live values are in the Project Handover and the Parallax Layer Editor’s default preset instead.', payload:'doc_parallax_default', kind:'doc', filename:'parallax-default-config.md', mime:'text/markdown', icon:'⌘' },
-        { id:'doc-header-footer', name:'Header/Footer Migration Guide', desc:'Migrating a new header and footer onto skysight.ltd safely. That migration is presumed complete under the current live site.', payload:'doc_header_footer_migration', kind:'doc', filename:'skysight-header-footer-migration.md', mime:'text/markdown', icon:'⌘' },
+        { id:'doc-header-footer', name:'Header/Footer Migration Guide', desc:'Migrating a new header and footer onto the old site safely (historic). That migration is presumed complete under the current live site.', payload:'doc_header_footer_migration', kind:'doc', filename:'skysight-header-footer-migration.md', mime:'text/markdown', icon:'⌘' },
         { id:'doc-gimp-runbook', name:'GIMP3 Resynthesizer Runbook', desc:'Install steps for Resynthesizer 3 in the official GIMP.app on macOS. General tool reference, not site-specific — still current.', payload:'doc_gimp_runbook', kind:'doc', filename:'GIMP3-Resynthesizer-macOS-Runbook.md', mime:'text/markdown', icon:'⌘' },
       ],
     },
@@ -2153,23 +2153,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // single-file version there's no reason to strip this out after first use.
   function seedData(){
     return {
-      events: [
-        { id: randomId(), date: '2026-08-18', title: 'SkySight Ltd hosting lapses — hard deadline', notes: '' },
-        { id: randomId(), date: '2026-12-10', title: 'skysight.ltd domain ownership ends', notes: '' }
-      ],
+      events: [],
       tasks: [
-        { id: randomId(), text: 'Set up mail forwarding from skysight.ltd addresses to info@imagescape.uk', done: false, due: '2026-08-18', category: 'website' },
         { id: randomId(), text: 'Update email signature & autoresponders once info@imagescape.uk is confirmed working', done: false, due: '', category: 'website' },
-        { id: randomId(), text: 'Set up 301 redirects from key old skysight.ltd URLs to their new equivalents', done: false, due: '', category: 'website' },
         { id: randomId(), text: 'Resubmit sitemap & verify new property in Google Search Console; use Change of Address tool', done: false, due: '', category: 'website' },
-        { id: randomId(), text: 'Update Google Business Profile, Instagram handle (@imagescapestudios) & directory listings', done: false, due: '', category: 'client' },
-        { id: randomId(), text: 'Turn off SkySight auto-renew on GoDaddy once fully migrated', done: false, due: '2026-08-18', category: 'website' },
-        { id: randomId(), text: 'File NM01 Companies House name change (by JC)', done: false, due: '', category: 'compliance' }
+        { id: randomId(), text: 'Update Google Business Profile, Instagram handle (@imagescapestudios) & directory listings', done: false, due: '', category: 'client' }
       ],
       links: [
         { id: randomId(), label: 'GoDaddy account', url: 'https://www.godaddy.com/' },
         { id: randomId(), label: 'WordPress admin — imagescapestudios.uk', url: 'https://imagescapestudios.uk/wp-admin/' },
-        { id: randomId(), label: 'WordPress admin — skysight.ltd (old, until decommissioned)', url: 'https://skysight.ltd/wp-admin/' },
         { id: randomId(), label: 'Google Search Console', url: 'https://search.google.com/search-console' },
         { id: randomId(), label: 'Google Business Profile', url: 'https://business.google.com/' },
         { id: randomId(), label: 'Instagram — @imagescapestudios', url: 'https://www.instagram.com/imagescapestudios' },
@@ -2181,7 +2173,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       blogPosts: [],
       wpConnection: null,
       financeProfile: {
-        companyLegalName: 'SkySight Ltd',
+        companyLegalName: 'ImageScape Studios Ltd',
         companyNumber: '',
         incorporationDate: '',
         companyFyEnd: '',
@@ -2386,6 +2378,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       Object.keys(fpDefaults).forEach(function(k){
         if (Object.prototype.hasOwnProperty.call(fpSource, k)) fpDefaults[k] = fpSource[k];
       });
+      // ImageScape Studios Ltd is the official name; the old company name must never
+      // reach a new document or email, so a stored old name is corrected on load.
+      if (!fpDefaults.companyLegalName || /sky\s*sight/i.test(fpDefaults.companyLegalName)) fpDefaults.companyLegalName = 'ImageScape Studios Ltd';
       d.financeProfile = fpDefaults;
     })();
     d.financeSnapshots = d.financeSnapshots || [];
@@ -2516,6 +2511,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (Object.prototype.hasOwnProperty.call(src, k) && src[k] !== null && src[k] !== undefined) esDefaults[k] = src[k];
       });
       esDefaults.paymentTermsDays = Math.max(1, parseInt(esDefaults.paymentTermsDays, 10) || 30);
+      if (/sky\s*sight/i.test(esDefaults.imageScapeName)) esDefaults.imageScapeName = 'ImageScape Studios';
       d.emailSettings = esDefaults;
     })();
     // Index of generated quote/invoice PDFs (numbers, totals, dates, Drive file id) so
@@ -3025,6 +3021,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function createGmailInvoiceDraft(opts){
     // opts: { from?, to, subject, bodyText, pdfBlob?, pdfFilename? } - creates a DRAFT only.
+    assertNoLegacyBrand([opts.from, opts.subject, opts.bodyText, opts.pdfFilename].join('\n'), 'Draft');
     const pdfBytes = opts.pdfBlob ? await opts.pdfBlob.arrayBuffer() : null;
     const raw = buildInvoiceEmailRaw({
       from: opts.from || '', to: opts.to, subject: opts.subject, bodyText: opts.bodyText,
@@ -3994,7 +3991,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     try {
       metaRes = await sheetsApiFetch('/spreadsheets/' + spreadsheetId + '?fields=sheets.properties.sheetId');
     } catch (e){ throw blocked('could not reach Google Sheets: ' + ((e && e.message) || e)); }
-    if (!metaRes.ok) throw blocked('Google Sheets returned status ' + metaRes.status + ' reading the sheet list');
+    if (!metaRes.ok){
+      const eb = await metaRes.json().catch(function(){ return {}; });
+      const msg = (eb.error && eb.error.message) || '';
+      // The usual cause: the Google Sheets API isn't switched on in the Hub's Google Cloud
+      // project, so every call is refused. Say so plainly, with where to fix it.
+      if (metaRes.status === 403 && /has not been used|is disabled|SERVICE_DISABLED|accessNotConfigured/i.test(msg + JSON.stringify(eb))){
+        throw blocked('the Google Sheets API is switched off for the Hub. Turn it on once at console.cloud.google.com/apis/library/sheets.googleapis.com (project "ImageScape Hub", press Enable), wait a minute, then try again');
+      }
+      throw blocked('Google Sheets returned status ' + metaRes.status + ' reading the sheet list' + (msg ? (': ' + msg) : ''));
+    }
     const metaBody = await metaRes.json();
     const sheetIds = ((metaBody.sheets || []).map(function(sh){ return sh.properties && sh.properties.sheetId; }))
       .filter(function(id){ return id !== undefined && id !== null; });
@@ -4029,7 +4035,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (stillOn.length) throw blocked(stillOn.length + ' of ' + sheets.length + ' sheet(s) still had gridlines on after the change');
   }
 
+  // The old company name may appear in historic documents, but never in anything new.
+  // Every new PDF and every email draft passes through this check and is blocked if the
+  // old name is still in it (usually a template footer or a leftover signature).
+  const LEGACY_BRAND_RE = /sky\s*-?\s*sight/i;
+  function assertNoLegacyBrand(text, what){
+    if (LEGACY_BRAND_RE.test(String(text || ''))){
+      throw new Error(what + ' not created: it still mentions the old company name. ImageScape Studios is the official name - update the template or text and try again.');
+    }
+  }
+  async function assertOdsHasNoLegacyBrand(odsBlob){
+    const zip = await JSZip.loadAsync(await odsBlob.arrayBuffer());
+    for (const name of ['content.xml', 'styles.xml', 'meta.xml']){
+      const f = zip.file(name);
+      if (f) assertNoLegacyBrand(await f.async('string'), 'PDF');
+    }
+  }
+
   async function convertOdsBlobToPdf(odsBlob, tempName){
+    await assertOdsHasNoLegacyBrand(odsBlob);
     const bytes = await odsBlob.arrayBuffer();
     const boundary = randomBoundary();
     const metadata = { name: tempName, mimeType: 'application/vnd.google-apps.spreadsheet' };
@@ -11482,6 +11506,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   async function createWpPost(conn, payload){
+    assertNoLegacyBrand(JSON.stringify(payload), 'Post');
     const post = await wpApiFetch(conn, '/wp-json/wp/v2/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
