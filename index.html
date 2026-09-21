@@ -1444,13 +1444,14 @@
 
       <div class="card" style="margin-top:16px;display:none;" id="invEmailCard">
         <h2>Email this invoice</h2>
-        <div class="sub">Creates a Gmail draft — sent from jcookeinv@gmail.com, with the PDF just generated already attached — so you can look it over and hit Send yourself. Nothing is emailed automatically.</div>
-        <div class="link-add">
-          <input type="email" id="invEmailTo" placeholder="Client email">
-          <input type="text" id="invEmailSubject" placeholder="Subject" style="flex:1;">
+        <div class="sub">Preview the PDF below, then write the email: it opens already filled in with the PDF attached, and becomes a Gmail draft for you to check and send. Nothing is emailed automatically.</div>
+        <div id="invPdfPreviewWrap" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#f3f4f6;height:420px;">
+          <iframe id="invPdfPreview" title="Invoice PDF preview" style="width:100%;height:100%;border:0;"></iframe>
         </div>
-        <textarea id="invEmailBody" rows="7" style="width:100%;margin-top:10px;box-sizing:border-box;font-family:inherit;font-size:14px;padding:10px;border:1px solid var(--border);border-radius:8px;"></textarea>
-        <button class="btn btn-primary" id="invEmailDraftBtn" style="width:auto;margin-top:12px;">Create Gmail draft</button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn btn-primary" id="invEmailDraftBtn" style="width:auto;">Write email (PDF attached)</button>
+          <a id="invPdfOpenFull" href="#" target="_blank" rel="noopener">Open PDF full size</a>
+        </div>
         <div id="invEmailStatus" class="hint" style="margin-top:10px;"></div>
       </div>
     </div>
@@ -1496,24 +1497,42 @@
 
     <div class="panel" id="panel-emails">
       <div class="card">
+        <h2>Write an email</h2>
+        <div class="sub">Pick the business and client; the Hub fills in the latest quote, invoice and gallery for them, previews any PDF it will attach, and creates a Gmail draft for you to check and send. Nothing is ever sent from here.</div>
+        <div class="link-add" style="flex-wrap:wrap;">
+          <select id="useTemplateBusiness"><option value="imagescape">ImageScape Studios</option><option value="soletrader">Self-employed</option></select>
+          <select id="useTemplateSelect"><option value="">Choose a template…</option></select>
+          <select id="useTemplateClient"><option value="">Choose a client…</option></select>
+          <select id="useTemplateQuote"><option value="">No quote</option></select>
+          <select id="useTemplateInvoice"><option value="">No invoice</option></select>
+          <select id="useTemplateGallery"><option value="">Latest gallery</option></select>
+          <button class="btn btn-primary" id="useTemplateGenerateBtn" style="width:auto;">Write email</button>
+        </div>
+        <div id="useTemplateResult"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
         <h2>Email templates</h2>
-        <div class="sub">Reusable subject/body templates with merge fields. Fill one in against a client, a quote, and/or a synced Zoho invoice, then copy the result or open it in your own email client — nothing is ever sent from here.</div>
-        <div class="hint" style="margin-bottom:12px;">Available tokens: {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{date}}, {{quoteTitle}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDueDate}}</div>
+        <div class="sub">Reusable subject/body templates for each business. Merge fields are filled in from the client, quote, invoice and gallery; anything the Hub doesn't know shows as a [placeholder] to fill in before the draft is made.</div>
+        <div class="hint" style="margin-bottom:12px;">Available tokens: {{firstName}}, {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{signature}}, {{date}}, {{websiteUrl}}, {{reviewUrl}}, {{paymentTermsDays}}, {{quoteTitle}}, {{quoteRef}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDate}}, {{invoiceDueDate}}, {{daysOverdue}}, {{workPeriod}}, {{galleryLabel}}, {{galleryUrl}}, {{shootDate}}, {{deliveredDate}}</div>
         <button class="btn btn-primary" id="templateNewBtn" style="width:auto;margin-bottom:14px;">+ New template</button>
         <div class="link-grid" id="templateGrid"></div>
       </div>
 
       <div class="card" style="margin-top:16px;">
-        <h2>Use a template</h2>
-        <div class="sub">Pick a template, and optionally a client, saved quote, and/or one of that client's synced Zoho invoices to fill it in.</div>
-        <div class="link-add">
-          <select id="useTemplateSelect"><option value="">Choose a template…</option></select>
-          <select id="useTemplateClient"><option value="">No client</option></select>
-          <select id="useTemplateQuote"><option value="">No quote</option></select>
-          <select id="useTemplateInvoice"><option value="">No invoice</option></select>
-          <button class="btn btn-primary" id="useTemplateGenerateBtn" style="width:auto;">Generate</button>
+        <h2>Sending settings</h2>
+        <div class="sub">Who each business's emails come from, and the signature added to them. Changes save with the rest of the Hub.</div>
+        <div class="field"><label>ImageScape "From"</label><input type="text" id="esIsFrom" placeholder="ImageScape Studios &lt;info@imagescape.uk&gt;" style="width:100%;box-sizing:border-box;"></div>
+        <div class="hint" style="margin:-4px 0 10px;">For Gmail to send as info@imagescape.uk it must first be added in Gmail (jcookeinv@gmail.com) under Settings → Accounts and Import → Send mail as. Until then Gmail swaps it for your own address; the Hub checks every draft and tells you if that happened.</div>
+        <div class="field"><label>ImageScape signature</label><textarea id="esIsSig" rows="4" style="width:100%;box-sizing:border-box;font-family:inherit;"></textarea></div>
+        <div class="field"><label>Self-employed "From"</label><input type="text" id="esStFrom" placeholder="Jonathan Cooke &lt;jcookeinv@gmail.com&gt;" style="width:100%;box-sizing:border-box;"></div>
+        <div class="field"><label>Self-employed signature</label><textarea id="esStSig" rows="3" style="width:100%;box-sizing:border-box;font-family:inherit;"></textarea></div>
+        <div class="link-add" style="flex-wrap:wrap;">
+          <input type="text" id="esWebsite" placeholder="Website link" style="flex:1;min-width:200px;">
+          <input type="text" id="esReview" placeholder="Google review link" style="flex:1;min-width:200px;">
+          <input type="number" id="esTerms" min="1" step="1" placeholder="Payment days" style="max-width:130px;">
         </div>
-        <div id="useTemplateResult"></div>
+        <div class="hint">Payment days sets the due date quoted in invoice emails (30 by default). The Google review link is used by the "Review request" template.</div>
       </div>
     </div>
 
@@ -2190,11 +2209,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       quotes: [],
       emailTemplates: [
         {
-          id: randomId(), name: 'Invoice attached',
-          subject: 'Invoice {{invoiceNumber}} from {{companyName}}',
-          body: 'Hi {{clientName}},\n\nPlease find attached invoice {{invoiceNumber}} for {{invoiceAmount}}, due {{invoiceDueDate}}.\n\nLet me know if you have any questions.\n\nThanks,\n{{senderName}}\n{{companyName}}'
-        },
-        {
           id: randomId(), name: 'Cold outreach',
           subject: 'Photography / video for {{clientCompany}}',
           body: 'Hi {{clientName}},\n\nI\'m {{senderName}} from {{companyName}} — we work with businesses like {{clientCompany}} on photography and video. I\'d love to have a quick chat about what you\'ve got coming up and how we could help.\n\nDo you have 15 minutes this week?\n\nBest,\n{{senderName}}'
@@ -2206,6 +2220,56 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Older vaults (saved before Meetings/Documents/Blog/Finance existed) won't
   // have these fields at all - back them in so every render function below
   // can assume they're always arrays (or null/objects), never undefined.
+  // Starter email templates, added once each to every vault (see normalizeData). Tokens
+  // the Hub can't fill for a given email show up as [placeholders] in the composer.
+  function defaultEmailTemplateSeeds(){
+    const IS = 'imagescape', ST = 'soletrader';
+    return [
+      { seedKey: 'is-enquiry', business: IS, attach: '', name: 'Enquiry reply',
+        subject: 'Re: your enquiry with {{companyName}}',
+        body: 'Hi {{firstName}},\n\nThank you for getting in touch with {{companyName}}. I would be glad to help.\n\nSo I can put together an accurate quote, could you let me know:\n\n- the date, or rough timeframe, you have in mind\n- the location\n- what you would like photographed or filmed, and roughly how many final images or how much footage you need\n- where the images will be used (website, social media, print, etc.)\n\nOnce I have those details I will come back to you with a quote, usually within a day or two. You can see recent work at {{websiteUrl}}.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-quote', business: IS, attach: 'quote', name: 'Quote (PDF attached)',
+        subject: 'Your quote from {{companyName}}: {{quoteTitle}}',
+        body: 'Hi {{firstName}},\n\nThank you for the opportunity to quote for {{quoteTitle}}. Please find quote {{quoteRef}} attached, totalling {{quoteTotal}}.\n\nIn summary:\n{{quoteLines}}\n\nIf you are happy to go ahead, just reply to this email and I will confirm the booking. If anything needs adjusting, let me know and I will update it.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-quote-nudge', business: IS, attach: 'quote', name: 'Quote follow-up',
+        subject: 'Following up: quote {{quoteRef}} for {{quoteTitle}}',
+        body: 'Hi {{firstName}},\n\nI just wanted to follow up on the quote I sent over for {{quoteTitle}} ({{quoteTotal}}). I have attached it again for convenience.\n\nHave you had a chance to look through it? I am happy to answer any questions or adjust anything to better fit what you need. If your plans or timing have changed, no problem at all, just let me know.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-booking', business: IS, attach: '', name: 'Booking confirmation',
+        subject: 'Booking confirmed: {{quoteTitle}}',
+        body: 'Hi {{firstName}},\n\nGreat news, you are booked in. Thank you for choosing {{companyName}}.\n\nJob: {{quoteTitle}}\nDate: {{shootDate}}\nAgreed total: {{quoteTotal}}\n\nI will be in touch closer to the day to confirm the final details. In the meantime, if anything changes, just reply to this email.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-preshoot', business: IS, attach: '', name: 'Pre-shoot details',
+        subject: 'Getting ready for your shoot on {{shootDate}}',
+        body: 'Hi {{firstName}},\n\nI am looking forward to the shoot on {{shootDate}}. A few things to confirm beforehand:\n\n- arrival time, and the best place to park or unload\n- a contact name and phone number for the day\n- any areas, people or products that must be included\n- anything you would like kept out of shot\n\nIf you have a shot list or any reference images, send them over and I will plan around them.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-delivery', business: IS, attach: '', name: 'Gallery delivery',
+        subject: 'Your images are ready: {{galleryLabel}}',
+        body: 'Hi {{firstName}},\n\nYour gallery is ready. You can view and download everything here:\n\n{{galleryUrl}}\n\nPlease download the files you need, as the gallery link will not stay live indefinitely. If you would like any tweaks or extra edits, just let me know.\n\nThank you again for working with {{companyName}}.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-invoice', business: IS, attach: 'invoice', name: 'Invoice (PDF attached)',
+        subject: 'Invoice {{invoiceNumber}} from {{companyName}}',
+        body: 'Hi {{firstName}},\n\nPlease find attached invoice {{invoiceNumber}} for {{invoiceAmount}}, due by {{invoiceDueDate}}.\n\nPayment details are on the invoice. If you have any questions, just reply to this email.\n\nMany thanks,\n{{signature}}' },
+      { seedKey: 'is-chase', business: IS, attach: 'invoice', name: 'Payment reminder',
+        subject: 'Reminder: invoice {{invoiceNumber}} ({{invoiceAmount}})',
+        body: 'Hi {{firstName}},\n\nI hope you are well. Just a gentle reminder that invoice {{invoiceNumber}} for {{invoiceAmount}} was due on {{invoiceDueDate}} and is now {{daysOverdue}} days overdue. I have attached a copy for convenience.\n\nIf payment is already on its way, please ignore this. Otherwise I would be grateful if you could let me know when to expect it.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-receipt', business: IS, attach: '', name: 'Payment received',
+        subject: 'Payment received: invoice {{invoiceNumber}}',
+        body: 'Hi {{firstName}},\n\nThank you, I have received your payment of {{invoiceAmount}} for invoice {{invoiceNumber}}, so your account is all settled.\n\nIt was a pleasure working with you and I hope to again soon.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-thanks', business: IS, attach: '', name: 'Thanks after the shoot',
+        subject: 'Thank you, {{firstName}}',
+        body: 'Hi {{firstName}},\n\nThank you for having me on {{shootDate}}. It was a great shoot and I am looking forward to getting the images edited for you.\n\nI will be in touch as soon as your gallery is ready. If there is anything you would like me to prioritise, just let me know.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-review', business: IS, attach: '', name: 'Review request',
+        subject: 'A quick favour?',
+        body: 'Hi {{firstName}},\n\nI hope you are pleased with your images. If you have a minute, a short Google review would mean a lot to a small business like mine, and helps others find {{companyName}}:\n\n{{reviewUrl}}\n\nThank you again for your support.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'st-invoice', business: ST, attach: 'invoice', name: 'Invoice (PDF attached)',
+        subject: 'Invoice {{invoiceNumber}}',
+        body: 'Hi {{firstName}},\n\nPlease find attached invoice {{invoiceNumber}} for {{invoiceAmount}}, covering {{workPeriod}}. Payment is due within {{paymentTermsDays}} days, by {{invoiceDueDate}}.\n\nPayment details are on the invoice. Any questions, just let me know.\n\nMany thanks,\n{{signature}}' },
+      { seedKey: 'st-chase', business: ST, attach: 'invoice', name: 'Payment reminder',
+        subject: 'Reminder: invoice {{invoiceNumber}} ({{invoiceAmount}})',
+        body: 'Hi {{firstName}},\n\nJust a gentle reminder that invoice {{invoiceNumber}} for {{invoiceAmount}} was due on {{invoiceDueDate}} and is now {{daysOverdue}} days overdue. I have attached a copy for convenience.\n\nIf it is already on its way, please ignore this.\n\nMany thanks,\n{{signature}}' },
+      { seedKey: 'st-receipt', business: ST, attach: '', name: 'Payment received',
+        subject: 'Payment received: invoice {{invoiceNumber}}',
+        body: 'Hi {{firstName}},\n\nThank you, I have received your payment of {{invoiceAmount}} for invoice {{invoiceNumber}}.\n\nMany thanks,\n{{signature}}' }
+    ];
+  }
+
   function normalizeData(d){
     d.events = d.events || [];
     d.events.forEach(function(e){ e.paperworkId = e.paperworkId || ''; e.kind = e.kind || ''; });
@@ -2411,6 +2475,52 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
     });
     d.emailTemplates = d.emailTemplates || [];
+    // Templates made before the two-business composer existed were all written against
+    // ImageScape clients, so they default to ImageScape. attach = which PDF the email
+    // normally carries ('quote' | 'invoice' | ''); seedKey marks the Hub's own starters.
+    d.emailTemplates.forEach(function(t){
+      t.id = t.id || randomId();
+      t.name = t.name || 'Untitled template';
+      t.subject = t.subject || '';
+      t.body = t.body || '';
+      t.business = (t.business === 'soletrader' || t.business === 'both') ? t.business : 'imagescape';
+      t.attach = (t.attach === 'quote' || t.attach === 'invoice') ? t.attach : '';
+      t.seedKey = t.seedKey || '';
+    });
+    // Starter templates are added once each (tracked by seedKey), so editing one is kept
+    // and deleting one keeps it deleted - they are never re-added or overwritten.
+    d.emailTemplateSeedsApplied = Array.isArray(d.emailTemplateSeedsApplied) ? d.emailTemplateSeedsApplied : [];
+    defaultEmailTemplateSeeds().forEach(function(seed){
+      if (d.emailTemplateSeedsApplied.indexOf(seed.seedKey) >= 0) return;
+      if (!d.emailTemplates.some(function(t){ return t.seedKey === seed.seedKey; })){
+        d.emailTemplates.push(Object.assign({ id: randomId() }, seed));
+      }
+      d.emailTemplateSeedsApplied.push(seed.seedKey);
+    });
+    // Sending settings, built field-by-field like financeProfile so a restored file can
+    // only set these known keys.
+    (function(){
+      const esDefaults = {
+        imageScapeName: 'ImageScape Studios',
+        imageScapeFrom: 'ImageScape Studios <info@imagescape.uk>',
+        imageScapeSignature: 'Jon Cooke\nImageScape Studios\ninfo@imagescape.uk\nhttps://imagescape.uk',
+        soleTraderName: 'Jonathan Cooke',
+        soleTraderFrom: 'Jonathan Cooke <jcookeinv@gmail.com>',
+        soleTraderSignature: 'Jonathan Cooke\n07834 349791\njcookeinv@gmail.com',
+        websiteUrl: 'https://imagescape.uk',
+        reviewUrl: '',
+        paymentTermsDays: 30
+      };
+      const src = (d.emailSettings && typeof d.emailSettings === 'object') ? d.emailSettings : {};
+      Object.keys(esDefaults).forEach(function(k){
+        if (Object.prototype.hasOwnProperty.call(src, k) && src[k] !== null && src[k] !== undefined) esDefaults[k] = src[k];
+      });
+      esDefaults.paymentTermsDays = Math.max(1, parseInt(esDefaults.paymentTermsDays, 10) || 30);
+      d.emailSettings = esDefaults;
+    })();
+    // Index of generated quote/invoice PDFs (numbers, totals, dates, Drive file id) so
+    // later emails - a chase, a receipt - can quote the figures and re-attach the PDF.
+    d.docPdfIndex = Array.isArray(d.docPdfIndex) ? d.docPdfIndex.filter(function(x){ return x && x.number; }) : [];
     d.galleries = d.galleries || [];
     d.galleries.forEach(function(g){
       g.clientId = g.clientId || '';
@@ -2867,14 +2977,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // attachment) as a plain JS string - everything in it is ASCII (headers, and the
   // attachment is base64-encoded), so it can go straight into base64UrlEncode below
   // without any UTF-8 byte-juggling at this stage.
+  // "Name <addr>" -> a safe From header value (display name quoted, or RFC 2047 encoded
+  // when it isn't plain ASCII). A bare address passes straight through.
+  function formatFromHeader(from){
+    const clean = String(from || '').replace(/[\r\n]+/g, ' ').trim();
+    const m = /^(.*?)\s*<([^<>\s]+@[^<>\s]+)>$/.exec(clean);
+    if (!m) return clean;
+    const name = m[1].replace(/^"+|"+$/g, '').replace(/"/g, '').trim();
+    if (!name) return '<' + m[2] + '>';
+    return (/^[\x20-\x7E]*$/.test(name) ? ('"' + name + '"') : mimeEncodeHeader(name)) + ' <' + m[2] + '>';
+  }
+
   function buildInvoiceEmailRaw(opts){
     const boundary = 'ohbnd' + randomId().replace(/-/g, '');
-    const pdfBase64 = arrayBufferToBase64(opts.pdfBytes);
+    const hasPdf = !!opts.pdfBytes;
+    const pdfBase64 = hasPdf ? arrayBufferToBase64(opts.pdfBytes) : '';
     const wrappedPdfBase64 = pdfBase64.replace(/(.{76})/g, '$1\r\n');
     const bodyUtf8 = unescape(encodeURIComponent(opts.bodyText || ''));
-    const lines = [
-      'To: ' + opts.to,
-      'Subject: ' + mimeEncodeHeader(opts.subject || ''),
+    const oneLine = function(v){ return String(v || '').replace(/[\r\n]+/g, ' ').trim(); };
+    const safeName = oneLine(opts.pdfFilename || 'document.pdf').replace(/["\\]/g, '');
+    const fromHeader = opts.from ? formatFromHeader(opts.from) : '';
+    const lines = (fromHeader ? ['From: ' + fromHeader] : []).concat([
+      'To: ' + oneLine(opts.to),
+      'Subject: ' + mimeEncodeHeader(oneLine(opts.subject)),
       'MIME-Version: 1.0',
       'Content-Type: multipart/mixed; boundary="' + boundary + '"',
       '',
@@ -2882,24 +3007,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       'Content-Type: text/plain; charset="UTF-8"',
       'Content-Transfer-Encoding: base64',
       '',
-      btoa(bodyUtf8).replace(/(.{76})/g, '$1\r\n'),
-      '--' + boundary,
-      'Content-Type: application/pdf; name="' + opts.pdfFilename + '"',
-      'Content-Disposition: attachment; filename="' + opts.pdfFilename + '"',
-      'Content-Transfer-Encoding: base64',
-      '',
-      wrappedPdfBase64,
-      '--' + boundary + '--',
-      ''
-    ];
+      btoa(bodyUtf8).replace(/(.{76})/g, '$1\r\n')
+    ]);
+    if (hasPdf){
+      lines.push(
+        '--' + boundary,
+        'Content-Type: application/pdf; name="' + safeName + '"',
+        'Content-Disposition: attachment; filename="' + safeName + '"',
+        'Content-Transfer-Encoding: base64',
+        '',
+        wrappedPdfBase64
+      );
+    }
+    lines.push('--' + boundary + '--', '');
     return lines.join('\r\n');
   }
 
   async function createGmailInvoiceDraft(opts){
-    // opts: { to, subject, bodyText, pdfBlob, pdfFilename }
-    const pdfBytes = await opts.pdfBlob.arrayBuffer();
+    // opts: { from?, to, subject, bodyText, pdfBlob?, pdfFilename? } - creates a DRAFT only.
+    const pdfBytes = opts.pdfBlob ? await opts.pdfBlob.arrayBuffer() : null;
     const raw = buildInvoiceEmailRaw({
-      to: opts.to, subject: opts.subject, bodyText: opts.bodyText,
+      from: opts.from || '', to: opts.to, subject: opts.subject, bodyText: opts.bodyText,
       pdfBytes: pdfBytes, pdfFilename: opts.pdfFilename
     });
     const res = await gmailApiFetch('/users/me/drafts', {
@@ -2911,7 +3039,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const body = await res.json().catch(function(){ return {}; });
       throw new Error((body.error && body.error.message) || ('Could not create the Gmail draft (status ' + res.status + ').'));
     }
-    return res.json();
+    const draft = await res.json();
+    // Gmail quietly swaps a From address that isn't a verified "Send mail as" alias for the
+    // account's own address. Read the draft's From back so the composer can say so rather
+    // than letting an ImageScape email go out from the personal address unnoticed.
+    draft.fromMismatch = false;
+    if (opts.from && draft.id){
+      try {
+        const chk = await gmailApiFetch('/users/me/drafts/' + encodeURIComponent(draft.id) + '?format=metadata&metadataHeaders=From');
+        if (chk.ok){
+          const d = await chk.json();
+          const hdr = ((d.message && d.message.payload && d.message.payload.headers) || []).find(function(h){ return /^from$/i.test(h.name); });
+          const want = (/<([^>]+)>/.exec(opts.from) || [null, opts.from])[1].trim().toLowerCase();
+          const got = hdr ? hdr.value : '';
+          const gotAddr = ((/<([^>]+)>/.exec(got) || [null, got])[1] || '').trim().toLowerCase();
+          if (gotAddr && gotAddr !== want){ draft.fromMismatch = true; draft.actualFrom = got; }
+        }
+      } catch (e){ /* best effort */ }
+    }
+    return draft;
   }
 
   async function fetchSoleTraderMonth(yearMonth){
@@ -3337,6 +3483,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (item.description){
         const descCell = odsGetCellAt(newRow, header.descIdx);
         odsSetCellText(xmlDoc, descCell, item.description);
+      } else if (typeof item.hours === 'number' && item.hours > 0){
+        // No per-item description, so this row keeps the template's own wording - but if
+        // that wording states a number of hours, bring it in line with the hours actually
+        // billed on this line. See odsApplyHoursToRowText for why it edits the number in
+        // place rather than composing a fresh sentence. Silent no-op when the template's
+        // text has no hours figure.
+        odsApplyHoursToRowText(xmlDoc, newRow, item.hours);
       }
       // dateLabel (pre-formatted UK dd/mm/yy text) takes priority over isoDate when both
       // are given, and is written as a plain string rather than a typed date value.
@@ -3821,6 +3974,61 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // filled .ods as a Google Sheets-native file (Drive auto-converts on import when the
   // metadata mimeType differs from the uploaded content's own type), export that native
   // copy to PDF, then always delete the temporary Sheets file again.
+  // Switches gridlines off on every sheet of a temporary conversion spreadsheet, then
+  // reads the setting BACK and refuses to continue unless every sheet reports it as off.
+  // The only thing standing between a template and a gridded PDF, so it has no quiet
+  // failure path: any error, non-OK response, or sheet still showing gridlines throws.
+  //
+  // Why read back rather than trust the update's 200: the Sheets API's
+  // gridProperties.hideGridlines is a real, persisted property of the file, and it is
+  // what Drive's /export endpoint honours (Drive's export has no gridlines parameter of
+  // its own). Confirming the stored value is the closest check available from here to
+  // "the exported PDF will have no cell outlines" short of rasterising the PDF itself.
+  // The Sheets API omits hideGridlines when it is false, so anything other than an
+  // explicit true counts as still on.
+  async function enforceNoGridlines(spreadsheetId){
+    function blocked(why){
+      return new Error('PDF not created: it could not be guaranteed free of spreadsheet cell outlines (' + why + '). Nothing has been saved - please try again.');
+    }
+    let metaRes;
+    try {
+      metaRes = await sheetsApiFetch('/spreadsheets/' + spreadsheetId + '?fields=sheets.properties.sheetId');
+    } catch (e){ throw blocked('could not reach Google Sheets: ' + ((e && e.message) || e)); }
+    if (!metaRes.ok) throw blocked('Google Sheets returned status ' + metaRes.status + ' reading the sheet list');
+    const metaBody = await metaRes.json();
+    const sheetIds = ((metaBody.sheets || []).map(function(sh){ return sh.properties && sh.properties.sheetId; }))
+      .filter(function(id){ return id !== undefined && id !== null; });
+    if (!sheetIds.length) throw blocked('the converted file reported no sheets to configure');
+
+    let updRes;
+    try {
+      updRes = await sheetsApiFetch('/spreadsheets/' + spreadsheetId + ':batchUpdate', {
+        method: 'POST',
+        body: JSON.stringify({ requests: sheetIds.map(function(sheetId){
+          return { updateSheetProperties: { properties: { sheetId: sheetId, gridProperties: { hideGridlines: true } }, fields: 'gridProperties.hideGridlines' } };
+        }) })
+      });
+    } catch (e){ throw blocked('could not reach Google Sheets: ' + ((e && e.message) || e)); }
+    if (!updRes.ok){
+      const eb = await updRes.json().catch(function(){ return {}; });
+      throw blocked('switching gridlines off failed with status ' + updRes.status + ((eb.error && eb.error.message) ? ': ' + eb.error.message : ''));
+    }
+
+    let chkRes;
+    try {
+      chkRes = await sheetsApiFetch('/spreadsheets/' + spreadsheetId + '?fields=sheets.properties(sheetId,gridProperties.hideGridlines)');
+    } catch (e){ throw blocked('could not re-check the setting: ' + ((e && e.message) || e)); }
+    if (!chkRes.ok) throw blocked('Google Sheets returned status ' + chkRes.status + ' re-checking the setting');
+    const chkBody = await chkRes.json();
+    const sheets = chkBody.sheets || [];
+    if (sheets.length !== sheetIds.length) throw blocked('the sheet count changed while it was being configured');
+    const stillOn = sheets.filter(function(sh){
+      const gp = sh.properties && sh.properties.gridProperties;
+      return !(gp && gp.hideGridlines === true);
+    });
+    if (stillOn.length) throw blocked(stillOn.length + ' of ' + sheets.length + ' sheet(s) still had gridlines on after the change');
+  }
+
   async function convertOdsBlobToPdf(odsBlob, tempName){
     const bytes = await odsBlob.arrayBuffer();
     const boundary = randomBoundary();
@@ -3840,35 +4048,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const created = await createRes.json();
     const tempId = created.id;
     try {
-      // Switch off this temp sheet's gridlines before exporting. Found 20 Sep 2026: a
-      // freshly-converted ODS-to-Sheets file has never had its print/view setup touched by
-      // anyone, so Sheets falls back to its own default of gridlines ON across the sheet's
-      // full formatted extent - which for these invoice templates (styled well past the
-      // actual content, a leftover from however the template was originally built) showed
-      // as a full page of faint grid lines behind and below the invoice in the exported
-      // PDF, nothing like the clean original. Drive's basic /export endpoint has no
-      // gridlines parameter of its own (that only exists on the old docs.google.com export
-      // URL, which needs a browser session cookie and can't be called from here), but the
-      // Sheets API's gridProperties.hideGridlines is a real, persisted property of the file
-      // itself, and IS what that export endpoint honours - and it needs no extra sign-in,
-      // since Sheets API accepts this app's existing full `drive` scope. Best-effort: if
-      // this fails for any reason, still produce the PDF rather than blocking the whole
-      // invoice over a cosmetic setting.
-      try {
-        const metaRes = await sheetsApiFetch('/spreadsheets/' + tempId + '?fields=sheets.properties.sheetId');
-        if (metaRes.ok){
-          const metaBody = await metaRes.json();
-          const sheetIds = ((metaBody.sheets || []).map(function(s){ return s.properties && s.properties.sheetId; })).filter(function(id){ return id !== undefined && id !== null; });
-          if (sheetIds.length){
-            await sheetsApiFetch('/spreadsheets/' + tempId + ':batchUpdate', {
-              method: 'POST',
-              body: JSON.stringify({ requests: sheetIds.map(function(sheetId){
-                return { updateSheetProperties: { properties: { sheetId: sheetId, gridProperties: { hideGridlines: true } }, fields: 'gridProperties.hideGridlines' } };
-              }) })
-            });
-          }
-        }
-      } catch (e){ /* cosmetic only - fall through to export regardless */ }
+      // ENFORCED, not best-effort (Jon, 21 Sep 2026: "All pdfs must be free of
+      // spreadsheet cell outlines. This must be enforced."). A freshly converted ODS-to-
+      // Sheets file defaults to gridlines ON across its whole formatted extent, which for
+      // these templates prints as a page of faint cell outlines - see enforceNoGridlines.
+      // This used to be wrapped in a try/catch that swallowed any failure and exported
+      // anyway, and never even checked the update's HTTP status, so one quiet API error
+      // was all it took to hand a client a gridded invoice (R26-0009 was one). Now: if the
+      // setting can't be applied AND read back as on for every sheet, no PDF is produced
+      // at all - the throw below skips the export, the finally still deletes the temp
+      // file, and the caller shows the reason.
+      await enforceNoGridlines(tempId);
       const exportRes = await driveApiFetch('/files/' + tempId + '/export?mimeType=application/pdf');
       if (!exportRes.ok) throw new Error('Could not export the invoice as a PDF (status ' + exportRes.status + ').');
       return await exportRes.blob();
@@ -3913,8 +4103,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Plain text, not a typed date - see the note on odsRebuildInvoiceItems for why: a
     // typed date cell can come out day/month-swapped when Sheets recalculates it for PDF
     // export, and unlike the item rows (fixed 20 Sep 2026), this field's day can land
-    // anywhere 1st-31st, so it's just as exposed to that same ambiguity.
-    odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel);
+    // anywhere 1st-31st, so it's just as exposed to that same ambiguity. Written in the
+    // long "20 September 2026" form the sole-trader templates and Jon's own sent invoices
+    // use for this field (the item rows stay short dd/mm/yy, as they are there); spelling
+    // the month out keeps it unambiguous, so it needs no typed-date value to be safe.
+    odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', longDate(opts.invoiceDateIso));
     const header = odsFindItemHeader(table);
     if (!header) throw new Error('Could not find the invoice’s item table (a "Description" header row).');
     odsRebuildInvoiceItems(xmlDoc, table, opts.items);
@@ -3932,8 +4125,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     pdfTables.forEach(function(t, i){ if (i > 0 && t.parentNode) t.parentNode.removeChild(t); });
     const pdfSourceBlob = await odsSaveContentXml(zip, pdfXmlDoc);
 
-    const odsUpload = await uploadNewDriveFile(savedBlob, opts.invoiceNumber + '.ods', 'application/vnd.oasis.opendocument.spreadsheet', opts.folderId);
+    // PDF first, uploads after: convertOdsBlobToPdf refuses to produce a PDF it can't
+    // guarantee is free of cell outlines, and doing it before either upload means a
+    // refusal leaves nothing half-done in Drive (previously the .ods was already saved by
+    // the time the PDF step ran). Same order generateImageScapeDoc already uses.
     const pdfBlob = await convertOdsBlobToPdf(pdfSourceBlob, opts.invoiceNumber + ' (temp conversion)');
+    const odsUpload = await uploadNewDriveFile(savedBlob, opts.invoiceNumber + '.ods', 'application/vnd.oasis.opendocument.spreadsheet', opts.folderId);
     const pdfUpload = await uploadNewDriveFile(pdfBlob, opts.invoiceNumber + '.pdf', 'application/pdf', opts.folderId);
 
     return { odsFile: odsUpload, pdfFile: pdfUpload, pdfBlob: pdfBlob, total: total };
@@ -4239,7 +4436,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // leaves that template text untouched when an item has no description. dateLabel is
       // supplied pre-formatted (UK dd/mm/yy) so the date cell is written as plain text
       // rather than a typed date value - see the note on odsRebuildInvoiceItems for why.
-      const items = checked.map(function(s){ return { isoDate: s.isoDate, dateLabel: ddmmyy(s.isoDate), amount: s.amount }; });
+      // hours is passed so the template's own "N hours ..." wording tracks the hours
+      // actually billed on each line, which already drive the amount - see
+      // odsApplyHoursToRowText. Still no "description": the wording itself stays the
+      // template's, only its hours figure is updated.
+      const items = checked.map(function(s){ return { isoDate: s.isoDate, dateLabel: ddmmyy(s.isoDate), amount: s.amount, hours: s.hours }; });
       const todayIso = isoDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
       status.textContent = 'Saving the invoice and converting it to PDF (this can take a few seconds)…';
       const result = await generateSoleTraderInvoice({
@@ -4278,11 +4479,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '</div>';
       toast('Invoice ' + invoiceNumber + ' saved to Drive' + (expenseOutcome.added ? ' — ' + expenseOutcome.added + ' expense line' + (expenseOutcome.added === 1 ? '' : 's') + ' added.' : '.'));
       const dueDateIso = addDaysIso(todayIso, 30);
+      const remembered = rememberGeneratedPdf({
+        business: 'soletrader', clientId: client.id, kind: 'invoice', number: invoiceNumber,
+        blob: result.pdfBlob, driveFileId: result.pdfFile && result.pdfFile.id,
+        dateIso: todayIso, dueIso: dueDateIso, total: result.total,
+        period: emailDateList(items.map(function(it){ return it.isoDate; }))
+      });
       lastGeneratedInvoice = {
         client: client, invoiceNumber: invoiceNumber, total: result.total, pdfBlob: result.pdfBlob,
-        invDateIso: todayIso, dueDateIso: dueDateIso, items: items
+        invDateIso: todayIso, dueDateIso: dueDateIso, items: items,
+        attachKey: remembered.attachKey, docId: remembered.docId
       };
       renderInvoiceEmailSection();
+      // Straight into the email, PDF attached and previewed - one more click makes the draft.
+      invCreateGmailDraft();
       await renderInvoiceLedgerSection();
     } catch (e){
       status.textContent = '';
@@ -4298,16 +4508,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // anything itself: only ever creates a draft for Jon to check and send himself.
   let lastGeneratedInvoice = null; // { client, invoiceNumber, total, pdfBlob }
 
+  let invPdfPreviewUrl = null;
   function renderInvoiceEmailSection(){
     const card = document.getElementById('invEmailCard');
     if (!card || !lastGeneratedInvoice) return;
-    const inv = lastGeneratedInvoice;
-    document.getElementById('invEmailTo').value = inv.client.email || '';
-    document.getElementById('invEmailSubject').value = 'Invoice ' + inv.invoiceNumber;
-    document.getElementById('invEmailBody').value =
-      'Hi ' + (inv.client.name.split(' ')[0] || inv.client.name) + ',\n\n' +
-      'Please find attached invoice ' + inv.invoiceNumber + ' for ' + fmtGBP(inv.total) + '.\n\n' +
-      'Many thanks,\nJon';
+    if (invPdfPreviewUrl){ URL.revokeObjectURL(invPdfPreviewUrl); invPdfPreviewUrl = null; }
+    invPdfPreviewUrl = URL.createObjectURL(lastGeneratedInvoice.pdfBlob);
+    document.getElementById('invPdfPreview').src = invPdfPreviewUrl;
+    document.getElementById('invPdfOpenFull').href = invPdfPreviewUrl;
     document.getElementById('invEmailStatus').textContent = '';
     card.style.display = '';
   }
@@ -4316,6 +4524,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     lastGeneratedInvoice = null;
     const card = document.getElementById('invEmailCard');
     if (card) card.style.display = 'none';
+    if (invPdfPreviewUrl){ URL.revokeObjectURL(invPdfPreviewUrl); invPdfPreviewUrl = null; }
+    const frame = document.getElementById('invPdfPreview');
+    if (frame) frame.removeAttribute('src');
     hideInvoiceLedgerSection();
   }
 
@@ -4398,29 +4609,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
-  async function invCreateGmailDraft(){
+  function invCreateGmailDraft(){
     const status = document.getElementById('invEmailStatus');
-    const btn = document.getElementById('invEmailDraftBtn');
-    if (!lastGeneratedInvoice){ status.textContent = 'Generate an invoice above first.'; return; }
-    const to = (document.getElementById('invEmailTo').value || '').trim();
-    const subject = (document.getElementById('invEmailSubject').value || '').trim();
-    const bodyText = document.getElementById('invEmailBody').value || '';
-    if (!to){ status.textContent = 'Enter the client’s email address.'; return; }
-    btn.disabled = true;
-    status.textContent = 'Creating a Gmail draft…';
-    try {
-      await createGmailInvoiceDraft({
-        to: to, subject: subject || ('Invoice ' + lastGeneratedInvoice.invoiceNumber),
-        bodyText: bodyText, pdfBlob: lastGeneratedInvoice.pdfBlob,
-        pdfFilename: lastGeneratedInvoice.invoiceNumber + '.pdf'
-      });
-      status.innerHTML = 'Draft created in Gmail (jcookeinv@gmail.com), with the PDF attached — <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank" rel="noopener">open Gmail to review and send it</a>. Nothing has been sent yet.';
-      toast('Gmail draft created for ' + lastGeneratedInvoice.invoiceNumber + '.');
-    } catch (e){
-      status.textContent = e.message || 'Could not create the Gmail draft.';
-    } finally {
-      btn.disabled = false;
-    }
+    const inv = lastGeneratedInvoice;
+    if (!inv){ status.textContent = 'Generate an invoice above first.'; return; }
+    openEmailComposer({ business: 'soletrader', clientId: inv.client.id, seedKey: 'st-invoice',
+      invoiceSel: inv.docId ? ('d:' + inv.docId) : '', attachKey: inv.attachKey });
   }
 
   (function(){
@@ -4714,6 +4908,56 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return !odsTableCells(row).some(function(c){ return (c.textContent || '').trim(); });
   }
 
+  // Rewrites the hours figure inside an item row's own template wording, in place.
+  //
+  // The sole-trader invoice templates carry fixed per-client text on every item row
+  // ("4 hours mentoring with Joshua Hallam"), and odsRebuildInvoiceItems deliberately
+  // leaves that text alone (see its own note) because it is the client's real wording,
+  // not something this app should be authoring. But the hours in that sentence are not
+  // fixed: Jon sets each session's hours on the Invoices tab, and that figure already
+  // drives the line's amount. Before 20 Sep 2026 it drove ONLY the amount, so a 6-hour
+  // session billed £150 while its line still read "4 hours" - found by comparing a
+  // generated R26-0009 against Jon's own corrected R26-0008, where the wording tracks
+  // the hours properly on every line.
+  //
+  // Rather than compose a new sentence (which would mean storing per-client wording
+  // somewhere and letting it drift from the template), this swaps just the number in the
+  // template's own sentence and leaves every other character as it was - so whatever
+  // wording a given client's template uses survives intact. Pluralisation follows the
+  // new number ("1 hour" / "4 hours"), keeping the template's own capitalisation of the
+  // word. A template whose text has no hours figure in it simply isn't matched and is
+  // left completely untouched, which is the intended no-op for clients billed by the day
+  // or by job.
+  function fmtHoursText(hours){
+    return String(Math.round(hours * 100) / 100);
+  }
+
+  function odsApplyHoursToRowText(xmlDoc, row, hours){
+    const re = /(\d+(?:\.\d+)?)(\s*)(hours?)/i;
+    const cells = odsTableCells(row);
+    for (let ci = 0; ci < cells.length; ci++){
+      const cell = cells[ci];
+      // Skip repeated (blank filler) cells - writing into one would stamp the same text
+      // across every column it stands for. Real wording never lives in a repeated cell.
+      const repAttr = cell.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+      if (repAttr && parseInt(repAttr, 10) !== 1) continue;
+      const txt = cell.textContent || '';
+      if (!txt.trim() || !re.test(txt)) continue;
+      const num = fmtHoursText(hours);
+      const next = txt.replace(re, function(match, oldNum, gap, word){
+        const plural = (Number(num) === 1) ? 'hour' : 'hours';
+        const cased = (word.charAt(0) === word.charAt(0).toUpperCase())
+          ? (plural.charAt(0).toUpperCase() + plural.slice(1))
+          : plural;
+        return num + (gap || ' ') + cased;
+      });
+      if (next === txt) return false;
+      odsSetCellText(xmlDoc, cell, next);
+      return true;
+    }
+    return false;
+  }
+
   function odsRowHasLabelPrefix(row, prefixes){
     const cells = odsTableCells(row);
     for (let ci = 0; ci < cells.length; ci++){
@@ -4836,6 +5080,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function ddmmyy(isoDate){
     const parts = isoDate.split('-');
     return parts[2] + '/' + parts[1] + '/' + parts[0].slice(2);
+  }
+
+  // "04 July 2026" - the form Jon's own hand-made invoices use in the Invoice Date
+  // header field. Built from a literal month list rather than toLocaleDateString so it
+  // can't come out in whatever locale the browser happens to be set to, and returned as
+  // plain text like ddmmyy: a spelled-out month is unambiguous in any locale, so unlike a
+  // numeric date it stays correct even when Google Sheets re-renders the file during PDF
+  // export (the hazard that made the item-row dates plain text in the first place).
+  function longDate(isoDate){
+    const months = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+    const parts = isoDate.split('-');
+    const mi = parseInt(parts[1], 10) - 1;
+    if (!(mi >= 0 && mi < 12)) return ddmmyy(isoDate);
+    return parts[2] + ' ' + months[mi] + ' ' + parts[0];
   }
 
   async function locateTaxSpreadsheet(){
@@ -5636,6 +5895,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderQuotes();
     renderTemplates();
     populateUseTemplateSelects();
+    renderEmailSettings();
     renderLinks();
     renderWebsiteSocials();
     renderWpStatus();
@@ -5949,7 +6209,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data = normalizeData(parsed);
     markDirty();
     hydrateOpsHubConn();
-    renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderLinks(); renderWebsiteSocials(); renderWpStatus(); renderBlogHistory(); renderSoleTraderClients(); renderSoleTraderCalStatus(); renderSoleTraderSheetStatus(); renderHome();
+    renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderEmailSettings(); renderLinks(); renderWebsiteSocials(); renderWpStatus(); renderBlogHistory(); renderSoleTraderClients(); renderSoleTraderCalStatus(); renderSoleTraderSheetStatus(); renderHome();
   }
 
   document.getElementById('backupBtn').addEventListener('click', function(){
@@ -8249,6 +8509,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           '<button class="btn btn-ghost" id="galEditCancel">Close</button>' +
           '<button class="btn btn-ghost" id="galEditDelete" style="color:var(--warn);">Delete</button>' +
           '<button class="btn btn-primary" id="galEditSave">Save</button>' +
+          '<button class="btn btn-primary" id="galEditEmail" style="width:auto;">Save &amp; email client</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(backdrop);
@@ -8292,6 +8553,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       g.notes = backdrop.querySelector('#galEditNotes').value.trim();
       markDirty(); backdrop.remove(); renderGalleries(); renderClients();
       toast('Gallery updated.');
+    });
+    backdrop.querySelector('#galEditEmail').addEventListener('click', function(){
+      if (!clientSel.value){ toast('Pick a client for this gallery first.'); return; }
+      backdrop.querySelector('#galEditSave').click();
+      const seed = g.status === 'complete' ? 'is-review' : (g.status === 'delivered' ? 'is-delivery' : 'is-thanks');
+      openEmailComposer({ business: 'imagescape', clientId: g.clientId, galleryId: g.id, seedKey: seed });
     });
   }
 
@@ -9682,7 +9949,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
           '<button class="btn btn-ghost" id="qClose">Close</button>' +
           '<button class="btn btn-ghost" id="qDelete">Delete quote</button>' +
-          '<button class="btn btn-primary" id="qEmailBtn" style="width:auto;">Generate email…</button>' +
+          '<button class="btn btn-primary" id="qEmailBtn" style="width:auto;">Email client…</button>' +
           '<button class="btn btn-primary" id="qGenQuoteDocBtn" style="width:auto;">Generate quote document…</button>' +
           '<button class="btn btn-primary" id="qGenInvoiceDocBtn" style="width:auto;">Generate invoice document…</button>' +
         '</div>' +
@@ -9944,8 +10211,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       backdrop.remove();
     });
     backdrop.querySelector('#qEmailBtn').addEventListener('click', function(){
-      backdrop.remove();
-      jumpToEmailTemplateForQuote(q.id);
+      if (!q.clientId){ toast('Pick a client for this quote first.'); return; }
+      openEmailComposer({ business: 'imagescape', clientId: q.clientId, quoteId: q.id, seedKey: suggestSeedForQuote(q) });
     });
     backdrop.querySelector('#qGenQuoteDocBtn').addEventListener('click', function(){
       openGenerateImageScapeDocModal(q, 'quote');
@@ -10064,8 +10331,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           client: { name: client.company || client.name, address: address },
           items: items, folderId: folderId
         });
-        if (kind === 'quote') q.imageScapeRef = number; else q.imageScapeInvoiceRef = number;
+        if (kind === 'quote'){ q.imageScapeRef = number; q.imageScapeQuoteDate = dateIso; }
+        else { q.imageScapeInvoiceRef = number; q.imageScapeInvoiceDate = dateIso; }
         markDirty();
+        const remembered = rememberGeneratedPdf({
+          business: 'imagescape', clientId: client.id, kind: kind, number: number,
+          blob: result.pdfBlob, driveFileId: result.pdfFile && result.pdfFile.id,
+          dateIso: dateIso,
+          dueIso: kind === 'invoice' ? addDaysIso(dateIso, Number(data.emailSettings.paymentTermsDays) || 30) : '',
+          total: result.total, quoteId: q.id
+        });
 
         downloadBlob_(result.odsBlob, number + '.ods');
         downloadBlob_(result.pdfBlob, number + '.pdf');
@@ -10076,6 +10351,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (result.addressOverflow) msg += ' Note: the address had more lines than the template has room for, so the extra lines were combined onto the last line — check it before sending.';
         toast(msg);
         backdrop.remove();
+        // Straight into the email, PDF attached and previewed - one more click makes the draft.
+        openEmailComposer({ business: 'imagescape', clientId: client.id, quoteId: q.id,
+          seedKey: kind === 'quote' ? 'is-quote' : 'is-invoice',
+          invoiceSel: kind === 'invoice' ? ('d:' + remembered.docId) : '', attachKey: remembered.attachKey });
       } catch (e){
         statusEl.textContent = '';
         goBtn.disabled = false;
@@ -10084,7 +10363,499 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  // ---------------------------------------------------------------- email composer (both businesses)
+  // One composer for every outgoing email, ImageScape and self-employed alike. It fills a
+  // template from everything the Hub already knows (client, quote, invoice, gallery,
+  // sending settings), shows the PDF it will attach in an inline preview, and on click
+  // creates a Gmail DRAFT only - nothing is ever sent from here. Jon reviews and presses
+  // Send in Gmail himself.
+  const EMAIL_BUSINESS_LABELS = { imagescape: 'ImageScape Studios', soletrader: 'Self-employed' };
+
+  // PDFs generated in this browser session, kept in memory only (never written to the
+  // vault) so the composer can attach and preview them instantly. PDFs saved to Drive are
+  // additionally indexed in data.docPdfIndex, so they can be attached in a later session
+  // (fetched back from Drive on demand) - e.g. attaching an invoice to a payment chase.
+  const sessionPdfs = [];
+
+  function emailDate(iso){
+    if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso || '';
+    return longDate(iso.slice(0, 10)).replace(/^0/, '');
+  }
+
+  function emailDateList(isoDates){
+    const ds = (isoDates || []).filter(function(d){ return /^\d{4}-\d{2}-\d{2}$/.test(d); }).sort();
+    if (!ds.length) return '';
+    const byMonth = [];
+    ds.forEach(function(d){
+      const key = d.slice(0, 7);
+      const last = byMonth[byMonth.length - 1];
+      if (last && last.key === key) last.days.push(parseInt(d.slice(8), 10));
+      else byMonth.push({ key: key, days: [parseInt(d.slice(8), 10)], iso: d });
+    });
+    const lastYear = byMonth[byMonth.length - 1].key.slice(0, 4);
+    const parts = byMonth.map(function(m, i){
+      const days = m.days.map(String);
+      const dayText = days.length > 1 ? (days.slice(0, -1).join(', ') + ' and ' + days[days.length - 1]) : days[0];
+      let monthText = emailDate(m.iso).replace(/^\d+ /, '');
+      // "28 August and 3, 10 and 17 September 2026": the year only where it changes.
+      if (i < byMonth.length - 1 && m.key.slice(0, 4) === lastYear) monthText = monthText.replace(/ \d{4}$/, '');
+      return dayText + ' ' + monthText;
+    });
+    return parts.length > 1 ? (parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1]) : parts[0];
+  }
+
+  function rememberGeneratedPdf(entry){
+    // entry: { business, clientId, kind: 'quote'|'invoice', number, blob, driveFileId,
+    //          dateIso, dueIso, total, quoteId, period }
+    const key = 's:' + randomId();
+    sessionPdfs.unshift({
+      key: key, business: entry.business, clientId: entry.clientId || '', kind: entry.kind,
+      number: entry.number, blob: entry.blob, driveFileId: entry.driveFileId || '', quoteId: entry.quoteId || ''
+    });
+    let docId = '';
+    if (entry.driveFileId){
+      const existing = data.docPdfIndex.find(function(x){ return x.business === entry.business && x.number === entry.number && x.kind === entry.kind; });
+      const rec = existing || { id: randomId() };
+      rec.business = entry.business; rec.clientId = entry.clientId || ''; rec.kind = entry.kind;
+      rec.number = entry.number; rec.driveFileId = entry.driveFileId; rec.dateIso = entry.dateIso || '';
+      rec.dueIso = entry.dueIso || ''; rec.total = Number(entry.total) || 0; rec.quoteId = entry.quoteId || '';
+      rec.period = entry.period || ''; rec.createdAt = new Date().toISOString();
+      if (!existing) data.docPdfIndex.unshift(rec);
+      docId = rec.id;
+      markDirty();
+    } else {
+      // Not saved to Drive ("just download") - still usable for this session's emails, and
+      // still worth indexing for its figures so a later chase can quote the amount/due date.
+      const rec = { id: randomId(), business: entry.business, clientId: entry.clientId || '', kind: entry.kind,
+        number: entry.number, driveFileId: '', dateIso: entry.dateIso || '', dueIso: entry.dueIso || '',
+        total: Number(entry.total) || 0, quoteId: entry.quoteId || '', period: entry.period || '', createdAt: new Date().toISOString() };
+      data.docPdfIndex = data.docPdfIndex.filter(function(x){ return !(x.business === rec.business && x.number === rec.number && x.kind === rec.kind); });
+      data.docPdfIndex.unshift(rec);
+      docId = rec.id;
+      markDirty();
+    }
+    sessionPdfs[0].docId = docId;
+    return { attachKey: key, docId: docId };
+  }
+
+  function emailClientRecord(business, clientId){
+    if (!clientId) return null;
+    const list = business === 'soletrader' ? data.soleTraderClients : data.clients;
+    return list.find(function(c){ return c.id === clientId; }) || null;
+  }
+
+  function emailFromFor(business){
+    const s = data.emailSettings;
+    return (business === 'soletrader' ? s.soleTraderFrom : s.imageScapeFrom) || '';
+  }
+
+  function daysBetweenIso(aIso, bIso){
+    const a = new Date(aIso + 'T00:00:00'), b = new Date(bIso + 'T00:00:00');
+    return Math.round((b - a) / 86400000);
+  }
+
+  // Everything a template can use. Missing values are left undefined so the composer can
+  // show them as visible [placeholders] and warn, rather than silently printing blanks.
+  function buildEmailContext(o){
+    const s = data.emailSettings;
+    const isST = o.business === 'soletrader';
+    const today = todayIso_();
+    const ctx = {
+      date: emailDate(today),
+      companyName: isST ? (s.soleTraderName || 'Jonathan Cooke') : (s.imageScapeName || 'ImageScape Studios'),
+      senderName: data.financeProfile.personalName || (isST ? 'Jonathan Cooke' : 'Jon Cooke'),
+      signature: isST ? s.soleTraderSignature : s.imageScapeSignature,
+      websiteUrl: isST ? '' : s.websiteUrl,
+      reviewUrl: isST ? '' : s.reviewUrl,
+      paymentTermsDays: String(s.paymentTermsDays || 30)
+    };
+    const c = emailClientRecord(o.business, o.clientId);
+    if (c){
+      ctx.clientName = c.name || '';
+      ctx.firstName = (c.name || '').trim().split(/\s+/)[0] || '';
+      ctx.clientCompany = c.company || '';
+      ctx.clientEmail = c.email || '';
+    }
+    let q = null;
+    if (!isST && o.quoteId){
+      q = data.quotes.find(function(x){ return x.id === o.quoteId; }) || null;
+      if (q){
+        const t = computeQuoteTotals(q);
+        ctx.quoteTitle = q.title || '';
+        ctx.quoteRef = q.imageScapeRef || '';
+        ctx.quoteTotal = fmtGBP(t.total);
+        ctx.quoteLines = fmtQuoteLines(q);
+        if (q.imageScapeInvoiceRef){
+          ctx.invoiceNumber = q.imageScapeInvoiceRef;
+          ctx.invoiceAmount = fmtGBP(t.total);
+          // Prefer the figures from the invoice document itself, when the Hub made it.
+          const invDoc = data.docPdfIndex.find(function(x){ return x.business === 'imagescape' && x.kind === 'invoice' && x.number === q.imageScapeInvoiceRef; });
+          if (invDoc){
+            ctx.invoiceAmount = fmtGBP(invDoc.total);
+            if (invDoc.dateIso){ ctx.invoiceDate = emailDate(invDoc.dateIso); ctx._dueIso = invDoc.dueIso || addDaysIso(invDoc.dateIso, Number(s.paymentTermsDays) || 30); }
+          } else if (q.imageScapeInvoiceDate){
+            ctx.invoiceDate = emailDate(q.imageScapeInvoiceDate);
+            ctx._dueIso = addDaysIso(q.imageScapeInvoiceDate, Number(s.paymentTermsDays) || 30);
+          }
+        }
+      }
+    }
+    const sel = o.invoiceSel || '';
+    if (sel.indexOf('d:') === 0){
+      const doc = data.docPdfIndex.find(function(x){ return x.id === sel.slice(2); });
+      if (doc){
+        ctx.invoiceNumber = doc.number;
+        ctx.invoiceAmount = fmtGBP(doc.total);
+        if (doc.dateIso) ctx.invoiceDate = emailDate(doc.dateIso);
+        ctx._dueIso = doc.dueIso || (doc.dateIso ? addDaysIso(doc.dateIso, Number(s.paymentTermsDays) || 30) : '');
+        if (doc.period) ctx.workPeriod = doc.period;
+      }
+    } else if (sel.indexOf('z:') === 0 && c && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts){
+      const snap = zohoSnapshotCache.contacts[c.zohoContactId];
+      const inv = snap && snap.invoices && snap.invoices[Number(sel.slice(2))];
+      if (inv){
+        ctx.invoiceNumber = inv.number || '';
+        ctx.invoiceAmount = (snap.currency || '£') + (Number(inv.total || 0)).toFixed(2);
+        if (inv.date) ctx.invoiceDate = emailDate(inv.date);
+        ctx._dueIso = /^\d{4}-\d{2}-\d{2}/.test(inv.dueDate || '') ? inv.dueDate.slice(0, 10) : '';
+        if (!ctx._dueIso && inv.dueDate) ctx.invoiceDueDate = inv.dueDate;
+      }
+    }
+    if (ctx._dueIso){
+      ctx.invoiceDueDate = emailDate(ctx._dueIso);
+      const overdue = daysBetweenIso(ctx._dueIso, today);
+      if (overdue > 0) ctx.daysOverdue = String(overdue);
+    }
+    delete ctx._dueIso;
+    if (!isST){
+      let g = o.galleryId ? data.galleries.find(function(x){ return x.id === o.galleryId; }) : null;
+      if (!g && c){
+        // No gallery picked: use this client's most recent one, if any.
+        g = data.galleries.filter(function(x){ return x.clientId === c.id; })
+          .sort(function(a, b){ return (b.shootDate || '').localeCompare(a.shootDate || ''); })[0] || null;
+      }
+      if (g){
+        ctx.galleryLabel = g.label || '';
+        ctx.galleryUrl = g.galleryUrl || '';
+        if (g.shootDate) ctx.shootDate = emailDate(g.shootDate);
+        if (g.deliveredDate) ctx.deliveredDate = emailDate(g.deliveredDate);
+      }
+    }
+    Object.keys(ctx).forEach(function(k){ if (ctx[k] === '') delete ctx[k]; });
+    return ctx;
+  }
+
+  const EMAIL_TOKEN_LABELS = {
+    firstName: 'first name', clientName: 'client name', clientCompany: 'company', clientEmail: 'client email',
+    companyName: 'business name', senderName: 'your name', signature: 'signature', date: 'date',
+    websiteUrl: 'website link', reviewUrl: 'Google review link', paymentTermsDays: 'payment days',
+    quoteTitle: 'job title', quoteRef: 'quote ref', quoteTotal: 'quote total', quoteLines: 'quote lines',
+    invoiceNumber: 'invoice number', invoiceAmount: 'invoice amount', invoiceDate: 'invoice date',
+    invoiceDueDate: 'due date', daysOverdue: 'days overdue', workPeriod: 'dates worked',
+    galleryLabel: 'gallery name', galleryUrl: 'gallery link', shootDate: 'shoot date', deliveredDate: 'delivery date'
+  };
+
+  // Like renderTemplateString, but an unknown/empty token becomes a visible [placeholder]
+  // and is reported back, so a half-filled email is obvious before it becomes a draft.
+  function fillEmailTemplate(str, ctx, missing){
+    return (str || '').replace(/\{\{\s*(\w+)\s*\}\}/g, function(match, key){
+      if (ctx[key] !== undefined && ctx[key] !== null && ctx[key] !== '') return String(ctx[key]);
+      if (missing.indexOf(key) < 0) missing.push(key);
+      return '[' + (EMAIL_TOKEN_LABELS[key] || key) + ']';
+    });
+  }
+
+  function templatesForBusiness(business){
+    return data.emailTemplates.filter(function(t){ return !t.business || t.business === 'both' || t.business === business; });
+  }
+
+  // Which document a template naturally carries.
+  function templateAttachKind(t){
+    if (!t) return '';
+    if (t.attach === 'quote' || t.attach === 'invoice') return t.attach;
+    return '';
+  }
+
+  // Attachment choices for this client: this session's PDFs first, then PDFs indexed in
+  // Drive from earlier sessions. Each has getBlob() so Drive files are only fetched when
+  // actually previewed or attached.
+  function emailAttachmentOptions(business, clientId){
+    const out = [];
+    const seen = {};
+    sessionPdfs.filter(function(p){ return p.business === business && (!clientId || p.clientId === clientId); }).forEach(function(p){
+      seen[p.kind + ':' + p.number] = true;
+      out.push({ key: p.key, kind: p.kind, number: p.number, quoteId: p.quoteId, docId: p.docId || '',
+        label: (p.kind === 'quote' ? 'Quote ' : 'Invoice ') + p.number + ' (just generated)',
+        filename: p.number + '.pdf', getBlob: function(){ return Promise.resolve(p.blob); } });
+    });
+    data.docPdfIndex.filter(function(d){ return d.business === business && d.driveFileId && (!clientId || d.clientId === clientId); }).forEach(function(d){
+      if (seen[d.kind + ':' + d.number]) return;
+      seen[d.kind + ':' + d.number] = true;
+      let cached = null;
+      out.push({ key: 'd:' + d.id, kind: d.kind, number: d.number, quoteId: d.quoteId, docId: d.id,
+        label: (d.kind === 'quote' ? 'Quote ' : 'Invoice ') + d.number + (d.dateIso ? (' (' + ddmmyy(d.dateIso) + ', from Drive)') : ' (from Drive)'),
+        filename: d.number + '.pdf',
+        getBlob: async function(){
+          if (cached) return cached;
+          const res = await driveApiFetch('/files/' + encodeURIComponent(d.driveFileId) + '?alt=media');
+          if (!res.ok) throw new Error('Could not fetch ' + d.number + '.pdf from Drive (status ' + res.status + ') - it may have been moved or deleted.');
+          const b = await res.blob();
+          cached = new Blob([b], { type: 'application/pdf' });
+          return cached;
+        } });
+    });
+    return out;
+  }
+
+  function pickDefaultAttachment(options, kind, o){
+    if (!kind) return '';
+    const matches = options.filter(function(a){ return a.kind === kind; });
+    if (!matches.length) return '';
+    if (o.invoiceSel && o.invoiceSel.indexOf('d:') === 0){
+      const m = matches.find(function(a){ return a.docId === o.invoiceSel.slice(2); });
+      if (m) return m.key;
+    }
+    if (o.quoteId){
+      const m = matches.find(function(a){ return a.quoteId === o.quoteId; });
+      if (m) return m.key;
+    }
+    return matches[0].key;
+  }
+
+  // Picks a sensible starting template for a quote from where the job has got to.
+  function suggestSeedForQuote(q){
+    if (!q) return 'is-enquiry';
+    const paid = (q.zohoPayments || []).length > 0;
+    if (q.imageScapeInvoiceRef) return paid ? 'is-receipt' : 'is-invoice';
+    if (q.status === 'accepted') return 'is-booking';
+    if (q.status === 'sent') return 'is-quote-nudge';
+    if (q.imageScapeRef) return 'is-quote';
+    return 'is-enquiry';
+  }
+
+  let gmailAccountEmail = null;
+  async function getGmailAccountEmail(){
+    if (gmailAccountEmail) return gmailAccountEmail;
+    try {
+      const res = await gmailApiFetch('/users/me/profile');
+      if (res.ok){ const b = await res.json(); gmailAccountEmail = b.emailAddress || null; }
+    } catch (e){ /* best effort - only used to open the right Gmail account */ }
+    return gmailAccountEmail;
+  }
+
+  function extractEmailAddress(s){
+    const m = /<([^>]+)>/.exec(s || '');
+    return ((m ? m[1] : (s || '')).trim()).toLowerCase();
+  }
+
+  // opts: { business, clientId, quoteId, invoiceSel, galleryId, seedKey, templateId, attachKey, to }
+  function openEmailComposer(opts){
+    const o = Object.assign({ business: 'imagescape' }, opts || {});
+    const business = o.business === 'soletrader' ? 'soletrader' : 'imagescape';
+    o.business = business;
+    const client = emailClientRecord(business, o.clientId);
+    const templates = templatesForBusiness(business);
+    let tpl = null;
+    if (o.templateId) tpl = templates.find(function(t){ return t.id === o.templateId; }) || null;
+    if (!tpl && o.seedKey) tpl = templates.find(function(t){ return t.seedKey === o.seedKey; }) || null;
+    const attachments = emailAttachmentOptions(business, o.clientId);
+    let edited = false;
+    let attachChosenByHand = false;
+    let previewUrl = null;
+    let previewToken = 0;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:940px;width:calc(100% - 32px);max-height:92vh;overflow:auto;box-sizing:border-box;">' +
+        '<h3>Email: ' + escapeHtml(EMAIL_BUSINESS_LABELS[business]) + (client ? (' to ' + escapeHtml(client.name)) : '') + '</h3>' +
+        '<div class="sub" style="margin:-4px 0 12px;">From <strong id="ecFrom"></strong>. This only creates a Gmail draft with the PDF attached; nothing is sent until you press Send in Gmail.</div>' +
+        '<div style="display:flex;gap:18px;flex-wrap:wrap;">' +
+          '<div style="flex:1 1 380px;min-width:0;">' +
+            '<div class="field"><label>Template</label><select id="ecTemplate" style="width:100%;"></select></div>' +
+            '<div class="field"><label>To</label><input type="email" id="ecTo" placeholder="client@example.com" style="width:100%;box-sizing:border-box;"></div>' +
+            '<div class="field"><label>Subject</label><input type="text" id="ecSubject" style="width:100%;box-sizing:border-box;"></div>' +
+            '<div class="field"><label>Message</label><textarea id="ecBody" rows="15" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;"></textarea></div>' +
+            '<div id="ecWarn" class="hint" style="color:#b45309;"></div>' +
+          '</div>' +
+          '<div style="flex:1 1 320px;min-width:0;">' +
+            '<div class="field"><label>Attachment</label><select id="ecAttach" style="width:100%;"></select></div>' +
+            '<div id="ecPreviewWrap" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#f3f4f6;height:440px;display:flex;align-items:center;justify-content:center;">' +
+              '<span id="ecPreviewMsg" class="hint">No attachment</span>' +
+              '<iframe id="ecPreview" title="PDF preview" style="display:none;width:100%;height:100%;border:0;"></iframe>' +
+            '</div>' +
+            '<div style="margin-top:6px;"><a id="ecOpenFull" href="#" target="_blank" rel="noopener" style="display:none;">Open PDF full size</a></div>' +
+          '</div>' +
+        '</div>' +
+        '<div id="ecStatus" class="sub" style="min-height:18px;margin-top:10px;"></div>' +
+        '<div class="row" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button class="btn btn-ghost" id="ecClose" style="width:auto;">Close</button>' +
+          '<button class="btn btn-ghost" id="ecCopy" style="width:auto;">Copy text</button>' +
+          '<button class="btn btn-primary" id="ecDraft" style="width:auto;">Create Gmail draft</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+
+    const $ = function(sel){ return backdrop.querySelector(sel); };
+    const fromValue = emailFromFor(business);
+    $('#ecFrom').textContent = fromValue || 'your Gmail account';
+    $('#ecTo').value = o.to || (client && client.email) || '';
+
+    const tplSel = $('#ecTemplate');
+    tplSel.innerHTML = '<option value="">Blank email</option>' + templates.map(function(t){
+      return '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.name) + '</option>';
+    }).join('');
+    tplSel.value = tpl ? tpl.id : '';
+
+    const attSel = $('#ecAttach');
+    attSel.innerHTML = '<option value="">No attachment</option>' + attachments.map(function(a){
+      return '<option value="' + escapeHtml(a.key) + '">' + escapeHtml(a.label) + '</option>';
+    }).join('');
+
+    function currentTemplate(){ return templates.find(function(t){ return t.id === tplSel.value; }) || null; }
+
+    function refreshWarnings(){
+      const warn = [];
+      const body = $('#ecBody').value + ' ' + $('#ecSubject').value;
+      const gaps = body.match(/\[[a-zA-Z][a-zA-Z ]{1,30}\]/g);
+      if (gaps) warn.push('Still to fill in: ' + gaps.filter(function(g, i){ return gaps.indexOf(g) === i; }).join(', ') + '.');
+      const kind = templateAttachKind(currentTemplate());
+      if (kind && !attSel.value) warn.push('This email normally has the ' + kind + ' PDF attached, but none is selected' + (attachments.some(function(a){ return a.kind === kind; }) ? '.' : ' (none generated for this client yet - generate it from the quote first).'));
+      if (!$('#ecTo').value.trim()) warn.push('No email address on file for this client - add one in To.');
+      $('#ecWarn').textContent = warn.join(' ');
+    }
+
+    function applyTemplate(){
+      const t = currentTemplate();
+      const ctx = buildEmailContext(o);
+      const missing = [];
+      $('#ecSubject').value = t ? fillEmailTemplate(t.subject, ctx, missing) : '';
+      $('#ecBody').value = t ? fillEmailTemplate(t.body, ctx, missing) : ((ctx.firstName ? ('Hi ' + ctx.firstName + ',\n\n\n\n') : '') + 'Kind regards,\n' + (ctx.signature || ''));
+      edited = false;
+      if (!attachChosenByHand){
+        attSel.value = pickDefaultAttachment(attachments, templateAttachKind(t), o);
+        showPreview();
+      }
+      refreshWarnings();
+    }
+
+    function clearPreviewUrl(){ if (previewUrl){ URL.revokeObjectURL(previewUrl); previewUrl = null; } }
+
+    async function showPreview(){
+      const token = ++previewToken;
+      const a = attachments.find(function(x){ return x.key === attSel.value; });
+      const frame = $('#ecPreview'), msg = $('#ecPreviewMsg'), full = $('#ecOpenFull');
+      clearPreviewUrl();
+      frame.style.display = 'none'; full.style.display = 'none'; frame.removeAttribute('src');
+      msg.style.display = '';
+      if (!a){ msg.textContent = 'No attachment'; refreshWarnings(); return; }
+      msg.textContent = 'Loading preview…';
+      try {
+        const blob = await a.getBlob();
+        if (token !== previewToken) return;
+        previewUrl = URL.createObjectURL(blob);
+        frame.src = previewUrl;
+        full.href = previewUrl;
+        frame.style.display = ''; full.style.display = ''; msg.style.display = 'none';
+      } catch (e){
+        if (token !== previewToken) return;
+        msg.textContent = e.message || 'Could not load the PDF.';
+      }
+      refreshWarnings();
+    }
+
+    tplSel.addEventListener('change', function(){
+      if (edited && !confirm('Replace the text you have edited with this template?')){ return; }
+      attachChosenByHand = false;
+      applyTemplate();
+    });
+    attSel.addEventListener('change', function(){ attachChosenByHand = true; showPreview(); });
+    ['#ecSubject', '#ecBody'].forEach(function(sel){ $(sel).addEventListener('input', function(){ edited = true; refreshWarnings(); }); });
+    $('#ecTo').addEventListener('input', refreshWarnings);
+
+    function close(){ previewToken++; clearPreviewUrl(); backdrop.remove(); }
+    $('#ecClose').addEventListener('click', close);
+    // The shared backdrop-click/Escape handlers remove the element directly; release the
+    // preview's object URL whenever that happens too.
+    const observer = new MutationObserver(function(){ if (!document.body.contains(backdrop)){ clearPreviewUrl(); observer.disconnect(); } });
+    observer.observe(document.body, { childList: true });
+
+    $('#ecCopy').addEventListener('click', function(){
+      copyTextToClipboard('Subject: ' + $('#ecSubject').value + '\n\n' + $('#ecBody').value);
+      toast('Subject and message copied.');
+    });
+
+    $('#ecDraft').addEventListener('click', async function(){
+      const btn = $('#ecDraft');
+      const status = $('#ecStatus');
+      const to = $('#ecTo').value.trim();
+      const subject = $('#ecSubject').value.trim();
+      const bodyText = $('#ecBody').value;
+      if (!to){ status.textContent = 'Enter the client’s email address first.'; return; }
+      if (!subject){ status.textContent = 'Add a subject first.'; return; }
+      if (/\[[a-zA-Z][a-zA-Z ]{1,30}\]/.test(subject + ' ' + bodyText) &&
+          !confirm('The email still has [placeholders] in it. Create the draft anyway? (You can still edit it in Gmail.)')) return;
+      const a = attachments.find(function(x){ return x.key === attSel.value; });
+      btn.disabled = true;
+      status.textContent = 'Creating the Gmail draft…';
+      try {
+        const pdfBlob = a ? await a.getBlob() : null;
+        const result = await createGmailInvoiceDraft({
+          from: fromValue, to: to, subject: subject, bodyText: bodyText,
+          pdfBlob: pdfBlob, pdfFilename: a ? a.filename : ''
+        });
+        const account = await getGmailAccountEmail();
+        const msgId = result && result.message && result.message.id;
+        const base = 'https://mail.google.com/mail/' + (account ? ('?authuser=' + encodeURIComponent(account)) : 'u/0/');
+        const link = base + '#drafts' + (msgId ? ('?compose=' + encodeURIComponent(msgId)) : '');
+        let html = 'Draft created' + (a ? (' with ' + escapeHtml(a.filename) + ' attached') : '') +
+          '. <a href="' + escapeHtml(link) + '" target="_blank" rel="noopener"><strong>Open it in Gmail</strong></a> to check it and press Send. Nothing has been sent yet.';
+        if (result.fromMismatch){
+          html += '<br><span style="color:#b45309;">Gmail sent this from ' + escapeHtml(result.actualFrom) + ' instead of ' + escapeHtml(fromValue) +
+            '. Add ' + escapeHtml(extractEmailAddress(fromValue)) + ' in Gmail under Settings → Accounts and Import → Send mail as, then pick it in the draft’s From line.</span>';
+        }
+        status.innerHTML = html;
+        btn.textContent = 'Create another draft';
+        toast('Gmail draft created' + (a ? (' with ' + a.filename) : '') + '.');
+      } catch (e){
+        status.textContent = e.message || 'Could not create the Gmail draft.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    applyTemplate();
+    return backdrop;
+  }
+
+  // ---------------------------------------------------------------- email settings card
+  function renderEmailSettings(){
+    const s = data.emailSettings;
+    const map = { esIsFrom: 'imageScapeFrom', esIsSig: 'imageScapeSignature', esStFrom: 'soleTraderFrom',
+      esStSig: 'soleTraderSignature', esWebsite: 'websiteUrl', esReview: 'reviewUrl', esTerms: 'paymentTermsDays' };
+    Object.keys(map).forEach(function(id){
+      const el = document.getElementById(id);
+      if (el && document.activeElement !== el) el.value = s[map[id]] == null ? '' : s[map[id]];
+    });
+  }
+  (function(){
+    const map = { esIsFrom: 'imageScapeFrom', esIsSig: 'imageScapeSignature', esStFrom: 'soleTraderFrom',
+      esStSig: 'soleTraderSignature', esWebsite: 'websiteUrl', esReview: 'reviewUrl', esTerms: 'paymentTermsDays' };
+    Object.keys(map).forEach(function(id){
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', function(){
+        const v = el.value;
+        if (id === 'esTerms') data.emailSettings[map[id]] = Math.max(1, parseInt(v, 10) || 30);
+        else if (id.slice(-3) === 'Sig') data.emailSettings[map[id]] = v;
+        else data.emailSettings[map[id]] = v.replace(/[\r\n]+/g, ' ');
+        markDirty();
+      });
+    });
+  })();
+
   // ---------------------------------------------------------------- email templates
+  const TEMPLATE_BUSINESS_LABELS = { imagescape: 'ImageScape', soletrader: 'Self-employed', both: 'Both' };
   function renderTemplates(){
     const grid = document.getElementById('templateGrid');
     grid.innerHTML = '';
@@ -10092,14 +10863,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       grid.innerHTML = '<div class="empty-note">No templates yet.</div>';
       return;
     }
-    data.emailTemplates.forEach(function(t){
+    const order = { imagescape: 0, soletrader: 1, both: 2 };
+    data.emailTemplates.slice().sort(function(a, b){ return (order[a.business] || 0) - (order[b.business] || 0); }).forEach(function(t){
       const card = document.createElement('div');
       card.className = 'link-card clickable-card';
       card.innerHTML =
         '<button class="del" title="Remove">✕</button>' +
         '<div class="name" style="font-weight:700;font-size:14px;color:var(--navy);"></div>' +
+        '<div class="biz" style="font-size:11.5px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em;"></div>' +
         '<div class="company" style="font-size:12.5px;color:var(--muted);margin-top:2px;"></div>';
       card.querySelector('.name').textContent = t.name;
+      card.querySelector('.biz').textContent = (TEMPLATE_BUSINESS_LABELS[t.business] || 'ImageScape') + (t.attach ? (' · attaches ' + t.attach + ' PDF') : '');
       card.querySelector('.company').textContent = t.subject;
       card.querySelector('.del').addEventListener('click', function(e){
         e.stopPropagation();
@@ -10113,7 +10887,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById('templateNewBtn').addEventListener('click', function(){
-    const t = { id: randomId(), name: 'New template', subject: '', body: '' };
+    const biz = document.getElementById('useTemplateBusiness').value || 'imagescape';
+    const t = { id: randomId(), name: 'New template', subject: '', body: '', business: biz, attach: '', seedKey: '' };
     data.emailTemplates.push(t);
     markDirty(); renderTemplates(); populateUseTemplateSelects();
     openTemplateEditor(t.id);
@@ -10125,12 +10900,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML =
-      '<div class="modal" style="max-width:560px;max-height:85vh;overflow:auto;">' +
+      '<div class="modal" style="max-width:600px;max-height:88vh;overflow:auto;">' +
         '<h3>Email template</h3>' +
         '<div class="field"><label>Name</label><input type="text" id="tName"></div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+          '<div class="field" style="flex:1;min-width:160px;"><label>Business</label><select id="tBusiness"><option value="imagescape">ImageScape</option><option value="soletrader">Self-employed</option><option value="both">Both</option></select></div>' +
+          '<div class="field" style="flex:1;min-width:160px;"><label>Attaches</label><select id="tAttach"><option value="">Nothing</option><option value="quote">Quote PDF</option><option value="invoice">Invoice PDF</option></select></div>' +
+        '</div>' +
         '<div class="field"><label>Subject</label><input type="text" id="tSubject"></div>' +
-        '<div class="field"><label>Body</label><textarea id="tBody" rows="10" style="font-family:inherit;"></textarea></div>' +
-        '<div class="hint">Tokens: {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{date}}, {{quoteTitle}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDueDate}}</div>' +
+        '<div class="field"><label>Body</label><textarea id="tBody" rows="12" style="font-family:inherit;"></textarea></div>' +
+        '<div class="hint">Tokens: {{firstName}}, {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{signature}}, {{date}}, {{websiteUrl}}, {{reviewUrl}}, {{paymentTermsDays}}, {{quoteTitle}}, {{quoteRef}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDate}}, {{invoiceDueDate}}, {{daysOverdue}}, {{workPeriod}}, {{galleryLabel}}, {{galleryUrl}}, {{shootDate}}, {{deliveredDate}}</div>' +
         '<div style="margin-top:16px;display:flex;gap:8px;">' +
           '<button class="btn btn-ghost" id="tCancel">Close</button>' +
           '<button class="btn btn-primary" id="tSave">Save</button>' +
@@ -10138,11 +10917,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#tName').value = t.name;
+    backdrop.querySelector('#tBusiness').value = t.business || 'imagescape';
+    backdrop.querySelector('#tAttach').value = t.attach || '';
     backdrop.querySelector('#tSubject').value = t.subject;
     backdrop.querySelector('#tBody').value = t.body;
     backdrop.querySelector('#tCancel').addEventListener('click', function(){ backdrop.remove(); });
     backdrop.querySelector('#tSave').addEventListener('click', function(){
       t.name = backdrop.querySelector('#tName').value.trim() || t.name;
+      t.business = backdrop.querySelector('#tBusiness').value;
+      t.attach = backdrop.querySelector('#tAttach').value;
       t.subject = backdrop.querySelector('#tSubject').value;
       t.body = backdrop.querySelector('#tBody').value;
       markDirty(); renderTemplates(); populateUseTemplateSelects();
@@ -10164,86 +10947,89 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
-  function buildMergeContext(clientId, quoteId, invoiceIdx){
-    const now = new Date();
-    const ctx = {
-      date: isoDate(now.getFullYear(), now.getMonth(), now.getDate()),
-      companyName: data.financeProfile.companyLegalName || 'ImageScape Studios',
-      senderName: data.financeProfile.personalName || ''
-    };
-    if (clientId){
-      const c = data.clients.find(function(x){ return x.id === clientId; });
-      if (c){
-        ctx.clientName = c.name;
-        ctx.clientCompany = c.company || '';
-        ctx.clientEmail = c.email || '';
-        if (invoiceIdx !== '' && invoiceIdx != null && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts){
-          const snap = zohoSnapshotCache.contacts[c.zohoContactId];
-          const inv = snap && snap.invoices && snap.invoices[invoiceIdx];
-          if (inv){
-            ctx.invoiceNumber = inv.number || '';
-            ctx.invoiceAmount = (snap.currency || '£') + (Number(inv.total || 0)).toFixed(2);
-            ctx.invoiceDueDate = inv.dueDate || '';
-          }
-        }
-      }
-    }
-    if (quoteId){
-      const q = data.quotes.find(function(x){ return x.id === quoteId; });
-      if (q){
-        const t = computeQuoteTotals(q);
-        ctx.quoteTitle = q.title;
-        ctx.quoteTotal = fmtGBP(t.total);
-        ctx.quoteLines = fmtQuoteLines(q);
-      }
-    }
-    return ctx;
-  }
-
   function populateUseTemplateSelects(){
+    const bizSel = document.getElementById('useTemplateBusiness');
+    const business = bizSel.value === 'soletrader' ? 'soletrader' : 'imagescape';
+    const isST = business === 'soletrader';
+
     const tplSel = document.getElementById('useTemplateSelect');
     const prevTpl = tplSel.value;
     tplSel.innerHTML = '<option value="">Choose a template…</option>';
-    data.emailTemplates.forEach(function(t){
+    templatesForBusiness(business).forEach(function(t){
       const opt = document.createElement('option'); opt.value = t.id; opt.textContent = t.name;
       tplSel.appendChild(opt);
     });
     tplSel.value = prevTpl;
+    if (tplSel.value !== prevTpl) tplSel.value = '';
 
     const clientSel = document.getElementById('useTemplateClient');
     const prevClient = clientSel.value;
-    clientSel.innerHTML = '<option value="">No client</option>';
-    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+    clientSel.innerHTML = '<option value="">Choose a client…</option>';
+    (isST ? data.soleTraderClients : data.clients).slice().sort(function(a, b){ return (a.name || '').localeCompare(b.name || ''); }).forEach(function(c){
       const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
       clientSel.appendChild(opt);
     });
     clientSel.value = prevClient;
+    if (clientSel.value !== prevClient) clientSel.value = '';
+    document.getElementById('useTemplateQuote').style.display = isST ? 'none' : '';
+    document.getElementById('useTemplateGallery').style.display = isST ? 'none' : '';
     renderUseTemplateQuoteAndInvoiceOptions();
   }
 
   function renderUseTemplateQuoteAndInvoiceOptions(){
+    const business = document.getElementById('useTemplateBusiness').value === 'soletrader' ? 'soletrader' : 'imagescape';
     const clientId = document.getElementById('useTemplateClient').value;
     const quoteSel = document.getElementById('useTemplateQuote');
     const prevQuote = quoteSel.value;
     quoteSel.innerHTML = '<option value="">No quote</option>';
-    data.quotes.filter(function(q){ return !clientId || q.clientId === clientId; }).forEach(function(q){
-      const opt = document.createElement('option'); opt.value = q.id; opt.textContent = q.title;
-      quoteSel.appendChild(opt);
-    });
-    quoteSel.value = prevQuote;
+    if (business === 'imagescape'){
+      data.quotes.filter(function(q){ return !clientId || q.clientId === clientId; }).forEach(function(q){
+        const opt = document.createElement('option'); opt.value = q.id;
+        opt.textContent = (q.title || 'Untitled quote') + (q.imageScapeRef ? (' (' + q.imageScapeRef + ')') : '');
+        quoteSel.appendChild(opt);
+      });
+      quoteSel.value = prevQuote;
+      // Prefill: with a client picked and nothing chosen yet, start from their latest quote.
+      if (!quoteSel.value && clientId && quoteSel.options.length > 1) quoteSel.selectedIndex = quoteSel.options.length - 1;
+    }
 
     const invSel = document.getElementById('useTemplateInvoice');
+    const prevInv = invSel.value;
     invSel.innerHTML = '<option value="">No invoice</option>';
-    const c = clientId && data.clients.find(function(x){ return x.id === clientId; });
+    data.docPdfIndex.filter(function(d){ return d.business === business && d.kind === 'invoice' && (!clientId || d.clientId === clientId); }).forEach(function(d){
+      const opt = document.createElement('option'); opt.value = 'd:' + d.id;
+      opt.textContent = d.number + ' — ' + fmtGBP(d.total) + (d.dateIso ? (' (' + ddmmyy(d.dateIso) + ')') : '');
+      invSel.appendChild(opt);
+    });
+    const c = business === 'imagescape' && clientId && data.clients.find(function(x){ return x.id === clientId; });
     if (c && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts){
       const snap = zohoSnapshotCache.contacts[c.zohoContactId];
       ((snap && snap.invoices) || []).forEach(function(inv, idx){
-        const opt = document.createElement('option'); opt.value = idx; opt.textContent = (inv.number || '') + ' — ' + (inv.status || '');
+        const opt = document.createElement('option'); opt.value = 'z:' + idx; opt.textContent = (inv.number || '') + ' — ' + (inv.status || '') + ' (Zoho)';
         invSel.appendChild(opt);
       });
     }
+    invSel.value = prevInv;
+    if (!invSel.value && clientId && invSel.options.length > 1) invSel.selectedIndex = 1;
+
+    const galSel = document.getElementById('useTemplateGallery');
+    const prevGal = galSel.value;
+    galSel.innerHTML = '<option value="">Latest gallery</option>';
+    if (business === 'imagescape'){
+      data.galleries.filter(function(g){ return !clientId || g.clientId === clientId; }).forEach(function(g){
+        const opt = document.createElement('option'); opt.value = g.id;
+        opt.textContent = (g.label || 'Untitled gallery') + (g.shootDate ? (' (' + ddmmyy(g.shootDate) + ')') : '');
+        galSel.appendChild(opt);
+      });
+      galSel.value = prevGal;
+    }
   }
 
+  document.getElementById('useTemplateBusiness').addEventListener('change', function(){
+    document.getElementById('useTemplateClient').value = '';
+    document.getElementById('useTemplateSelect').value = '';
+    populateUseTemplateSelects();
+  });
   document.getElementById('useTemplateClient').addEventListener('change', renderUseTemplateQuoteAndInvoiceOptions);
 
   function copyTextToClipboard(text){
@@ -10262,44 +11048,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById('useTemplateGenerateBtn').addEventListener('click', function(){
-    const tplId = document.getElementById('useTemplateSelect').value;
-    if (!tplId){ toast('Pick a template first.'); return; }
-    const t = data.emailTemplates.find(function(x){ return x.id === tplId; });
-    if (!t) return;
+    const business = document.getElementById('useTemplateBusiness').value === 'soletrader' ? 'soletrader' : 'imagescape';
     const clientId = document.getElementById('useTemplateClient').value;
-    const quoteId = document.getElementById('useTemplateQuote').value;
-    const invoiceIdx = document.getElementById('useTemplateInvoice').value;
-    const ctx = buildMergeContext(clientId, quoteId, invoiceIdx);
-    const subject = renderTemplateString(t.subject, ctx);
-    const body = renderTemplateString(t.body, ctx);
-    const c = clientId && data.clients.find(function(x){ return x.id === clientId; });
-    const mailto = 'mailto:' + (c && c.email ? encodeURIComponent(c.email) : '') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-    const wrap = document.getElementById('useTemplateResult');
-    wrap.innerHTML =
-      '<div class="field"><label>Subject</label><input type="text" id="resultSubject" readonly></div>' +
-      '<div class="field"><label>Body</label><textarea id="resultBody" rows="9" readonly style="font-family:inherit;"></textarea></div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-        '<button class="btn btn-ghost" id="copySubjectBtn" type="button">Copy subject</button>' +
-        '<button class="btn btn-ghost" id="copyBodyBtn" type="button">Copy body</button>' +
-        '<a class="btn btn-primary" id="openMailBtn" style="width:auto;text-decoration:none;text-align:center;display:inline-block;padding:10px 16px;">Open in email client</a>' +
-      '</div>';
-    wrap.querySelector('#resultSubject').value = subject;
-    wrap.querySelector('#resultBody').value = body;
-    wrap.querySelector('#openMailBtn').href = mailto;
-    wrap.querySelector('#copySubjectBtn').addEventListener('click', function(){ copyTextToClipboard(subject); toast('Subject copied.'); });
-    wrap.querySelector('#copyBodyBtn').addEventListener('click', function(){ copyTextToClipboard(body); toast('Body copied.'); });
+    if (!clientId){ toast('Pick a client first.'); return; }
+    openEmailComposer({
+      business: business, clientId: clientId,
+      templateId: document.getElementById('useTemplateSelect').value || '',
+      quoteId: business === 'imagescape' ? document.getElementById('useTemplateQuote').value : '',
+      invoiceSel: document.getElementById('useTemplateInvoice').value,
+      galleryId: business === 'imagescape' ? document.getElementById('useTemplateGallery').value : ''
+    });
   });
 
   function jumpToEmailTemplateForQuote(quoteId){
     const q = data.quotes.find(function(x){ return x.id === quoteId; });
+    if (q && q.clientId){ openEmailComposer({ business: 'imagescape', clientId: q.clientId, quoteId: q.id, seedKey: suggestSeedForQuote(q) }); return; }
     document.querySelector('nav.tabs button[data-panel="emails"]').click();
-    populateUseTemplateSelects();
-    if (q){
-      document.getElementById('useTemplateClient').value = q.clientId || '';
-      renderUseTemplateQuoteAndInvoiceOptions();
-      document.getElementById('useTemplateQuote').value = q.id;
-    }
-    toast('Pick a template, then Generate.');
+    toast('Pick a client, then Write email.');
   }
 
   // ---------------------------------------------------------------- finance & tax
