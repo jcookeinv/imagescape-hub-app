@@ -1397,7 +1397,7 @@
     <div class="panel" id="panel-seinvoices">
       <div class="card">
         <h2>Raise an invoice</h2>
-        <div class="sub">Pulls that client's matched calendar sessions for a month, lets you tick which to bill and adjust hours per session, fills their invoice template (or a blank fallback) with the next invoice number from your tax spreadsheet, and saves the finished .ods and a PDF copy into <strong>Sole trader &gt; Invoices &gt; </strong>that client's folder in Drive. Set a day rate and hours/day for the client on the Clients tab first.</div>
+        <div class="sub">Pulls that client's matched calendar sessions for a month, lets you tick which to bill and adjust hours per session, fills their invoice template (or a blank fallback) with the next invoice number from your tax spreadsheet, saves the finished .ods and a PDF copy into <strong>Sole trader &gt; Invoices &gt; </strong>that client's folder in Drive, and logs the invoice and its mileage in your tax spreadsheet, all in one step. Set a day rate and hours/day for the client on the Clients tab first.</div>
         <div class="link-add">
           <select id="invClientSelect"><option value="">Choose a client…</option></select>
           <input type="month" id="invMonthPicker">
@@ -1413,33 +1413,35 @@
           <input type="text" id="invFolderName" placeholder="Drive folder under Sole trader › Invoices (auto-filled once you pick a client)">
         </div>
         <div id="invTemplateHint" class="hint" style="margin-top:6px;"></div>
-        <button class="btn btn-primary" id="invGenerateBtn" style="width:auto;margin-top:12px;">Generate invoice &amp; expenses</button>
+        <div id="invLedgerCard" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+          <h3 style="margin:0 0 4px;font-size:15px;">What will be added</h3>
+          <div class="sub">One click saves the invoice (.ods and PDF) to Drive and adds these rows to your tax spreadsheet in the same step. Check them here first; the status, destination and notes can be changed.</div>
+          <div id="invLedgerYearWarning" class="hint" style="margin-top:6px;"></div>
+          <div style="font-weight:700;font-size:13px;margin:12px 0 6px;">Invoices tab: 1 row</div>
+          <div class="zoho-snapshot">
+            <div class="zoho-row"><span>Id</span><strong id="invLedgerId"></strong></div>
+            <div class="zoho-row"><span>Client</span><strong id="invLedgerClient"></strong></div>
+            <div class="zoho-row"><span>Amount (£)</span><strong id="invLedgerAmount"></strong></div>
+            <div class="zoho-row"><span>Inv date</span><strong id="invLedgerInvDate"></strong></div>
+            <div class="zoho-row"><span>Due</span><strong id="invLedgerDue"></strong></div>
+          </div>
+          <div class="link-add" style="margin-top:10px;">
+            <select id="invLedgerStatus">
+              <option value="PENDING">PENDING — not yet raised/given to client</option>
+              <option value="RAISED">RAISED — with client for payment</option>
+              <option value="PAID">PAID — paid in full and cleared</option>
+            </select>
+            <input type="text" id="invLedgerDestination" placeholder="Destination a/c (e.g. JC Lloyds)" value="JC Lloyds">
+          </div>
+          <input type="text" id="invLedgerNotes" placeholder="Notes" style="width:100%;margin-top:10px;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font:inherit;">
+          <div style="font-weight:700;font-size:13px;margin:14px 0 6px;" id="invExpenseHeading">Expenses tab</div>
+          <div id="invExpensePreview"></div>
+        </div>
+        <button class="btn btn-primary" id="invGenerateBtn" style="width:auto;margin-top:14px;">Generate invoice &amp; log it</button>
+        <button class="btn btn-ghost" id="invLedgerAddBtn" style="width:auto;margin-top:14px;display:none;">Log it in the spreadsheet now</button>
+        <div id="invLedgerStatusMsg" class="hint" style="margin-top:6px;"></div>
         <div id="invStatus" class="hint" style="margin-top:10px;"></div>
         <div id="invResult" style="margin-top:10px;"></div>
-      </div>
-
-      <div class="card" style="margin-top:16px;display:none;" id="invLedgerCard">
-        <h2>Log this invoice in your tax spreadsheet</h2>
-        <div class="sub">Adds one new row to your tax spreadsheet's own <strong>Invoices</strong> tab — the same columns already there (Id, Client, Amount (£), Status, Inv date, Due, Date Paid, Destination a/c, Notes), in the same date format. Nothing saves until you check it below and click "Add to Invoices tab".</div>
-        <div id="invLedgerYearWarning" class="hint" style="margin-top:6px;"></div>
-        <div class="zoho-snapshot" style="margin-top:10px;">
-          <div class="zoho-row"><span>Id</span><strong id="invLedgerId"></strong></div>
-          <div class="zoho-row"><span>Client</span><strong id="invLedgerClient"></strong></div>
-          <div class="zoho-row"><span>Amount (£)</span><strong id="invLedgerAmount"></strong></div>
-          <div class="zoho-row"><span>Inv date</span><strong id="invLedgerInvDate"></strong></div>
-          <div class="zoho-row"><span>Due</span><strong id="invLedgerDue"></strong></div>
-        </div>
-        <div class="link-add" style="margin-top:12px;">
-          <select id="invLedgerStatus">
-            <option value="PENDING">PENDING — not yet raised/given to client</option>
-            <option value="RAISED">RAISED — with client for payment</option>
-            <option value="PAID">PAID — paid in full and cleared</option>
-          </select>
-          <input type="text" id="invLedgerDestination" placeholder="Destination a/c (e.g. JC Lloyds)">
-        </div>
-        <input type="text" id="invLedgerNotes" placeholder="Notes" style="width:100%;margin-top:10px;box-sizing:border-box;">
-        <button class="btn btn-primary" id="invLedgerAddBtn" style="width:auto;margin-top:12px;">Add to Invoices tab</button>
-        <div id="invLedgerStatusMsg" class="hint" style="margin-top:10px;"></div>
       </div>
 
       <div class="card" style="margin-top:16px;display:none;" id="invEmailCard">
@@ -1465,6 +1467,11 @@
           <button class="btn btn-ghost" id="stSheetLocateBtn" style="padding:6px 12px;font-size:12.5px;">Locate spreadsheet</button>
         </div>
         <div id="stSheetCandidates" style="margin-top:10px;"></div>
+        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="stSortExpensesBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Sort &amp; repair Expenses tab</button>
+          <span id="stSortExpensesMsg" class="hint"></span>
+        </div>
+        <div class="hint" style="margin-top:4px;">Puts every Expenses row in date order within its tax year and corrects each row's Total formula and the summary totals. This also happens automatically whenever the Hub adds mileage.</div>
       </div>
     </div>
 
@@ -2516,7 +2523,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     })();
     // Index of generated quote/invoice PDFs (numbers, totals, dates, Drive file id) so
     // later emails - a chase, a receipt - can quote the figures and re-attach the PDF.
+    // The name emails greet a client by ("Hi Jules"), when their first word isn't it -
+    // e.g. a business name like "Just Jules". Set from the email window's "Greet as" box.
+    [d.clients, d.soleTraderClients].forEach(function(list){
+      (list || []).forEach(function(c){ c.greetingName = typeof c.greetingName === 'string' ? c.greetingName : ''; });
+    });
+    // A client's own saved version of a template (from the email window's "Save as this
+    // client's default"), used instead of the template's standard text for that client.
+    d.emailClientDefaults = Array.isArray(d.emailClientDefaults) ? d.emailClientDefaults.filter(function(x){ return x && x.clientId && x.templateId; }) : [];
     d.docPdfIndex = Array.isArray(d.docPdfIndex) ? d.docPdfIndex.filter(function(x){ return x && x.number; }) : [];
+    // Every self-employed session date the Hub has put on an invoice (see
+    // readInvoicedSessionsForClient) - stops the same day being billed twice.
+    d.invoicedSessions = Array.isArray(d.invoicedSessions) ? d.invoicedSessions.filter(function(x){ return x && x.clientId && x.isoDate; }) : [];
     d.galleries = d.galleries || [];
     d.galleries.forEach(function(g){
       g.clientId = g.clientId || '';
@@ -3176,7 +3194,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const isoDate = soleTraderEventDateLabel(ev);
         let flag = '';
         if (existingDates){
-          if (existingDates.has(isoDate)){
+          if (existingDates.has(expenseTripKey(isoDate, c)) ||
+              pendingExpenseEntries.some(function(pe){ return expenseTripKey(pe.isoDate, pe.client) === expenseTripKey(isoDate, c); })){
             flag = ' <span class="hint">already logged</span>';
           } else if (c.journey && c.reason && c.miles){
             flag = ' <span class="hint" style="color:#b45309;">not yet in Expenses</span>';
@@ -3870,6 +3889,51 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return null;
   }
 
+  // Session dates already billed to this client, as a Map isoDate -> invoice Id. Two
+  // sources: the Hub's own record of every invoice it has generated (data.invoicedSessions)
+  // and the "Work on dd/mm, dd/mm" notes the Hub writes on each Invoices-tab row (year
+  // taken from that row's Inv date). Read-only.
+  async function readInvoicedSessionsForClient(client){
+    const out = new Map();
+    (data.invoicedSessions || []).forEach(function(r){
+      if (r.clientId === client.id && r.isoDate) out.set(r.isoDate, r.invoiceNumber);
+    });
+    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId) return out;
+    const { zip } = await downloadTaxSpreadsheetZip();
+    const xmlDoc = await odsLoadContentXml(zip);
+    const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+    const header = invoicesTable && odsFindInvoicesLedgerHeader(invoicesTable);
+    if (!header) return out;
+    const wantClient = (client.name || '').trim().toLowerCase();
+    for (let r = header.rowIndex + 1; r < header.rows.length; r++){
+      const row = header.rows[r];
+      if (odsPeekCellText(row, 1).toLowerCase() !== wantClient) continue;
+      const invIso = odsPeekCellDateValue(row, 4);
+      const notes = odsPeekCellText(row, 8);
+      const id = odsPeekCellText(row, 0);
+      if (!invIso || !/work on/i.test(notes)) continue;
+      const invYear = parseInt(invIso.slice(0, 4), 10);
+      const invTime = new Date(invIso + 'T00:00:00').getTime();
+      // "dd/mm" or "dd/mm/yy". With no year given, the year that puts the date closest
+      // to the invoice date wins (work is billed shortly before or after it's done).
+      (notes.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/g) || []).forEach(function(dm){
+        const parts = dm.split('/').map(Number);
+        let year;
+        if (parts.length > 2) year = parts[2] < 100 ? 2000 + parts[2] : parts[2];
+        else {
+          year = [invYear - 1, invYear, invYear + 1].reduce(function(best, y){
+            const t = new Date(y, parts[1] - 1, parts[0]).getTime();
+            const bt = new Date(best, parts[1] - 1, parts[0]).getTime();
+            return Math.abs(t - invTime) < Math.abs(bt - invTime) ? y : best;
+          }, invYear);
+        }
+        const iso = year + '-' + String(parts[1]).padStart(2, '0') + '-' + String(parts[0]).padStart(2, '0');
+        if (!out.has(iso)) out.set(iso, id);
+      });
+    }
+    return out;
+  }
+
   // Some clients (Jules confirmed, potentially others) split a single month across two
   // separate invoices. Counts how many rows already exist on the Invoices tab for this
   // client whose "Inv date" (column index 4) falls within the given "YYYY-MM" month, so
@@ -3936,11 +4000,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Full write flow, mirroring writeSoleTraderExpenseEntries above: download fresh (so the
   // conflict check is against the latest copy), insert the one new row, save back to the
   // same file. Never touches the Expenses tab or any other row on the Invoices tab.
+  // Never log the same invoice twice - that would double-count the income. Checked
+  // against the freshly downloaded sheet, so it holds across reloads and devices.
+  function assertInvoiceNotLogged_(invoicesTable, id){
+    const want = String(id || '').trim().toLowerCase();
+    const allRows = Array.prototype.slice.call(invoicesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    if (want && allRows.some(function(row){ return odsPeekCellText(row, 0).toLowerCase() === want; })){
+      const err = new Error('Invoice ' + id + ' is already on the Invoices tab - not added again.');
+      err.alreadyLogged = true;
+      throw err;
+    }
+  }
+
   async function writeInvoiceLedgerRow(entry){
     const dl = await downloadTaxSpreadsheetZip();
     const xmlDoc = await odsLoadContentXml(dl.zip);
     const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
     if (!invoicesTable) throw new Error('Could not find an "Invoices" tab in your tax spreadsheet.');
+    assertInvoiceNotLogged_(invoicesTable, entry.id);
     odsInsertInvoiceLedgerRow(xmlDoc, invoicesTable, entry);
     const blob = await odsSaveContentXml(dl.zip, xmlDoc);
     await saveTaxSpreadsheetAsNewVersion(blob);
@@ -4322,7 +4399,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       html += '<div class="zoho-row" data-key="' + escapeHtml(s.key) + '">' +
         '<label style="display:flex;align-items:center;gap:8px;flex:1;' + (blocked ? 'opacity:.55;' : '') + '">' +
         '<input type="checkbox" class="inv-check" ' + (s.checked && !blocked ? 'checked' : '') + (blocked ? ' disabled' : '') + '>' +
-        '<span>' + escapeHtml(s.isoDate) + (s.summary ? ' — ' + escapeHtml(s.summary) : '') + '</span>' +
+        '<span>' + escapeHtml(s.isoDate) + (s.summary ? ' — ' + escapeHtml(s.summary) : '') +
+          (s.alreadyInvoiced ? ' <span class="hint" style="color:#b45309;">already on ' + escapeHtml(s.alreadyInvoiced) + '</span>' : '') + '</span>' +
         '</label>' +
         '<span style="display:flex;align-items:center;gap:8px;">' +
         '<input type="number" class="inv-hours" min="0" step="0.25" value="' + s.hours + '" style="width:70px;"' + (blocked ? ' disabled' : '') + '>' +
@@ -4361,6 +4439,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const checked = invSessions.filter(function(s){ return s.checked; });
     const total = checked.reduce(function(sum, s){ return sum + s.amount; }, 0);
     totalsEl.textContent = checked.length ? (checked.length + ' session' + (checked.length === 1 ? '' : 's') + ' selected — total ' + fmtGBP(total)) : 'No sessions selected yet.';
+    renderInvoiceLedgerPreview();
   }
 
   async function invPullSessions(){
@@ -4411,6 +4490,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e){
         invSplitInvoiceBlocked = false;
       }
+      // Sessions already on an earlier invoice start unticked and labelled, so the same
+      // day can't be billed twice by accident. Fails open on a read error.
+      try {
+        const billed = await readInvoicedSessionsForClient(client);
+        invSessions.forEach(function(s){
+          const inv = billed.get(s.isoDate);
+          if (inv){ s.alreadyInvoiced = inv; s.checked = false; }
+        });
+      } catch (e){ /* best effort */ }
+      await invLoadPreviewFacts(client);
       renderInvoiceSessions();
 
       const folderEl = document.getElementById('invFolderName');
@@ -4440,6 +4529,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!client.dayRate || !client.dayHours){ status.textContent = 'Set a day rate and hours/day for ' + client.name + ' on the Clients tab first.'; return; }
     const checked = invSessions.filter(function(s){ return s.checked; });
     if (!checked.length){ status.textContent = 'Tick at least one session to invoice.'; return; }
+    const rebilled = checked.filter(function(s){ return s.alreadyInvoiced; });
+    if (rebilled.length && !confirm('These sessions are already on an earlier invoice:\n\n' +
+        rebilled.map(function(s){ return s.isoDate + ' (on ' + s.alreadyInvoiced + ')'; }).join('\n') +
+        '\n\nInvoice them again anyway?')) return;
+    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){ status.textContent = 'Link your tax spreadsheet on the Tax spreadsheet tab first — the invoice is logged there as part of generating it.'; return; }
+    const ys = invPreviewFacts && invPreviewFacts.yearStatus;
+    if (ys && ys.found && ys.status && ys.status.toUpperCase() !== 'DRAFT' &&
+        !confirm(ys.tabName + ' is marked "' + ys.status + '" in your tax spreadsheet, not DRAFT. Generate and log this invoice into it anyway?')) return;
+    const ledgerStatus = document.getElementById('invLedgerStatus').value;
+    const ledgerDestination = document.getElementById('invLedgerDestination').value.trim();
+    const ledgerNotes = document.getElementById('invLedgerNotes').value.trim();
     const folderEl = document.getElementById('invFolderName');
     const folderName = (folderEl.value || '').trim() || client.name;
     const materialsEl = document.getElementById('invMaterials');
@@ -4472,36 +4572,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         invoiceDateIso: todayIso, items: items, materialsText: materialsText
       });
 
-      // Also writes the matching mileage/expense line for each invoiced session date to
-      // the Expenses tab, in the same action — added 20 Sep 2026 so raising an invoice and
-      // logging its expenses can't drift apart or be forgotten. Uses the exact same
-      // eligibility rule (client.journey/.reason/.miles set) and "not already logged"
-      // check as the Calendar tab's "Add missing entries" button. A client with no mileage
-      // fields set simply has nothing to add here — that's not an error.
-      let expenseOutcome = { added: 0, skipped: true };
-      if (client.journey && client.reason && client.miles){
-        status.textContent = 'Checking for matching expense entries…';
-        try {
-          const expenseEntries = checked.map(function(s){ return { isoDate: s.isoDate, client: client }; });
-          const written = await writeSoleTraderExpenseEntries(expenseEntries);
-          expenseOutcome = { added: written.added, skipped: false };
-        } catch (e){
-          expenseOutcome = { added: 0, skipped: false, error: e.message || 'Could not write to the Expenses tab.' };
-        }
-      }
+      // Record keeping in the same step: the Invoices-tab row and the mileage rows for these
+      // sessions, written together in one save of the tax spreadsheet (see
+      // writeInvoiceLedgerAndExpenses). If that write fails the invoice itself is already
+      // safe in Drive, so it's reported with a one-click retry rather than thrown away.
+      const dueIsoForLog = addDaysIso(todayIso, 30);
+      const withMileage = !!(client.journey && client.reason && client.miles);
+      invPendingLog = {
+        entry: { id: invoiceNumber, client: client.name, amount: result.total, status: ledgerStatus,
+          invDateIso: todayIso, dueDateIso: dueIsoForLog, datePaidIso: null,
+          destinationAccount: ledgerDestination, notes: ledgerNotes },
+        expenseEntries: withMileage ? checked.map(function(sess){ return { isoDate: sess.isoDate, client: client }; }) : []
+      };
+      status.textContent = 'Logging it in your tax spreadsheet…';
+      let logged = null, logFailed = false;
+      try { logged = await invRunPendingLog(); } catch (e){ logFailed = true; }
 
-      status.textContent = 'Done.';
-      const expenseLine = expenseOutcome.error
-        ? '<div class="zoho-row"><span style="color:#b45309;">Expenses: ' + escapeHtml(expenseOutcome.error) + '</span><span></span></div>'
-        : expenseOutcome.skipped
-          ? '<div class="zoho-row"><span>No mileage set for ' + escapeHtml(client.name) + ' — nothing added to Expenses.</span><span></span></div>'
-          : '<div class="zoho-row"><span>' + (expenseOutcome.added ? (expenseOutcome.added + ' expense line' + (expenseOutcome.added === 1 ? '' : 's') + ' added') : 'Expenses already up to date — nothing new to add') + '</span><span></span></div>';
+      status.textContent = logFailed ? 'Invoice saved — logging needs another try (see below).' : 'Done.';
+      const logLine = logFailed
+        ? '<div class="zoho-row"><span style="color:#b45309;">Not yet logged in your tax spreadsheet — see below.</span><span></span></div>'
+        : '<div class="zoho-row"><span>Logged on the Invoices tab' + (withMileage ? (' · ' + ((logged && logged.expensesAdded) ? (logged.expensesAdded + ' expense row' + (logged.expensesAdded === 1 ? '' : 's') + ' added') : 'expenses already up to date')) : ' · no mileage set for this client') + '</span><span></span></div>';
       resultEl.innerHTML = '<div class="zoho-snapshot"><div class="zoho-row"><strong>' + escapeHtml(invoiceNumber) + '</strong><strong>' + fmtGBP(result.total) + '</strong></div>' +
         '<div class="zoho-row"><span>Saved to "' + escapeHtml(folderName) + '" in Drive</span><span></span></div>' +
         (result.odsFile.webViewLink ? '<div class="zoho-row"><a href="' + escapeHtml(result.odsFile.webViewLink) + '" target="_blank" rel="noopener">Open .ods</a><a href="' + escapeHtml(result.pdfFile.webViewLink || '#') + '" target="_blank" rel="noopener">Open PDF</a></div>' : '') +
-        expenseLine +
+        logLine +
         '</div>';
-      toast('Invoice ' + invoiceNumber + ' saved to Drive' + (expenseOutcome.added ? ' — ' + expenseOutcome.added + ' expense line' + (expenseOutcome.added === 1 ? '' : 's') + ' added.' : '.'));
+      toast('Invoice ' + invoiceNumber + ' saved' + (logFailed ? ' to Drive (not yet logged).' : ' and logged.'));
       const dueDateIso = addDaysIso(todayIso, 30);
       const remembered = rememberGeneratedPdf({
         business: 'soletrader', clientId: client.id, kind: 'invoice', number: invoiceNumber,
@@ -4509,6 +4605,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         dateIso: todayIso, dueIso: dueDateIso, total: result.total,
         period: emailDateList(items.map(function(it){ return it.isoDate; }))
       });
+      checked.forEach(function(sess){
+        data.invoicedSessions.push({ clientId: client.id, isoDate: sess.isoDate, invoiceNumber: invoiceNumber });
+      });
+      markDirty();
       lastGeneratedInvoice = {
         client: client, invoiceNumber: invoiceNumber, total: result.total, pdfBlob: result.pdfBlob,
         invDateIso: todayIso, dueDateIso: dueDateIso, items: items,
@@ -4516,8 +4616,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       };
       renderInvoiceEmailSection();
       // Straight into the email, PDF attached and previewed - one more click makes the draft.
+      document.getElementById('invLedgerCard').style.display = 'none';
       invCreateGmailDraft();
-      await renderInvoiceLedgerSection();
     } catch (e){
       status.textContent = '';
       resultEl.innerHTML = '<div class="empty-note">' + escapeHtml(e.message || 'Could not generate the invoice.') + '</div>';
@@ -4554,82 +4654,173 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     hideInvoiceLedgerSection();
   }
 
-  // ---------------------------------------------------------------- Log invoice in tax spreadsheet
-  // Shown once a generate succeeds, alongside the email card above - previews the exact row
-  // that would be added to the tax spreadsheet's Invoices tab and waits for an explicit
-  // "Add to Invoices tab" click. Never writes anything on its own.
-  function renderInvoiceLedgerPreview(){
-    const inv = lastGeneratedInvoice;
-    if (!inv) return;
-    document.getElementById('invLedgerId').textContent = inv.invoiceNumber;
-    document.getElementById('invLedgerClient').textContent = inv.client.name;
-    document.getElementById('invLedgerAmount').textContent = fmtGBP(inv.total);
-    document.getElementById('invLedgerInvDate').textContent = ddmmyy(inv.invDateIso);
-    document.getElementById('invLedgerDue').textContent = ddmmyy(inv.dueDateIso);
-    document.getElementById('invLedgerStatus').value = 'PENDING';
-    document.getElementById('invLedgerDestination').value = 'JC Lloyds';
-    const dateLabels = (inv.items || []).map(function(it){ return it.isoDate ? it.isoDate.slice(5).split('-').reverse().join('/') : null; }).filter(Boolean);
-    document.getElementById('invLedgerNotes').value = dateLabels.length ? ('Work on ' + dateLabels.join(', ')) : '';
-    document.getElementById('invLedgerStatusMsg').textContent = '';
-    const addBtn = document.getElementById('invLedgerAddBtn');
-    if (addBtn){ addBtn.disabled = false; addBtn.textContent = 'Add to Invoices tab'; }
-  }
+  // ---------------------------------------------------------------- What will be added (preview)
+  // Worked out when sessions are pulled (one read of the tax spreadsheet) and refreshed on
+  // every tick/hours change, so what's shown is what the one-click generate will write.
+  let invPreviewFacts = null;   // { number, numberError, expenseKeys, yearStatus, yearError }
+  let invNotesEditedByHand = false;
+  let invPendingLog = null;     // set if the invoice saved but the spreadsheet write failed
 
-  async function renderInvoiceLedgerSection(){
-    const card = document.getElementById('invLedgerCard');
-    if (!card || !lastGeneratedInvoice) return;
-    renderInvoiceLedgerPreview();
-    card.style.display = '';
-    const warningEl = document.getElementById('invLedgerYearWarning');
-    warningEl.textContent = 'Checking the tax year status…';
+  async function invLoadPreviewFacts(client){
+    invPreviewFacts = { number: null, numberError: '', expenseKeys: null, yearStatus: null, yearError: '' };
+    invNotesEditedByHand = false;
+    invPendingLog = null;
     try {
-      const yearStatus = await checkInvoiceYearStatus(lastGeneratedInvoice.invDateIso);
-      if (!yearStatus.found){
-        warningEl.textContent = 'No "' + yearStatus.tabName + '" tab found in your tax spreadsheet yet — that’s fine if this tax year hasn’t been set up there yet.';
-      } else if (yearStatus.status && yearStatus.status.toUpperCase() !== 'DRAFT'){
-        warningEl.innerHTML = '<strong style="color:#b45309;">Heads up:</strong> ' + escapeHtml(yearStatus.tabName) + ' is already marked "' + escapeHtml(yearStatus.status) + '" in your tax spreadsheet, not DRAFT — adding this row will change a year you may already have filed. Check before adding.';
-      } else {
-        warningEl.textContent = yearStatus.tabName + ' is still DRAFT — safe to add.';
+      if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId) throw new Error('Link your tax spreadsheet on the Tax spreadsheet tab first.');
+      const { zip } = await downloadTaxSpreadsheetZip();
+      const xmlDoc = await odsLoadContentXml(zip);
+      const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+      if (!client.invoiceCode) invPreviewFacts.numberError = 'Set an Invoice Code for ' + client.name + ' on the Clients tab first.';
+      else if (!invoicesTable) invPreviewFacts.numberError = 'No "Invoices" tab found in your tax spreadsheet.';
+      else {
+        const existing = [];
+        Array.prototype.forEach.call(invoicesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'), function(row){
+          odsTableCells(row).forEach(function(cell){
+            const txt = (cell.textContent || '').trim();
+            if (/^[A-Za-z]{1,3}\d{2}-\d{3,5}$/.test(txt)) existing.push(txt);
+          });
+        });
+        invPreviewFacts.number = nextInvoiceNumberFromExisting(existing, client.invoiceCode, String(new Date().getFullYear()).slice(2));
+      }
+      const expensesTable = odsFindTableByName(xmlDoc, 'Expenses');
+      if (expensesTable) invPreviewFacts.expenseKeys = odsExistingExpenseDates(expensesTable);
+      const fyName = ukTaxYearLabel(todayIso_());
+      const fy = odsFindTableByName(xmlDoc, fyName);
+      if (!fy) invPreviewFacts.yearStatus = { tabName: fyName, found: false, status: null };
+      else {
+        const found = odsFindRowByLabel(fy, 'Status:');
+        const cell = found ? odsGetCellAt(found.row, found.cellIndex + 1) : null;
+        invPreviewFacts.yearStatus = { tabName: fyName, found: true, status: cell ? (cell.textContent || '').trim() : null };
       }
     } catch (e){
-      warningEl.textContent = 'Could not check the tax year status: ' + (e.message || 'unknown error') + '. You can still add the row below.';
+      invPreviewFacts.numberError = invPreviewFacts.numberError || (e.message || 'Could not read the tax spreadsheet.');
+      invPreviewFacts.yearError = e.message || '';
     }
+  }
+
+  function invNotesFor(sessions){
+    const labels = sessions.map(function(s){ return s.isoDate; }).sort()
+      .filter(function(d, i, a){ return a.indexOf(d) === i; })
+      .map(function(d){ return d.slice(5).split('-').reverse().join('/'); });
+    return labels.length ? ('Work on ' + labels.join(', ')) : '';
+  }
+
+  function renderInvoiceLedgerPreview(){
+    const card = document.getElementById('invLedgerCard');
+    if (!card) return;
+    const client = invSelectedClient();
+    const checked = invSessions.filter(function(s){ return s.checked; });
+    if (!client || !invSessions.length || !checked.length || lastGeneratedInvoice){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    const f = invPreviewFacts || {};
+    const todayIso = todayIso_();
+    const total = checked.reduce(function(sum, s){ return sum + s.amount; }, 0);
+    const idEl = document.getElementById('invLedgerId');
+    idEl.textContent = f.number || ('worked out when generated' + (f.numberError ? (' (' + f.numberError + ')') : ''));
+    document.getElementById('invLedgerClient').textContent = client.name;
+    document.getElementById('invLedgerAmount').textContent = fmtGBP(total);
+    document.getElementById('invLedgerInvDate').textContent = ddmmyy(todayIso);
+    document.getElementById('invLedgerDue').textContent = ddmmyy(addDaysIso(todayIso, 30));
+    if (!invNotesEditedByHand) document.getElementById('invLedgerNotes').value = invNotesFor(checked);
+
+    const warn = document.getElementById('invLedgerYearWarning');
+    const ys = f.yearStatus;
+    if (f.yearError) warn.textContent = 'Could not check the tax year status: ' + f.yearError;
+    else if (!ys) warn.textContent = '';
+    else if (!ys.found) warn.textContent = 'No "' + ys.tabName + '" tab in your tax spreadsheet yet — fine if this tax year hasn’t been set up there.';
+    else if (ys.status && ys.status.toUpperCase() !== 'DRAFT') warn.innerHTML = '<strong style="color:#b45309;">Heads up:</strong> ' + escapeHtml(ys.tabName) + ' is marked "' + escapeHtml(ys.status) + '", not DRAFT — these rows would change a year you may already have filed. You’ll be asked to confirm.';
+    else warn.textContent = ys.tabName + ' is still DRAFT — safe to add.';
+
+    const expEl = document.getElementById('invExpensePreview');
+    const head = document.getElementById('invExpenseHeading');
+    if (!(client.journey && client.reason && client.miles)){
+      head.textContent = 'Expenses tab: nothing';
+      expEl.innerHTML = '<div class="hint">No journey/reason/miles set for ' + escapeHtml(client.name) + ' on the Clients tab, so no mileage will be added.</div>';
+      return;
+    }
+    const keys = f.expenseKeys;
+    const seen = new Set();
+    let adding = 0;
+    const perTrip = Math.round(client.miles * 0.45 * 100) / 100;
+    let rows = '';
+    checked.slice().sort(function(a, b){ return a.isoDate.localeCompare(b.isoDate); }).forEach(function(sess){
+      const key = expenseTripKey(sess.isoDate, client);
+      let note = '';
+      if (keys && keys.has(key)) note = 'already logged, skipped';
+      else if (seen.has(key)) note = 'same trip as above, skipped';
+      seen.add(key);
+      if (!note) adding++;
+      rows += '<div class="zoho-row"' + (note ? ' style="opacity:.55;"' : '') + '><span>' + escapeHtml(ddmmyy(sess.isoDate)) + ' · ' + escapeHtml(client.journey) + ' · ' + escapeHtml(client.reason) +
+        (note ? (' <em>(' + note + ')</em>') : '') + '</span><strong>' + client.miles + ' mi · ' + fmtGBP(perTrip) + '</strong></div>';
+    });
+    head.textContent = 'Expenses tab: ' + adding + ' row' + (adding === 1 ? '' : 's') + (adding ? (' (' + fmtGBP(perTrip * adding) + ')') : '');
+    expEl.innerHTML = '<div class="zoho-snapshot">' + rows + '</div>' +
+      (keys ? '' : '<div class="hint" style="margin-top:4px;">Couldn’t read the Expenses tab just now; trips already there are still skipped when it’s written.</div>');
   }
 
   function hideInvoiceLedgerSection(){
     const card = document.getElementById('invLedgerCard');
     if (card) card.style.display = 'none';
+    const retry = document.getElementById('invLedgerAddBtn');
+    if (retry) retry.style.display = 'none';
+    const msg = document.getElementById('invLedgerStatusMsg');
+    if (msg) msg.textContent = '';
+    invPendingLog = null;
   }
 
-  async function invAddLedgerRow(){
-    const inv = lastGeneratedInvoice;
-    const statusMsg = document.getElementById('invLedgerStatusMsg');
-    const addBtn = document.getElementById('invLedgerAddBtn');
-    if (!inv){ statusMsg.textContent = 'Generate an invoice above first.'; return; }
-    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
-      statusMsg.textContent = 'Link your tax spreadsheet on the Tax spreadsheet tab first.'; return;
-    }
-    addBtn.disabled = true;
-    statusMsg.textContent = 'Adding to the Invoices tab…';
-    try {
-      await writeInvoiceLedgerRow({
-        id: inv.invoiceNumber, client: inv.client.name, amount: inv.total,
-        status: document.getElementById('invLedgerStatus').value,
-        invDateIso: inv.invDateIso, dueDateIso: inv.dueDateIso, datePaidIso: null,
-        destinationAccount: document.getElementById('invLedgerDestination').value.trim(),
-        notes: document.getElementById('invLedgerNotes').value.trim()
+  // One read-modify-save of the tax spreadsheet: the Invoices row and the Expenses rows
+  // go in together or not at all. Refuses a repeat invoice Id; skips trips already there.
+  async function writeInvoiceLedgerAndExpenses(entry, expenseEntries){
+    const dl = await downloadTaxSpreadsheetZip();
+    const xmlDoc = await odsLoadContentXml(dl.zip);
+    const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+    if (!invoicesTable) throw new Error('Could not find an "Invoices" tab in your tax spreadsheet.');
+    assertInvoiceNotLogged_(invoicesTable, entry.id);
+    odsInsertInvoiceLedgerRow(xmlDoc, invoicesTable, entry);
+    let added = 0;
+    if (expenseEntries && expenseEntries.length){
+      const expensesTable = odsFindTableByName(xmlDoc, 'Expenses');
+      if (!expensesTable) throw new Error('Couldn’t find an "Expenses" tab in your tax spreadsheet.');
+      const existing = odsExistingExpenseDates(expensesTable);
+      const toAdd = expenseEntries.filter(function(e){
+        const key = expenseTripKey(e.isoDate, e.client);
+        if (existing.has(key)) return false;
+        existing.add(key);
+        return true;
       });
-      statusMsg.textContent = 'Added — saved to your tax spreadsheet on Drive.';
-      addBtn.textContent = 'Added ✓';
-      toast('Invoice ' + inv.invoiceNumber + ' logged in the Invoices tab.');
+      if (toAdd.length) odsInsertMissingExpenseRows(xmlDoc, expensesTable, toAdd);
+      odsSortAndRepairExpenses(xmlDoc, expensesTable);
+      added = toAdd.length;
+    }
+    const blob = await odsSaveContentXml(dl.zip, xmlDoc);
+    await saveTaxSpreadsheetAsNewVersion(blob);
+    return { expensesAdded: added };
+  }
+
+  async function invRunPendingLog(){
+    const p = invPendingLog;
+    const msg = document.getElementById('invLedgerStatusMsg');
+    const retry = document.getElementById('invLedgerAddBtn');
+    if (!p) return;
+    retry.disabled = true;
+    msg.textContent = 'Logging ' + p.entry.id + ' in your tax spreadsheet…';
+    try {
+      const w = await writeInvoiceLedgerAndExpenses(p.entry, p.expenseEntries);
+      invPendingLog = null;
+      retry.style.display = 'none';
+      msg.textContent = 'Logged: 1 Invoices row' + (p.expenseEntries.length ? (' and ' + w.expensesAdded + ' Expenses row' + (w.expensesAdded === 1 ? '' : 's')) : '') + ' saved to your tax spreadsheet.';
+      return w;
     } catch (e){
-      addBtn.disabled = false;
-      if (e instanceof ConflictError){
-        statusMsg.textContent = 'Your tax spreadsheet changed elsewhere since it was checked — reopen the Invoices tab there and add this row by hand this time: ' +
-          inv.invoiceNumber + ', ' + inv.client.name + ', ' + fmtGBP(inv.total) + '.';
-      } else {
-        statusMsg.textContent = e.message || 'Could not write to the tax spreadsheet.';
+      if (e && e.alreadyLogged){
+        invPendingLog = null; retry.style.display = 'none';
+        msg.textContent = e.message;
+        return null;
       }
+      retry.style.display = ''; retry.disabled = false;
+      msg.innerHTML = '<span style="color:#b45309;">The invoice is saved in Drive, but it could not be logged in your tax spreadsheet: ' +
+        escapeHtml((e instanceof ConflictError) ? 'the spreadsheet changed elsewhere while this was running.' : (e.message || 'unknown error')) +
+        ' Press "Log it in the spreadsheet now" to try again (it won’t add anything twice).</span>';
+      throw e;
     }
   }
 
@@ -4665,7 +4856,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const emailDraftBtn = document.getElementById('invEmailDraftBtn');
     if (emailDraftBtn) emailDraftBtn.addEventListener('click', invCreateGmailDraft);
     const ledgerAddBtn = document.getElementById('invLedgerAddBtn');
-    if (ledgerAddBtn) ledgerAddBtn.addEventListener('click', invAddLedgerRow);
+    if (ledgerAddBtn) ledgerAddBtn.addEventListener('click', function(){ invRunPendingLog().catch(function(){}); });
+    const notesEl = document.getElementById('invLedgerNotes');
+    if (notesEl) notesEl.addEventListener('input', function(){ invNotesEditedByHand = true; });
   })();
 
   function renderSoleTraderClients(){
@@ -4797,6 +4990,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     const locateBtn = document.getElementById('stSheetLocateBtn');
     if (locateBtn) locateBtn.addEventListener('click', locateSoleTraderSpreadsheetFromUi);
+    const sortBtn = document.getElementById('stSortExpensesBtn');
+    if (sortBtn) sortBtn.addEventListener('click', sortAndRepairExpensesFromUi);
   })();
 
   async function driveApiFetch(path, opts){
@@ -5254,9 +5449,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (dupRes.ok){
       const dupBody = await dupRes.json();
       if (dupBody.files && dupBody.files.length){
+        // Second save the same day: add the time as hh-mm (a ":" in a file name shows up
+        // as "_" or "/" on a Mac, and the old order was minutes then hours).
         const mm = String(today.getMinutes()).padStart(2, '0');
         const hh = String(today.getHours()).padStart(2, '0');
-        newName = 'Tax return ' + todayIso + '_' + mm + ':' + hh + '.ods';
+        newName = 'Tax return ' + todayIso + ' ' + hh + '-' + mm + '.ods';
       }
     }
 
@@ -5267,18 +5464,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return uploaded;
   }
 
-  // Every dated row's ISO date already on the Expenses tab, so a write never double-logs
-  // a session that's already there.
+  // An Expenses trip is identified by its date AND its journey (Expenses has no client
+  // column; each client's journey text is what tells two same-day trips apart). Checking
+  // the date alone - the old rule - silently skipped the second client's mileage whenever
+  // two clients were worked for on the same day. Falls back to the reason text for a
+  // client with no journey set.
+  function normExpenseText_(t){ return String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function expenseTripKey(isoDate, client){
+    const j = normExpenseText_(client && client.journey);
+    if (j) return isoDate + '|j:' + j;
+    return isoDate + '|r:' + normExpenseText_(client && client.reason);
+  }
+  // Every dated row already on the Expenses tab, as trip keys (see expenseTripKey), so a
+  // write never double-logs a trip that's already there.
   function odsExistingExpenseDates(expensesTable){
     const rows = Array.prototype.slice.call(expensesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
-    const dates = new Set();
+    const keys = new Set();
     rows.forEach(function(row){
       const cells = odsTableCells(row);
       if (!cells.length) return;
       const d = odsCellDateValue(cells[0]);
-      if (d) dates.add(d);
+      if (!d) return;
+      keys.add(d + '|j:' + normExpenseText_(cells[1] && cells[1].textContent));
+      keys.add(d + '|r:' + normExpenseText_(cells[2] && cells[2].textContent));
     });
-    return dates;
+    return keys;
   }
 
   // Inserts one new Expenses row per {isoDate, client} entry, cloned from the tab's
@@ -5315,6 +5525,131 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Recomputes the two "Total mileage expenses @ £0.45/£0.25" rows at the bottom of the
   // Expenses tab from every dated row now on the sheet - mirrors how the sheet already
   // labels that row, a running total across everything rather than per tax year.
+  // Puts every dated Expenses row in date order (newest first, the sheet's own layout) and
+  // repairs what raw row insertion breaks:
+  //  - each Total cell's formula is re-pointed at its OWN row (=[.Dn]*0.45). Rows copied
+  //    from a neighbour keep that neighbour's reference, and every row inserted above an
+  //    old one leaves the old one pointing at the wrong row - harmless until the sheet
+  //    recalculates, then every total is wrong;
+  //  - the two summary SUMs are widened to cover every dated row;
+  //  - tax-year structure is kept: rows are grouped by UK tax year (6 April), each year's
+  //    separator row (e.g. "TBD") stays after its year, and a "Total expenses for FY..."
+  //    note stays on the first row of its year.
+  // Returns { moved, formulasFixed } so callers know whether anything changed.
+  function odsSortAndRepairExpenses(xmlDoc, expensesTable){
+    const allRows = Array.prototype.slice.call(expensesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const isDated = function(row){ const c = odsTableCells(row); return !!(c.length && odsCellDateValue(c[0])); };
+    let first = -1, last = -1;
+    allRows.forEach(function(row, i){ if (isDated(row)){ if (first < 0) first = i; last = i; } });
+    if (first < 0) return { moved: 0, formulasFixed: 0 };
+    const region = allRows.slice(first, last + 1);
+    const parent = region[0].parentNode;
+    const sameParent = region.every(function(r){ return r.parentNode === parent; });
+    let moved = 0;
+
+    if (sameParent){
+      const groups = {};   // fy -> { rows: [{row, iso, idx}], seps: [], note: null }
+      const order = [];
+      let currentFy = null;
+      region.forEach(function(row, idx){
+        if (isDated(row)){
+          const iso = odsCellDateValue(odsTableCells(row)[0]);
+          const fy = ukTaxYearLabel(iso);
+          if (!groups[fy]){ groups[fy] = { rows: [], seps: [], note: null }; order.push(fy); }
+          groups[fy].rows.push({ row: row, iso: iso, idx: idx });
+          // A year-total note travels with its year, not with whichever row it sat on.
+          const noteText = odsPeekCellText(row, 5);
+          if (/^total expenses for fy/i.test(noteText)){
+            groups[fy].note = noteText;
+            odsSetCellText(xmlDoc, odsGetCellAt(row, 5), '');
+          }
+          currentFy = fy;
+        } else {
+          if (currentFy) groups[currentFy].seps.push(row);
+        }
+      });
+      const fys = order.slice().sort(function(a, b){ return a < b ? 1 : (a > b ? -1 : 0); });   // FY26-27 before FY25-26
+      const newOrder = [];
+      fys.forEach(function(fy){
+        const g = groups[fy];
+        g.rows.sort(function(a, b){ return a.iso < b.iso ? 1 : (a.iso > b.iso ? -1 : a.idx - b.idx); });
+        if (g.note) odsSetCellText(xmlDoc, odsGetCellAt(g.rows[0].row, 5), g.note);
+        g.rows.forEach(function(r){ newOrder.push(r.row); });
+        g.seps.forEach(function(r){ newOrder.push(r); });
+      });
+      newOrder.forEach(function(r, i){ if (r !== region[i]) moved++; });
+      if (moved){
+        const after = region[region.length - 1].nextSibling;
+        region.forEach(function(r){ parent.removeChild(r); });
+        newOrder.forEach(function(r){ parent.insertBefore(r, after); });
+      }
+    }
+
+    // Row numbers as the spreadsheet counts them (repeated rows included), after sorting.
+    const rowsNow = Array.prototype.slice.call(expensesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    let n = 0, firstNum = null, lastNum = null, fixed = 0, summaryRow = null;
+    rowsNow.forEach(function(row){
+      const rep = parseInt(row.getAttributeNS(ODF_NS.table, 'number-rows-repeated') || '1', 10) || 1;
+      const rowNum = n + 1;
+      n += rep;
+      if (odsPeekCellText(row, 1).indexOf('Total mileage expenses @ £0.45') !== -1){ summaryRow = row; return; }
+      if (!isDated(row)) return;
+      if (firstNum === null) firstNum = rowNum;
+      lastNum = rowNum;
+      const cells = odsTableCells(row);
+      const milesCell = cells[3], totalCell = cells[4];
+      if (!milesCell || !totalCell || totalCell.getAttributeNS(ODF_NS.table, 'number-columns-repeated')) return;
+      const miles = parseFloat(milesCell.getAttributeNS(ODF_NS.office, 'value'));
+      if (!isFinite(miles)) return;
+      const want = 'of:=[.D' + rowNum + ']*0.45';
+      if (totalCell.getAttributeNS(ODF_NS.table, 'formula') !== want){
+        totalCell.setAttributeNS(ODF_NS.table, 'table:formula', want);
+        fixed++;
+      }
+      const total = Math.round(miles * 0.45 * 100) / 100;
+      if (parseFloat(totalCell.getAttributeNS(ODF_NS.office, 'value')) !== total){
+        odsSetCellFloat(xmlDoc, totalCell, total, total.toFixed(2));
+        totalCell.setAttributeNS(ODF_NS.table, 'table:formula', want);
+      }
+    });
+    if (summaryRow && firstNum !== null){
+      const sc = odsTableCells(summaryRow);
+      [[3, 'D'], [4, 'E']].forEach(function(pair){
+        const cell = sc[pair[0]];
+        if (!cell || cell.getAttributeNS(ODF_NS.table, 'number-columns-repeated')) return;
+        const want = 'of:=SUM([.' + pair[1] + firstNum + ':.' + pair[1] + lastNum + '])';
+        if (cell.getAttributeNS(ODF_NS.table, 'formula') !== want){ cell.setAttributeNS(ODF_NS.table, 'table:formula', want); fixed++; }
+      });
+    }
+    odsRecomputeMileageSummary(xmlDoc, expensesTable);
+    return { moved: moved, formulasFixed: fixed };
+  }
+
+  // "Sort & repair Expenses" button on the Tax spreadsheet tab: the same tidy-up every
+  // expense write now does, run on its own. Saves only if something actually changed.
+  async function sortAndRepairExpensesFromUi(){
+    const btn = document.getElementById('stSortExpensesBtn');
+    const msg = document.getElementById('stSortExpensesMsg');
+    btn.disabled = true;
+    msg.textContent = 'Reading your tax spreadsheet…';
+    try {
+      const dl = await downloadTaxSpreadsheetZip();
+      const xmlDoc = await odsLoadContentXml(dl.zip);
+      const expensesTable = odsFindTableByName(xmlDoc, 'Expenses');
+      if (!expensesTable) throw new Error('Couldn’t find an "Expenses" tab in that spreadsheet.');
+      const r = odsSortAndRepairExpenses(xmlDoc, expensesTable);
+      if (!r.moved && !r.formulasFixed){ msg.textContent = 'Already in date order with correct totals — nothing to change.'; return; }
+      msg.textContent = 'Saving…';
+      const blob = await odsSaveContentXml(dl.zip, xmlDoc);
+      await saveTaxSpreadsheetAsNewVersion(blob);
+      msg.textContent = 'Done: ' + r.moved + ' row' + (r.moved === 1 ? '' : 's') + ' moved into date order, ' + r.formulasFixed + ' formula' + (r.formulasFixed === 1 ? '' : 's') + ' corrected. Saved as a new version on Drive.';
+    } catch (e){
+      msg.textContent = (e instanceof ConflictError) ? 'Your spreadsheet changed elsewhere while this ran — try again.' : (e.message || 'Could not sort the Expenses tab.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   function odsRecomputeMileageSummary(xmlDoc, expensesTable){
     const rows = Array.prototype.slice.call(expensesTable.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
     let totalMiles = 0, totalExpense = 0, summaryRow45 = null;
@@ -5350,10 +5685,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const expensesTable = odsFindTableByName(xmlDoc, 'Expenses');
     if (!expensesTable) throw new Error('Couldn’t find an "Expenses" tab in that spreadsheet.');
     const existing = odsExistingExpenseDates(expensesTable);
-    const toAdd = entries.filter(function(e){ return !existing.has(e.isoDate); });
-    if (!toAdd.length) return { added: 0 };
-    odsInsertMissingExpenseRows(xmlDoc, expensesTable, toAdd);
-    odsRecomputeMileageSummary(xmlDoc, expensesTable);
+    // Skips trips already on the sheet AND repeats within this batch (e.g. two sessions
+    // with the same client on the same day are one trip).
+    const toAdd = entries.filter(function(e){
+      const key = expenseTripKey(e.isoDate, e.client);
+      if (existing.has(key)) return false;
+      existing.add(key);
+      return true;
+    });
+    if (toAdd.length) odsInsertMissingExpenseRows(xmlDoc, expensesTable, toAdd);
+    const tidy = odsSortAndRepairExpenses(xmlDoc, expensesTable);
+    if (!toAdd.length && !tidy.moved && !tidy.formulasFixed) return { added: 0 };
     const blob = await odsSaveContentXml(dl.zip, xmlDoc);
     await saveTaxSpreadsheetAsNewVersion(blob);
     return { added: toAdd.length };
@@ -10323,6 +10665,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!number){ toast('Give this document a ' + numberLabel.toLowerCase() + '.'); return; }
       if (!dateIso){ toast('Pick a date.'); return; }
 
+      // The same number must never be used for two different jobs.
+      const numLc = number.toLowerCase();
+      const clash = data.quotes.find(function(other){
+        return other.id !== q.id && [other.imageScapeRef, other.imageScapeInvoiceRef].some(function(r){ return r && String(r).trim().toLowerCase() === numLc; });
+      }) || null;
+      const docClash = data.docPdfIndex.find(function(dd){ return dd.business === 'imagescape' && String(dd.number).toLowerCase() === numLc && dd.quoteId && dd.quoteId !== q.id; });
+      if (clash || docClash){
+        toast(number + ' is already used' + (clash ? (' on "' + (clash.title || 'another quote') + '"') : ' by another job') + '. Pick a different ' + numberLabel.toLowerCase() + '.');
+        return;
+      }
+      const ownRef = kind === 'quote' ? q.imageScapeRef : q.imageScapeInvoiceRef;
+      const regeneratingOwn = ownRef && String(ownRef).trim().toLowerCase() === numLc;
+
       if (!client.address){
         client.address = address;
         markDirty();
@@ -10341,6 +10696,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const folder = await ensureImageScapeDocsFolder(false);
           if (!folder){ statusEl.textContent = ''; goBtn.disabled = false; toast('Choose a Drive folder first, or tick "just download".'); return; }
           folderId = folder.id;
+          // Drive happily stores two files with the same name, so check the folder first.
+          const esc = function(v){ return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+          const dq = "'" + esc(folderId) + "' in parents and trashed = false and (name = '" + esc(number + '.pdf') + "' or name = '" + esc(number + '.ods') + "')";
+          const dr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive');
+          if (dr.ok){
+            const db = await dr.json();
+            if (db.files && db.files.length){
+              if (!regeneratingOwn){
+                statusEl.textContent = ''; goBtn.disabled = false;
+                toast('A file named ' + db.files[0].name + ' is already in that Drive folder, so ' + number + ' has been used before. Pick a different ' + numberLabel.toLowerCase() + '.');
+                return;
+              }
+              if (!confirm(db.files[0].name + ' is already in the Drive folder. Generating again adds a second file with the same name - delete or rename the old one in Drive afterwards. Continue?')){
+                statusEl.textContent = ''; goBtn.disabled = false; return;
+              }
+            }
+          } else {
+            statusEl.textContent = ''; goBtn.disabled = false;
+            toast('Could not check the Drive folder for an existing ' + number + ' (status ' + dr.status + '). Nothing was created - try again.');
+            return;
+          }
         }
         statusEl.textContent = 'Filling in the template…';
         const items = q.lineItems.map(function(li){
@@ -10401,9 +10777,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // (fetched back from Drive on demand) - e.g. attaching an invoice to a payment chase.
   const sessionPdfs = [];
 
+  // 1 -> "1st", 22 -> "22nd", 13 -> "13th"
+  function ordinalDay(n){
+    n = Number(n);
+    const t = n % 100;
+    if (t >= 11 && t <= 13) return n + 'th';
+    return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+  }
+  // "2026-10-21" -> "21st October 2026"
   function emailDate(iso){
     if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso || '';
-    return longDate(iso.slice(0, 10)).replace(/^0/, '');
+    return longDate(iso.slice(0, 10)).replace(/^0?(\d+)/, function(m, d){ return ordinalDay(d); });
   }
 
   function emailDateList(isoDates){
@@ -10418,10 +10802,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     const lastYear = byMonth[byMonth.length - 1].key.slice(0, 4);
     const parts = byMonth.map(function(m, i){
-      const days = m.days.map(String);
+      const days = m.days.map(ordinalDay);
       const dayText = days.length > 1 ? (days.slice(0, -1).join(', ') + ' and ' + days[days.length - 1]) : days[0];
-      let monthText = emailDate(m.iso).replace(/^\d+ /, '');
-      // "28 August and 3, 10 and 17 September 2026": the year only where it changes.
+      let monthText = emailDate(m.iso).replace(/^\d+[a-z]{2} /, '');
+      // "28th August and 3rd, 10th and 17th September 2026": the year only where it changes.
       if (i < byMonth.length - 1 && m.key.slice(0, 4) === lastYear) monthText = monthText.replace(/ \d{4}$/, '');
       return dayText + ' ' + monthText;
     });
@@ -10496,7 +10880,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const c = emailClientRecord(o.business, o.clientId);
     if (c){
       ctx.clientName = c.name || '';
-      ctx.firstName = (c.name || '').trim().split(/\s+/)[0] || '';
+      ctx.firstName = (c.greetingName || '').trim() || (c.name || '').trim().split(/\s+/)[0] || '';
       ctx.clientCompany = c.company || '';
       ctx.clientEmail = c.email || '';
     }
@@ -10672,6 +11056,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return ((m ? m[1] : (s || '')).trim()).toLowerCase();
   }
 
+  // Turns a filled-in email back into a reusable template: every detail the Hub filled in
+  // (invoice number, amount, dates, signature...) goes back to its {{token}}, so a saved
+  // default refills correctly next time. Longest/most specific values first; very short
+  // values (e.g. "30") are left as typed, since they could match unrelated text.
+  function tokenizeEmailText(text, ctx, includeNames){
+    const order = ['signature', 'quoteLines', 'workPeriod', 'galleryUrl', 'reviewUrl', 'websiteUrl',
+      'invoiceNumber', 'quoteRef', 'invoiceAmount', 'quoteTotal', 'invoiceDueDate', 'invoiceDate',
+      'shootDate', 'deliveredDate', 'quoteTitle', 'galleryLabel', 'clientEmail', 'companyName', 'senderName']
+      .concat(includeNames ? ['clientCompany', 'clientName', 'firstName'] : []).concat(['date']);
+    const marks = [];
+    let out = String(text || '');
+    order.forEach(function(key){
+      const v = ctx[key];
+      if (v === undefined || v === null) return;
+      const val = String(v);
+      if (val.trim().length < 3) return;
+      const esc = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp('(^|[^A-Za-z0-9])' + esc + '(?![A-Za-z0-9])', 'g');
+      out = out.replace(re, function(m, pre){ marks.push(key); return pre + '\u0000' + (marks.length - 1) + '\u0000'; });
+    });
+    return out.replace(/\u0000(\d+)\u0000/g, function(m, i){ return '{{' + marks[Number(i)] + '}}'; });
+  }
+
+  function findClientEmailDefault(business, clientId, templateId){
+    return data.emailClientDefaults.find(function(x){ return x.business === business && x.clientId === clientId && x.templateId === templateId; }) || null;
+  }
+
   // opts: { business, clientId, quoteId, invoiceSel, galleryId, seedKey, templateId, attachKey, to }
   function openEmailComposer(opts){
     const o = Object.assign({ business: 'imagescape' }, opts || {});
@@ -10697,10 +11108,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div style="display:flex;gap:18px;flex-wrap:wrap;">' +
           '<div style="flex:1 1 380px;min-width:0;">' +
             '<div class="field"><label>Template</label><select id="ecTemplate" style="width:100%;"></select></div>' +
-            '<div class="field"><label>To</label><input type="email" id="ecTo" placeholder="client@example.com" style="width:100%;box-sizing:border-box;"></div>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+              '<div class="field" style="flex:2 1 200px;"><label>To</label><input type="email" id="ecTo" placeholder="client@example.com" style="width:100%;box-sizing:border-box;"></div>' +
+              '<div class="field" style="flex:1 1 120px;"><label>Greet as</label><input type="text" id="ecGreet" style="width:100%;box-sizing:border-box;" title="The name used after Hi - remembered for this client"></div>' +
+            '</div>' +
             '<div class="field"><label>Subject</label><input type="text" id="ecSubject" style="width:100%;box-sizing:border-box;"></div>' +
             '<div class="field"><label>Message</label><textarea id="ecBody" rows="15" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;"></textarea></div>' +
             '<div id="ecWarn" class="hint" style="color:#b45309;"></div>' +
+            '<div id="ecDefaultsRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
+              '<button class="btn btn-ghost" id="ecSaveClientDefault" style="width:auto;padding:6px 10px;font-size:12.5px;">Save as this client’s default</button>' +
+              '<button class="btn btn-ghost" id="ecSaveTemplateDefault" style="width:auto;padding:6px 10px;font-size:12.5px;">Save as default for everyone</button>' +
+              '<button class="btn btn-ghost" id="ecResetClientDefault" style="width:auto;padding:6px 10px;font-size:12.5px;display:none;">Back to the standard text</button>' +
+            '</div>' +
           '</div>' +
           '<div style="flex:1 1 320px;min-width:0;">' +
             '<div class="field"><label>Attachment</label><select id="ecAttach" style="width:100%;"></select></div>' +
@@ -10753,8 +11172,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const t = currentTemplate();
       const ctx = buildEmailContext(o);
       const missing = [];
-      $('#ecSubject').value = t ? fillEmailTemplate(t.subject, ctx, missing) : '';
-      $('#ecBody').value = t ? fillEmailTemplate(t.body, ctx, missing) : ((ctx.firstName ? ('Hi ' + ctx.firstName + ',\n\n\n\n') : '') + 'Kind regards,\n' + (ctx.signature || ''));
+      const own = (t && client) ? findClientEmailDefault(business, client.id, t.id) : null;
+      const src = own || t;
+      $('#ecSubject').value = src ? fillEmailTemplate(src.subject, ctx, missing) : '';
+      $('#ecBody').value = src ? fillEmailTemplate(src.body, ctx, missing) : ((ctx.firstName ? ('Hi ' + ctx.firstName + ',\n\n\n\n') : '') + 'Kind regards,\n' + (ctx.signature || ''));
+      $('#ecDefaultsRow').style.display = (t && client) ? 'flex' : 'none';
+      $('#ecResetClientDefault').style.display = own ? '' : 'none';
+      $('#ecSaveClientDefault').textContent = own ? ('Update ' + client.name + '’s default') : ('Save as ' + client_name_() + '’s default');
       edited = false;
       if (!attachChosenByHand){
         attSel.value = pickDefaultAttachment(attachments, templateAttachKind(t), o);
@@ -10803,6 +11227,66 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // preview's object URL whenever that happens too.
     const observer = new MutationObserver(function(){ if (!document.body.contains(backdrop)){ clearPreviewUrl(); observer.disconnect(); } });
     observer.observe(document.body, { childList: true });
+
+    function client_name_(){ return client ? client.name : 'this client'; }
+
+    // "Greet as": the name after "Hi". Changing it swaps the old name in the text and is
+    // remembered on the client, so every future email to them uses it.
+    let lastGreet = buildEmailContext(o).firstName || '';
+    $('#ecGreet').value = lastGreet;
+    if (!client) $('#ecGreet').disabled = true;
+    $('#ecGreet').addEventListener('change', function(){
+      const v = $('#ecGreet').value.trim();
+      if (!client || !v || v === lastGreet) return;
+      if (lastGreet){
+        const esc = lastGreet.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp('\\b' + esc + '\\b', 'g');
+        $('#ecSubject').value = $('#ecSubject').value.replace(re, v);
+        $('#ecBody').value = $('#ecBody').value.replace(re, v);
+      }
+      const firstWord = (client.name || '').trim().split(/\s+/)[0] || '';
+      client.greetingName = v === firstWord ? '' : v;
+      lastGreet = v;
+      markDirty();
+      refreshWarnings();
+      toast('Emails to ' + client.name + ' will now say "Hi ' + v + '".');
+    });
+
+    $('#ecSaveClientDefault').addEventListener('click', function(){
+      const t = currentTemplate();
+      if (!t || !client) return;
+      const ctx = buildEmailContext(o);
+      const subject = tokenizeEmailText($('#ecSubject').value, ctx, false);
+      const body = tokenizeEmailText($('#ecBody').value, ctx, false);
+      let rec = findClientEmailDefault(business, client.id, t.id);
+      if (!rec){ rec = { id: randomId(), business: business, clientId: client.id, templateId: t.id }; data.emailClientDefaults.push(rec); }
+      rec.subject = subject; rec.body = body; rec.updatedAt = new Date().toISOString();
+      markDirty();
+      $('#ecResetClientDefault').style.display = '';
+      $('#ecSaveClientDefault').textContent = 'Update ' + client.name + '’s default';
+      toast('Saved as ' + client.name + '’s default "' + t.name + '". Numbers, amounts and dates will still fill in fresh each time.');
+    });
+
+    $('#ecSaveTemplateDefault').addEventListener('click', function(){
+      const t = currentTemplate();
+      if (!t) return;
+      if (!confirm('Replace the standard "' + t.name + '" text for every client with this message? Names, numbers, amounts and dates are turned back into fill-in fields.')) return;
+      const ctx = buildEmailContext(o);
+      t.subject = tokenizeEmailText($('#ecSubject').value, ctx, true);
+      t.body = tokenizeEmailText($('#ecBody').value, ctx, true);
+      markDirty();
+      try { renderTemplates(); } catch (e){ /* tab not rendered yet */ }
+      toast('"' + t.name + '" updated for everyone.');
+    });
+
+    $('#ecResetClientDefault').addEventListener('click', function(){
+      const t = currentTemplate();
+      if (!t || !client) return;
+      if (!confirm('Go back to the standard "' + t.name + '" text for ' + client.name + '?')) return;
+      data.emailClientDefaults = data.emailClientDefaults.filter(function(x){ return !(x.business === business && x.clientId === client.id && x.templateId === t.id); });
+      markDirty();
+      applyTemplate();
+    });
 
     $('#ecCopy').addEventListener('click', function(){
       copyTextToClipboard('Subject: ' + $('#ecSubject').value + '\n\n' + $('#ecBody').value);
