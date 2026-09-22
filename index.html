@@ -923,6 +923,7 @@
   <nav class="tabs tabs-primary ro-allow" id="tabsImagescape">
     <button data-panel="home" class="active">Dashboard</button>
     <button data-panel="cal">Calendar</button>
+    <button data-panel="flights">Flight Logs</button>
     <button data-group="client" class="group-btn">Client Work <span class="chev">▾</span></button>
     <button data-group="admin" class="group-btn">Business Admin <span class="chev">▾</span></button>
   </nav>
@@ -933,7 +934,6 @@
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
     <button data-panel="galleries">Galleries</button>
-    <button data-panel="flights">Flight Logs</button>
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavAdmin" style="display:none;">
     <button data-panel="tasks">Tasks</button>
@@ -1232,7 +1232,7 @@
         <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:13px;">Set it up (about 10 minutes, once)</summary>
           <ol style="padding-left:20px;line-height:1.55;font-size:13.5px;">
             <li><strong>Get the key:</strong> sign in at <a href="https://developer.dji.com/user" target="_blank" rel="noopener">developer.dji.com</a> (a free DJI account) → <em>Create App</em> → App Type <strong>Open API</strong>, name "ImageScape Hub", category and description of your choice → open the activation link DJI emails → copy the app’s <strong>SDK key</strong>.</li>
-            <li><strong>Create the key relay:</strong> at <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> (signed in as imagescapestudios@gmail.com) start a new project called "ImageScape Hub - DJI keys", replace the contents of Code.gs with the script below, and save.</li>
+            <li><strong>Create the key relay:</strong> at <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> (signed in as jcookeinv@gmail.com, the same account the Hub uses) start a new project called "ImageScape Hub - DJI keys", replace the contents of Code.gs with the script below, and save.</li>
             <li><strong>Add two script properties</strong> (Project Settings ⚙ → Script properties): <code>DJI_API_KEY</code> = the SDK key, and <code>HUB_SECRET</code> = any long random phrase.</li>
             <li><strong>Deploy:</strong> Deploy → New deployment → type <em>Web app</em>, Execute as <em>Me</em>, Who has access <em>Anyone</em> → Deploy → allow access → copy the <strong>Web app URL</strong> (ends in <code>/exec</code>).</li>
             <li>Paste the URL and the secret phrase below and press <strong>Save &amp; test</strong>.</li>
@@ -6500,9 +6500,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Nav is two-tier: a primary row (Dashboard, Calendar, and two group buttons), and a
   // sub row per group that shows/hides depending which group the active panel belongs
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
-  // listed here (home, cal) sit on the primary row and collapse both sub-navs.
+  // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
-    clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client', galleries: 'Client', flights: 'Client',
+    clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client', galleries: 'Client',
     tasks: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
