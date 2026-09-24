@@ -932,19 +932,19 @@
     <button data-panel="home" class="active">Dashboard</button>
     <button data-panel="cal">Calendar</button>
     <button data-panel="flights">Flight Logs</button>
-    <button data-group="client" class="group-btn">Client Work <span class="chev">▾</span></button>
+    <button data-group="client" class="group-btn">Clients <span class="chev">▾</span></button>
     <button data-group="admin" class="group-btn">Business Admin <span class="chev">▾</span></button>
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavClient" style="display:none;">
     <button data-panel="clients">Clients</button>
     <button data-panel="paperwork">Paperwork</button>
     <button data-panel="quotes">Quotes</button>
-    <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="documents">Documents</button>
     <button data-panel="galleries">Galleries</button>
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavAdmin" style="display:none;">
     <button data-panel="tasks">Tasks</button>
+    <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="finance">Finance &amp; Tax</button>
     <button data-panel="emails">Email Templates</button>
     <button data-panel="blog">Blog</button>
@@ -6510,11 +6510,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
-    clients: 'Client', paperwork: 'Client', quotes: 'Client', meetings: 'Client', documents: 'Client', galleries: 'Client',
-    tasks: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
+    clients: 'Client', paperwork: 'Client', quotes: 'Client', documents: 'Client', galleries: 'Client',
+    tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
-  // clicking "Client Work" again) returns you where you left off instead of always
+  // clicking "Clients" again) returns you where you left off instead of always
   // resetting to that group's first tab. Kept as plain JS state rather than read back
   // off DOM .active classes, since activatePanel() clears .active on every button when
   // navigating away (see below) and that would otherwise erase this memory.
@@ -12630,6 +12630,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
+  // Finds the Drive folder for a given tax year (e.g. "FY2025/2026"), searched
+  // as a sibling of wherever the tax spreadsheet currently lives - the
+  // spreadsheet itself just sits in whichever year's folder was current when
+  // it was last saved there, which is NOT necessarily the year the tax pack
+  // being saved is actually for (that's the bug this works around: without
+  // it, every tax pack lands in the spreadsheet's current folder regardless
+  // of which FY tab it was built from). Returns null if no matching folder
+  // exists (e.g. the year hasn't had a folder created yet).
+  async function findTaxYearFolder_(sheetFolderId, yi){
+    if (!sheetFolderId || !yi) return null;
+    const parentRes = await driveApiFetch('/files/' + sheetFolderId + '?fields=parents');
+    const parentBody = parentRes.ok ? await parentRes.json() : {};
+    const rootId = parentBody.parents && parentBody.parents[0];
+    if (!rootId) return null;
+    const wantedName = 'FY' + yi.y1 + '/' + yi.y2;
+    const q = "'" + rootId.replace(/'/g, "\\'") + "' in parents and mimeType = 'application/vnd.google-apps.folder'" +
+      " and trashed = false and name = '" + wantedName.replace(/'/g, "\\'") + "'";
+    const listRes = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
+    if (!listRes.ok) return null;
+    const listBody = await listRes.json();
+    const match = listBody.files && listBody.files[0];
+    return match ? { id: match.id, name: match.name } : null;
+  }
+
   async function saveTaxPackToDrive(){
     const msg = document.getElementById('tpMsg');
     if (!taxPackLast) return;
@@ -12637,10 +12661,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     try {
       const pr = await driveApiFetch('/files/' + data.soleTraderTaxFile.fileId + '?fields=parents');
       const pb = pr.ok ? await pr.json() : {};
-      const folderId = pb.parents && pb.parents[0];
-      if (!folderId) throw new Error('Could not find the tax spreadsheet’s Drive folder.');
+      const sheetFolderId = pb.parents && pb.parents[0];
+      if (!sheetFolderId) throw new Error('Could not find the tax spreadsheet’s Drive folder.');
+
+      let folderId = sheetFolderId;
+      let folderNote = ' next to your tax spreadsheet';
+      const yearFolder = await findTaxYearFolder_(sheetFolderId, taxPackLast.yi).catch(function(){ return null; });
+      if (yearFolder){
+        folderId = yearFolder.id;
+        folderNote = ' in your ' + yearFolder.name + ' folder';
+      }
+
       const up = await uploadNewDriveFile(taxPackLast.blob, taxPackLast.name, 'application/pdf', folderId);
-      msg.innerHTML = 'Saved as "' + escapeHtml(taxPackLast.name) + '" next to your tax spreadsheet' + (up.webViewLink ? (' — <a href="' + escapeHtml(up.webViewLink) + '" target="_blank" rel="noopener">open in Drive</a>') : '') + '.';
+      msg.innerHTML = 'Saved as "' + escapeHtml(taxPackLast.name) + '"' + folderNote + (up.webViewLink ? (' — <a href="' + escapeHtml(up.webViewLink) + '" target="_blank" rel="noopener">open in Drive</a>') : '') + '.';
     } catch (e){
       msg.textContent = e.message || 'Could not save to Drive.';
     }
