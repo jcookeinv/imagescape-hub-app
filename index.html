@@ -651,6 +651,14 @@
     max-width:340px;}
   .save-toast.show{opacity:1;transform:translateY(0);}
 
+  /* Hover hint: small dark tooltip that fades in ~1s after hovering a text
+     input/textarea, explaining what the field holds. See setupHoverHints(). */
+  .hub-hint{position:fixed;background:var(--navy-deep);color:#fff;padding:7px 11px;
+    border-radius:7px;font-size:12.5px;font-weight:500;line-height:1.35;
+    box-shadow:0 10px 26px -10px rgba(0,0,0,.45);opacity:0;transform:translateY(4px);
+    transition:opacity .18s,transform .18s;pointer-events:none;max-width:260px;z-index:70;}
+  .hub-hint.show{opacity:1;transform:translateY(0);}
+
   .modal-backdrop{position:fixed;inset:0;background:rgba(20,22,30,.5);display:flex;align-items:center;
     justify-content:center;padding:20px;z-index:50;}
   .modal{background:#fff;border-radius:14px;padding:26px 26px;max-width:420px;width:100%;}
@@ -1028,7 +1036,7 @@
             <button data-status="active">Active</button>
             <button data-status="past">Past</button>
           </div>
-          <input type="text" id="clientSearch" placeholder="Search name, company, email…" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;min-width:200px;">
+          <input type="text" id="clientSearch" placeholder="Search name, company, email…" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;min-width:220px;">
         </div>
         <div class="link-grid" id="clientGrid"></div>
       </div>
@@ -1190,7 +1198,7 @@
         <h2>Documents</h2>
         <div class="sub">Links to documents stored elsewhere — Google Drive, Dropbox, etc. This app doesn't store the files themselves. Give one an expiry date (an insurance policy, a licence, a certification) and it mirrors onto the Calendar automatically, and shows up here and on the client's card as it approaches.</div>
         <div class="link-add">
-          <input type="text" id="docLabel" placeholder="Label (e.g. 2026 Insurance policy)">
+          <input type="text" id="docLabel" placeholder="Label (e.g. 2026 Insurance policy)" style="min-width:260px;">
           <input type="text" id="docUrl" placeholder="https://…">
           <input type="text" id="docDesc" placeholder="Description (optional)">
           <select id="docClient"><option value="">No client</option></select>
@@ -1228,7 +1236,7 @@
       </div>
       <div class="card" style="margin-top:16px;">
         <h2>Full flight tracks (free DJI developer key)</h2>
-        <div class="sub">The logbook works without this. With it, each import also decodes the complete flight path: exact distance flown, furthest distance from home, and a KML path (opens in Google Earth) saved next to the record. <span id="flProxyState" class="hint"></span></div>
+        <div class="sub">DJI keep no online copy of consumer flight records, so flights are always read from the phone or remote - this key doesn't change that. What it adds is the locked part of each record you import: the complete flight path, exact distance flown, furthest distance from home, and a KML path (opens in Google Earth) saved next to the record. <span id="flProxyState" class="hint"></span></div>
         <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:13px;">Set it up (about 10 minutes, once)</summary>
           <ol style="padding-left:20px;line-height:1.55;font-size:13.5px;">
             <li><strong>Get the key:</strong> sign in at <a href="https://developer.dji.com/user" target="_blank" rel="noopener">developer.dji.com</a> (a free DJI account) → <em>Create App</em> → App Type <strong>Open API</strong>, name "ImageScape Hub", category and description of your choice → open the activation link DJI emails → copy the app’s <strong>SDK key</strong>.</li>
@@ -1462,12 +1470,12 @@ function doPost(e) {
         <div class="sub">Each client gets two separate short codes, added 16 Sep 2026 so calendar matching and invoice numbering don't collide. <strong>Calendar Code</strong> — start every calendar event's title with it (e.g. "RM - mentoring") and the work calendar can match it automatically. <strong>Invoice Code</strong> — the prefix on that client's invoice numbers in your tax spreadsheet's Invoices tab (e.g. "R26-0008"). <strong>Day rate</strong> and <strong>hours/day</strong>, added 16 Sep 2026, are what the Invoices tab uses to work out a session's amount — a session billed for fewer hours than a full day is charged pro-rata (day rate &divide; hours/day &times; hours worked). <strong>Email</strong>, also added 16 Sep 2026, prefills the "To" field when you email an invoice from the Invoices tab. The journey/reason/miles are what get written to the Expenses tab for each matched calendar session — total is always miles &times; 45p, HMRC's mileage rate, worked out fresh each time rather than stored.</div>
         <div class="link-add">
           <input type="text" id="stClientName" placeholder="Client name">
-          <input type="text" id="stClientCode" placeholder="Calendar Code (e.g. RM)" style="max-width:150px;text-transform:uppercase;" maxlength="6">
-          <input type="text" id="stClientInvoiceCode" placeholder="Invoice Code (e.g. R)" style="max-width:140px;text-transform:uppercase;" maxlength="6">
+          <input type="text" id="stClientCode" placeholder="Calendar Code (e.g. RM)" style="max-width:240px;text-transform:uppercase;" maxlength="6">
+          <input type="text" id="stClientInvoiceCode" placeholder="Invoice Code (e.g. R)" style="max-width:210px;text-transform:uppercase;" maxlength="6">
           <input type="number" id="stClientDayRate" placeholder="Day rate (£)" min="0" step="0.01" style="max-width:120px;">
           <input type="number" id="stClientDayHours" placeholder="Hours/day" min="0.5" step="0.5" style="max-width:110px;">
           <input type="email" id="stClientEmail" placeholder="Client email">
-          <input type="text" id="stClientJourney" placeholder="Journey (e.g. Beeston to Shepshed & return)">
+          <input type="text" id="stClientJourney" placeholder="Journey (e.g. Beeston to Shepshed & return)" style="flex:2;min-width:300px;">
           <input type="text" id="stClientReason" placeholder="Reason (e.g. JJ Shop work)">
           <input type="number" id="stClientMiles" placeholder="Miles" min="0" step="1" style="max-width:90px;">
           <button class="btn btn-primary" id="stClientAddBtn" style="width:auto;">Add client</button>
@@ -1564,18 +1572,18 @@ function doPost(e) {
         <div class="sub">Everything your Self Assessment return asks for, box by box and in form order: the main return (SA100), the Employment page for your ImageScape Studios Ltd directorship (SA102) and the Self-employment (short) page (SA103S). Boxes that don't apply say "Leave blank". Figures come from the year's tab in your tax spreadsheet and are checked against the Invoices and Expenses tabs first.</div>
         <div class="link-add" style="flex-wrap:wrap;">
           <select id="tpYear"></select>
-          <input type="text" id="tpUtr" placeholder="Your UTR (10 digits)" style="max-width:170px;">
-          <input type="text" id="tpNi" placeholder="NI number" style="max-width:130px;text-transform:uppercase;">
+          <input type="text" id="tpUtr" placeholder="Your UTR (10 digits)" data-hint="Unique Taxpayer Reference - the 10-digit number HMRC uses to identify you for Self Assessment." style="max-width:170px;">
+          <input type="text" id="tpNi" placeholder="NI number" data-hint="Your National Insurance number, printed on the SA100 main return." style="max-width:130px;text-transform:uppercase;">
           <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);">Date of birth <input type="date" id="tpDob"></label>
-          <input type="text" id="tpPhone" placeholder="Phone" style="max-width:140px;">
+          <input type="text" id="tpPhone" placeholder="Phone" data-hint="Contact phone number included on the SA100 main return." style="max-width:140px;">
         </div>
         <div class="link-add" style="flex-wrap:wrap;margin-top:8px;">
-          <input type="text" id="tpDesc" placeholder="Description of business (SA103S box 1)" style="flex:2;min-width:220px;">
-          <input type="text" id="tpPostcode" placeholder="Business postcode" style="max-width:130px;text-transform:uppercase;">
+          <input type="text" id="tpDesc" placeholder="Description of business (SA103S box 1)" data-hint="A short description of what the business does - SA103S box 1." style="flex:2;min-width:220px;">
+          <input type="text" id="tpPostcode" placeholder="Business postcode" data-hint="Postcode of the business address - SA103S box 3." style="max-width:210px;text-transform:uppercase;">
         </div>
         <div class="link-add" style="flex-wrap:wrap;margin-top:8px;align-items:center;">
           <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="tpDirector" style="width:auto;flex:none;margin:0;"> Director of ImageScape Studios Ltd during this tax year</label>
-          <input type="text" id="tpShare" placeholder="Your shareholding %" style="max-width:150px;">
+          <input type="text" id="tpShare" placeholder="Your shareholding %" data-hint="Your percentage shareholding in ImageScape Studios Ltd - goes on SA102 box 7.4." style="max-width:200px;">
           <select id="tpClass2" title="SA103S box 36">
             <option value="">Voluntary Class 2 NI? (choose)</option>
             <option value="yes">Yes, pay voluntary Class 2</option>
@@ -1616,7 +1624,7 @@ function doPost(e) {
         <div class="link-add">
           <input type="text" id="rateLabel" placeholder="Label (e.g. Drone footage)">
           <input type="number" id="rateAmount" placeholder="Rate (£)" step="0.01" style="max-width:110px;">
-          <input type="text" id="rateUnit" placeholder="Unit (hour, mile, flat…)" style="max-width:150px;">
+          <input type="text" id="rateUnit" placeholder="Unit (hour, mile, flat…)" style="max-width:190px;">
           <button class="btn btn-primary" id="rateAddBtn" style="width:auto;">Add preset</button>
         </div>
         <div id="rateList"></div>
@@ -12057,7 +12065,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!u) return;
     if (document.activeElement !== u) u.value = (data.djiProxy && data.djiProxy.url) || '';
     if (document.activeElement !== s) s.value = (data.djiProxy && data.djiProxy.secret) || '';
-    document.getElementById('flProxyState').textContent = (data.djiProxy && data.djiProxy.url) ? 'Full tracks: set up' : 'Full tracks: not set up (logbook still works)';
+    document.getElementById('flProxyState').textContent = (data.djiProxy && data.djiProxy.url) ? 'Full tracks: set up - imports still come from the phone or remote.' : 'Full tracks: not set up (logbook still works)';
   }
 
   (function(){
@@ -12096,7 +12104,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const b = await res.json();
         if (!b.ok) throw new Error(b.error || 'refused');
         data.djiProxy = { url: url, secret: secret }; markDirty(); renderDjiProxySettings();
-        msg.textContent = 'Connected' + (b.hasKey ? '' : ' - but no DJI_API_KEY is saved in the script yet') + '. New imports will include the full track.';
+        msg.textContent = 'Connected' + (b.hasKey ? '' : ' - but no DJI_API_KEY is saved in the script yet') + '. The flight records still come from the phone or remote; each one you import from now on also gets its full flight path.';
       } catch (e){ msg.textContent = 'Could not connect: ' + (e.message || e); }
     });
     document.getElementById('flCopyScript').addEventListener('click', function(){
@@ -14334,6 +14342,73 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       toast('Updated.');
     });
   }
+
+  // ---------------------------------------------------------------- hover hints
+  // Any text input or textarea, anywhere on the page (including ones inside
+  // modals added later), gets a small dark tooltip that fades in after
+  // hovering for ~1s, saying what kind of record the field holds. Content
+  // comes from a data-hint attribute where one's set, else falls back to the
+  // field's placeholder - useful because placeholder text disappears once
+  // you've typed something in, so hovering later is otherwise the only way
+  // to be reminded what a filled-in box actually is.
+  (function setupHoverHints(){
+    const HINT_SELECTOR = 'input[type="text"], textarea';
+    let hintTimer = null;
+    let hintEl = null;
+
+    function hintTextFor(el){
+      const dh = el.getAttribute('data-hint');
+      if (dh) return dh;
+      const ph = el.getAttribute('placeholder');
+      if (ph) return ph;
+      const field = el.closest('.field');
+      const label = field && field.querySelector('label');
+      if (label && label.textContent.trim()) return label.textContent.trim();
+      return '';
+    }
+
+    function showHint(el){
+      const text = hintTextFor(el);
+      if (!text || !document.body.contains(el)) return;
+      if (!hintEl){
+        hintEl = document.createElement('div');
+        hintEl.className = 'hub-hint';
+        document.body.appendChild(hintEl);
+      }
+      hintEl.textContent = text;
+      hintEl.classList.add('show');
+      const r = el.getBoundingClientRect();
+      const hw = hintEl.offsetWidth, hh = hintEl.offsetHeight;
+      let left = r.left;
+      let top = r.bottom + 8;
+      if (top + hh > window.innerHeight - 8) top = r.top - hh - 8; // flip above if no room below
+      if (left + hw > window.innerWidth - 8) left = window.innerWidth - hw - 8;
+      if (left < 8) left = 8;
+      hintEl.style.left = left + 'px';
+      hintEl.style.top = top + 'px';
+    }
+
+    function hideHint(){
+      if (hintTimer){ clearTimeout(hintTimer); hintTimer = null; }
+      if (hintEl) hintEl.classList.remove('show');
+    }
+
+    document.addEventListener('mouseover', function(e){
+      const el = e.target.closest ? e.target.closest(HINT_SELECTOR) : null;
+      if (!el) return;
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = setTimeout(function(){ showHint(el); }, 1000);
+    });
+    document.addEventListener('mouseout', function(e){
+      const el = e.target.closest ? e.target.closest(HINT_SELECTOR) : null;
+      if (!el) return;
+      if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+      hideHint();
+    });
+    document.addEventListener('scroll', hideHint, true);
+    window.addEventListener('resize', hideHint);
+    document.addEventListener('mousedown', hideHint, true);
+  })();
 
   // ---------------------------------------------------------------- boot
   conn = loadConnection();
