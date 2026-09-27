@@ -317,6 +317,7 @@
   .cat-badge.cat-equipment{background:var(--good-soft);color:var(--good);}
   .cat-badge.cat-documents{background:var(--info-soft);color:var(--info);}
   .cat-badge.client-badge{background:#eef1fa;color:var(--navy);margin-left:6px;}
+  .cat-badge.repeat-badge{background:var(--soon-soft);color:var(--soon);margin-left:6px;}
   .client-status-badge{display:inline-block;font-size:11.5px;font-weight:700;text-transform:uppercase;
     letter-spacing:.03em;padding:3px 8px;border-radius:20px;}
   .client-status-badge.status-lead{background:var(--warn-soft);color:var(--warn);}
@@ -939,6 +940,7 @@
     <button data-panel="clients">Clients</button>
     <button data-panel="paperwork">Paperwork</button>
     <button data-panel="quotes">Quotes</button>
+    <button data-panel="invoices">Invoices</button>
     <button data-panel="documents">Documents</button>
     <button data-panel="galleries">Galleries</button>
   </nav>
@@ -1092,6 +1094,14 @@
             <option value="documents">Documents</option>
           </select>
           <input type="date" id="taskDue">
+          <select id="taskRepeat" title="Repeat">
+            <option value="">Don't repeat</option>
+            <option value="weekly">Weekly</option>
+            <option value="4weeks">Every 4 weeks</option>
+            <option value="monthly">Monthly</option>
+            <option value="6months">Every 6 months</option>
+            <option value="annually">Annually</option>
+          </select>
           <select id="taskClient"><option value="">No client</option></select>
           <button class="btn btn-primary" id="taskAddBtn" style="width:auto;">Add</button>
         </div>
@@ -1628,6 +1638,35 @@ function doPost(e) {
           <button class="btn btn-primary" id="rateAddBtn" style="width:auto;">Add preset</button>
         </div>
         <div id="rateList"></div>
+      </div>
+    </div>
+
+    <!-- Added 24 Sep 2026 at Jon's request: ImageScape invoicing raised via MH itself
+         (an adaptable template — the ODS/PDF generator already used for "Generate
+         invoice document" on a quote), rather than relying on Zoho Books' own invoice
+         template, which isn't adaptable. Raising an invoice here fills the MH template
+         AND sends a matching record to Zoho in one step (see openGenerateImageScapeDocModal
+         / sendQuoteToZohoAsInvoice), using the SAME number in both places (invoiceNumber
+         in the Zoho payload) rather than letting Zoho mint its own - that still needs a
+         small change on the Apps Script (Code.gs) side to take effect; see the note under
+         "Already sent to Zoho" below until that's done. -->
+    <div class="panel" id="panel-invoices">
+      <div class="card">
+        <h2>Invoices</h2>
+        <div class="sub">Raises an ImageScape-branded invoice (.ods + PDF, same template as "Generate invoice document" on a quote) and sends a matching record to Zoho Books in one step, so Zoho stays the financial record without you ever touching its own invoice template. A quote needs a client and at least one line item before it can be invoiced.</div>
+        <div class="zoho-snapshot" id="invQueueReady"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Generated, not yet in Zoho</h2>
+        <div class="sub">The MH document exists (number assigned) but Zoho hasn't got a matching invoice yet — usually because the client wasn't linked to a Zoho contact at the time. Link them on the Clients tab, then send from here.</div>
+        <div class="zoho-snapshot" id="invQueuePending"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Sent to Zoho</h2>
+        <div class="sub" id="invLedgerSub">Every ImageScape invoice Zoho knows about. <strong>Matches</strong> means Zoho's own invoice number equals the MH one; until Code.gs is updated to honour the number MH sends, expect <strong>differs</strong> here — the amounts and client are still correct, only the number label isn't 1:1 yet.</div>
+        <div class="zoho-snapshot" id="invLedger"></div>
       </div>
     </div>
 
@@ -2402,7 +2441,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     d.events = d.events || [];
     d.events.forEach(function(e){ e.paperworkId = e.paperworkId || ''; e.kind = e.kind || ''; });
     d.tasks = d.tasks || [];
-    d.tasks.forEach(function(t){ t.clientId = t.clientId || ''; });
+    d.tasks.forEach(function(t){ t.clientId = t.clientId || ''; t.repeat = t.repeat || ''; });
     // Backfill task-due calendar events for vaults saved before this existed (18 Sep 2026) -
     // works directly on d rather than the syncTaskEvent()/data-global helper below, since
     // this runs before `data` itself is assigned to d. Mirrors syncTaskEvent's own rule:
@@ -6510,7 +6549,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
-    clients: 'Client', paperwork: 'Client', quotes: 'Client', documents: 'Client', galleries: 'Client',
+    clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client',
     tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
@@ -6606,6 +6645,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     btn.addEventListener('click', function(){
       lastPanelForContext[currentContext] = btn.dataset.panel;
       if (btn.dataset.panel === 'sedash') renderSelfEmployedDash();
+      if (btn.dataset.panel === 'invoices') renderInvoiceQueue();
     });
   });
 
@@ -6780,7 +6820,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data = normalizeData(parsed);
     markDirty();
     hydrateOpsHubConn();
-    renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderTemplates(); populateUseTemplateSelects(); renderEmailSettings(); renderTaxPackCard(); renderFlights(); renderDjiProxySettings(); renderLinks(); renderWebsiteSocials(); renderWpStatus(); renderBlogHistory(); renderSoleTraderClients(); renderSoleTraderCalStatus(); renderSoleTraderSheetStatus(); renderHome();
+    renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderInvoiceQueue(); renderTemplates(); populateUseTemplateSelects(); renderEmailSettings(); renderTaxPackCard(); renderFlights(); renderDjiProxySettings(); renderLinks(); renderWebsiteSocials(); renderWpStatus(); renderBlogHistory(); renderSoleTraderClients(); renderSoleTraderCalStatus(); renderSoleTraderSheetStatus(); renderHome();
   }
 
   document.getElementById('backupBtn').addEventListener('click', function(){
@@ -7208,6 +7248,39 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data.events = data.events.filter(function(e){ return e.taskId !== taskId; });
   }
 
+  // Added 27 Sep 2026 at Jon's request: recurring tasks. A task's own `repeat` field
+  // ('' means one-off) is purely a label until it's actually ticked done — see
+  // maybeSpawnNextRepeat below, called from every place a task's checkbox gets ticked.
+  const REPEAT_LABELS = { weekly: 'Weekly', '4weeks': 'Every 4 weeks', monthly: 'Monthly', '6months': 'Every 6 months', annually: 'Annually' };
+  function nextRepeatDueIso(fromIso, repeat){
+    switch (repeat){
+      case 'weekly': return addDaysIso(fromIso, 7);
+      case '4weeks': return addDaysIso(fromIso, 28);
+      case 'monthly': return addMonthsIso(fromIso, 1);
+      case '6months': return addMonthsIso(fromIso, 6);
+      case 'annually': return addMonthsIso(fromIso, 12);
+      default: return '';
+    }
+  }
+  // Call right after setting t.done = true on a FALSE -> TRUE transition (never on
+  // un-ticking, never on a task that isn't set to repeat - both are no-ops here so every
+  // call site can call this unconditionally rather than duplicating the guard). Clones
+  // text/category/client/repeat onto a fresh, not-done task due on the next occurrence,
+  // worked out from the completed task's own due date (or its completion date, for a
+  // repeating task that never had one) - never from "today", which would silently drift
+  // the schedule every time it's ticked a few days early or late.
+  function maybeSpawnNextRepeat(t){
+    if (!t.repeat || !t.done) return null;
+    const base = t.due || t.completedAt || todayIso_();
+    const nextDue = nextRepeatDueIso(base, t.repeat);
+    if (!nextDue) return null;
+    const entry = { id: randomId(), text: t.text, done: false, due: nextDue,
+      category: t.category || '', clientId: t.clientId || '', repeat: t.repeat };
+    data.tasks.push(entry);
+    syncTaskEvent(entry);
+    return entry;
+  }
+
   function openEventForm(iso){
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
@@ -7318,6 +7391,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="body"><div class="txt">' +
         (t.category ? '<span class="cat-badge cat-' + escapeHtml(t.category) + '">' + escapeHtml(CATEGORY_LABELS[t.category] || t.category) + '</span>' : '') +
         (t.clientId ? '<span class="cat-badge client-badge">' + escapeHtml(clientNameIndexed(clientIdx, t.clientId)) + '</span>' : '') +
+        (t.repeat ? '<span class="cat-badge repeat-badge">↻ ' + escapeHtml(REPEAT_LABELS[t.repeat] || t.repeat) + '</span>' : '') +
         '</div>' +
         (t.done ? '<div class="completed-date"></div>' : (t.due ? '<div class="due' + (urgency ? ' ' + urgency : '') + '"></div>' : '')) +
         '</div><button class="del" title="Delete">✕</button>';
@@ -7332,6 +7406,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         t.done = e.target.checked;
         if (t.done){
           t.completedAt = (function(){ const d = new Date(); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); })();
+          maybeSpawnNextRepeat(t);
         } else {
           t.completedAt = '';
         }
@@ -7379,6 +7454,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '</select></div>' +
         '<div class="field"><label>Client</label><select id="taskEditClient"><option value="">No client</option></select></div>' +
         '<div class="field"><label>Due date</label><input type="date" id="taskEditDue"></div>' +
+        '<div class="field"><label>Repeat?</label><select id="taskEditRepeat">' +
+          '<option value="">Don\'t repeat</option>' +
+          Object.keys(REPEAT_LABELS).map(function(k){ return '<option value="' + k + '">' + REPEAT_LABELS[k] + '</option>'; }).join('') +
+        '</select></div>' +
         '<div class="field" style="display:flex;align-items:center;gap:8px;flex-direction:row;">' +
           '<input type="checkbox" id="taskEditDone" style="width:auto;"><label for="taskEditDone" style="margin:0;">Completed</label>' +
         '</div>' +
@@ -7399,6 +7478,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#taskEditCategory').value = t.category || '';
     clientSel.value = t.clientId || '';
     backdrop.querySelector('#taskEditDue').value = t.due || '';
+    backdrop.querySelector('#taskEditRepeat').value = t.repeat || '';
     backdrop.querySelector('#taskEditDone').checked = !!t.done;
 
     backdrop.querySelector('#taskEditCancel').addEventListener('click', function(){ backdrop.remove(); });
@@ -7415,13 +7495,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       t.category = backdrop.querySelector('#taskEditCategory').value || '';
       t.clientId = clientSel.value || '';
       t.due = backdrop.querySelector('#taskEditDue').value || '';
+      t.repeat = backdrop.querySelector('#taskEditRepeat').value || '';
       const nowDone = backdrop.querySelector('#taskEditDone').checked;
       if (nowDone && !t.done){
         t.completedAt = todayIso_();
-      } else if (!nowDone){
-        t.completedAt = '';
+        t.done = nowDone;
+        maybeSpawnNextRepeat(t);
+      } else {
+        if (!nowDone) t.completedAt = '';
+        t.done = nowDone;
       }
-      t.done = nowDone;
       syncTaskEvent(t);
       markDirty(); backdrop.remove(); renderTasks(); renderClients(); renderAlerts(); renderHome(); renderCalendar();
       if (mtgView === 'bytask') renderByTaskView();
@@ -7569,13 +7652,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const dueEl = document.getElementById('taskDue');
     const catEl = document.getElementById('taskCategory');
     const clientEl = document.getElementById('taskClient');
+    const repeatEl = document.getElementById('taskRepeat');
     const text = textEl.value.trim();
     if (!text) return;
-    const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: clientEl.value || '' };
+    const entry = { id: randomId(), text: text, done: false, due: dueEl.value || '', clientId: clientEl.value || '', repeat: repeatEl.value || '' };
     if (catEl.value) entry.category = catEl.value;
     data.tasks.push(entry);
     syncTaskEvent(entry);
-    textEl.value = ''; dueEl.value = ''; clientEl.value = ''; catEl.value = '';
+    textEl.value = ''; dueEl.value = ''; clientEl.value = ''; catEl.value = ''; repeatEl.value = '';
     markDirty(); renderTasks(); renderCalendar();
   });
   document.getElementById('taskText').addEventListener('keydown', function(e){
@@ -9733,6 +9817,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         row.querySelector('input[type=checkbox]').addEventListener('change', function(e){
           t.done = e.target.checked;
           t.completedAt = t.done ? todayIso_() : '';
+          if (t.done) maybeSpawnNextRepeat(t);
           syncTaskEvent(t);
           markDirty(); renderModalTasks(); renderTasks(); renderClients(); renderClientTimeline(); renderCalendar();
           if (mtgView === 'bytask') renderByTaskView();
@@ -10367,7 +10452,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zohoLogAction({ kind: p.kind, ok: true, label: zohoActionLabel(p, r), error: null });
     });
     data.zohoPending = stillPending;
-    if (applied || failed){ markDirty(); renderZohoActionLog(); }
+    if (applied || failed){ markDirty(); renderZohoActionLog(); renderInvoiceQueue(); }
     if (applied) return applied + ' Zoho update' + (applied === 1 ? '' : 's') + ' landed.';
     return null;
   }
@@ -11037,12 +11122,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (sendBtn) sendBtn.addEventListener('click', function(){
         const client = data.clients.find(function(x){ return x.id === q.clientId; });
         if (!client || !client.zohoContactId) return;
-        zohoFireWrite('createInvoiceFromQuote', {
-          contactId: client.zohoContactId,
-          referenceNumber: q.imageScapeInvoiceRef || q.imageScapeRef || '',
-          notes: q.notes || '',
-          lineItems: q.lineItems.map(function(li){ return { description: li.label + (li.description ? (' — ' + li.description) : ''), rate: li.rate, quantity: li.qty }; })
-        }, { quoteId: q.id });
+        sendQuoteToZohoAsInvoice(q, client);
         toast('Sending "' + q.title + '" to Zoho as an invoice — check back shortly.');
         renderZohoQuoteBlock();
       });
@@ -11139,6 +11219,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     const seq = String(maxSeq + 1).padStart(3, '0');
     return (kind === 'quote' ? 'Q' : '') + yy + seq;
+  }
+
+  // Fires the actual "create a matching Zoho invoice" write. Pulled out of the quote
+  // editor's button handler (24 Sep 2026) so the new Invoices tab's one-click "Raise
+  // invoice" flow (see openGenerateImageScapeDocModal below) can call the exact same
+  // thing right after the MH document is generated, instead of duplicating this.
+  //
+  // invoiceNumber carries the MH-generated number (q.imageScapeInvoiceRef) so Zoho's
+  // OWN invoice_number can be forced to match it 1:1, rather than Zoho minting its own -
+  // that's the whole point of raising the invoice via MH's adaptable template instead of
+  // Zoho's non-adaptable one. This needs the Apps Script (Code.gs) createInvoiceFromQuote
+  // handler to pass this value through as invoice_number with
+  // ignore_auto_number_generation=true on Zoho's create-invoice call - until that change
+  // is made there, Code.gs will keep auto-numbering and the two numbers just won't match
+  // (see the "Sent to Zoho" ledger on the Invoices tab, which flags this). referenceNumber
+  // is still sent alongside for backward compatibility with the Code.gs deployed today.
+  function sendQuoteToZohoAsInvoice(q, client){
+    zohoFireWrite('createInvoiceFromQuote', {
+      contactId: client.zohoContactId,
+      invoiceNumber: q.imageScapeInvoiceRef || undefined,
+      referenceNumber: q.imageScapeInvoiceRef || q.imageScapeRef || '',
+      notes: q.notes || '',
+      lineItems: q.lineItems.map(function(li){ return { description: li.label + (li.description ? (' — ' + li.description) : ''), rate: li.rate, quantity: li.qty }; })
+    }, { quoteId: q.id });
+    renderInvoiceQueue();
   }
 
   // The "Generate quote/invoice document…" flow: confirms the client has a postal
@@ -11269,6 +11374,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (kind === 'quote'){ q.imageScapeRef = number; q.imageScapeQuoteDate = dateIso; }
         else { q.imageScapeInvoiceRef = number; q.imageScapeInvoiceDate = dateIso; }
         markDirty();
+        // Added 24 Sep 2026: raising an ImageScape invoice from the new Invoices tab is
+        // meant to be one click, not "generate the doc, then remember to also press Send
+        // to Zoho" - so once the MH document itself is safely generated, immediately fire
+        // the matching Zoho invoice too (same sendQuoteToZohoAsInvoice the quote editor's
+        // own button uses). Only for kind 'invoice' and only if the client is already
+        // linked to a Zoho contact and this quote hasn't already been sent - otherwise
+        // the document is still generated, just not sent, with a clear note why.
+        let zohoNote = '';
+        if (kind === 'invoice'){
+          if (client.zohoContactId && !q.zohoInvoiceId){
+            sendQuoteToZohoAsInvoice(q, client);
+            zohoNote = ' Sending a matching invoice to Zoho — check back shortly.';
+          } else if (!client.zohoContactId){
+            zohoNote = ' Not sent to Zoho yet — link ' + (client.company || client.name) + ' to a Zoho contact on the Clients tab, then send it from the Invoices tab.';
+          }
+        }
         const remembered = rememberGeneratedPdf({
           business: 'imagescape', clientId: client.id, kind: kind, number: number,
           blob: result.pdfBlob, driveFileId: result.pdfFile && result.pdfFile.id,
@@ -11284,8 +11405,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (result.pdfFile) msg += ' — saved to Drive and downloaded.';
         else msg += ' — downloaded (not saved to Drive).';
         if (result.addressOverflow) msg += ' Note: the address had more lines than the template has room for, so the extra lines were combined onto the last line — check it before sending.';
+        msg += zohoNote;
         toast(msg);
         backdrop.remove();
+        renderInvoiceQueue();
         // Straight into the email, PDF attached and previewed - one more click makes the draft.
         openEmailComposer({ business: 'imagescape', clientId: client.id, quoteId: q.id,
           seedKey: kind === 'quote' ? 'is-quote' : 'is-invoice',
@@ -11296,6 +11419,112 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         toast(e.message || 'Could not generate the document.');
       }
     });
+  }
+
+  // Added 24 Sep 2026: the ImageScape Invoices tab. Three buckets, all derived from
+  // data.quotes (ImageScape's only quote/invoice store - self-employed invoicing is
+  // entirely separate, driven off soleTraderClients/calendar sessions, not this):
+  //   1. Ready to invoice - has a client and line items, no MH invoice number yet.
+  //   2. Generated, not yet in Zoho - MH number exists (q.imageScapeInvoiceRef) but
+  //      q.zohoInvoiceId doesn't, almost always because the client wasn't linked to a
+  //      Zoho contact at generate time (see the auto-send in openGenerateImageScapeDocModal).
+  //   3. Sent to Zoho - the actual ledger, flagging whether Zoho's own invoice number
+  //      matches MH's (see sendQuoteToZohoAsInvoice's comment re: the Code.gs change
+  //      this still needs before it says "Matches" for anything raised through here).
+  function renderInvoiceQueue(){
+    const readyWrap = document.getElementById('invQueueReady');
+    const pendingWrap = document.getElementById('invQueuePending');
+    const ledgerWrap = document.getElementById('invLedger');
+    if (!readyWrap || !pendingWrap || !ledgerWrap || !data) return;
+
+    const invoiceable = data.quotes.filter(function(q){ return q.clientId && q.lineItems.length && !q.imageScapeInvoiceRef; })
+      .slice().sort(function(a, b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    const generatedNotSent = data.quotes.filter(function(q){ return q.imageScapeInvoiceRef && !q.zohoInvoiceId; })
+      .slice().sort(function(a, b){ return (b.imageScapeInvoiceDate || '').localeCompare(a.imageScapeInvoiceDate || ''); });
+    const sentToZoho = data.quotes.filter(function(q){ return q.zohoInvoiceId; })
+      .slice().sort(function(a, b){ return (b.imageScapeInvoiceDate || '').localeCompare(a.imageScapeInvoiceDate || ''); });
+
+    if (!invoiceable.length){
+      readyWrap.innerHTML = '<div class="empty-note">Nothing waiting — quotes show up here once they have a client and at least one line item.</div>';
+    } else {
+      readyWrap.innerHTML = '';
+      invoiceable.forEach(function(q){
+        const totals = computeQuoteTotals(q);
+        const row = document.createElement('div');
+        row.className = 'zoho-row';
+        row.style.cssText = 'align-items:center;';
+        const left = document.createElement('span');
+        left.textContent = (clientName(q.clientId) || 'Client removed') + ' — ' + q.title + ' (' + fmtGBP(totals.total) + ')';
+        row.appendChild(left);
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
+        btn.textContent = 'Raise invoice';
+        btn.addEventListener('click', function(){ openGenerateImageScapeDocModal(q, 'invoice'); });
+        row.appendChild(btn);
+        readyWrap.appendChild(row);
+      });
+    }
+
+    if (!generatedNotSent.length){
+      pendingWrap.innerHTML = '<div class="empty-note">Nothing here — invoices normally go straight to Zoho the moment they\'re generated.</div>';
+    } else {
+      pendingWrap.innerHTML = '';
+      generatedNotSent.forEach(function(q){
+        const client = data.clients.find(function(x){ return x.id === q.clientId; });
+        const totals = computeQuoteTotals(q);
+        const row = document.createElement('div');
+        row.className = 'zoho-row';
+        row.style.cssText = 'align-items:center;';
+        const left = document.createElement('span');
+        left.textContent = q.imageScapeInvoiceRef + ' — ' + (clientName(q.clientId) || 'Client removed') + ' (' + fmtGBP(totals.total) + ')';
+        row.appendChild(left);
+        if (client && client.zohoContactId){
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-ghost';
+          btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
+          btn.textContent = 'Send to Zoho';
+          btn.addEventListener('click', function(){
+            sendQuoteToZohoAsInvoice(q, client);
+            toast('Sending ' + q.imageScapeInvoiceRef + ' to Zoho — check back shortly.');
+          });
+          row.appendChild(btn);
+        } else {
+          const hint = document.createElement('span');
+          hint.className = 'hint';
+          hint.style.flexShrink = '0';
+          hint.textContent = 'Client not linked to Zoho';
+          row.appendChild(hint);
+        }
+        pendingWrap.appendChild(row);
+      });
+    }
+
+    const ledgerSub = document.getElementById('invLedgerSub');
+    if (ledgerSub) ledgerSub.style.display = sentToZoho.length ? '' : 'none';
+    if (!sentToZoho.length){
+      ledgerWrap.innerHTML = '<div class="empty-note">No ImageScape invoices in Zoho yet.</div>';
+    } else {
+      ledgerWrap.innerHTML = '';
+      sentToZoho.forEach(function(q){
+        const totals = computeQuoteTotals(q);
+        const paid = (q.zohoPayments || []).reduce(function(sum, p){ return sum + (Number(p.amount) || 0); }, 0);
+        const matches = q.imageScapeInvoiceRef && q.zohoInvoiceNumber && String(q.imageScapeInvoiceRef).toLowerCase() === String(q.zohoInvoiceNumber).toLowerCase();
+        const row = document.createElement('div');
+        row.className = 'zoho-row clickable-card';
+        row.style.cssText = 'align-items:center;cursor:pointer;';
+        const left = document.createElement('span');
+        left.textContent = (q.zohoInvoiceNumber || q.imageScapeInvoiceRef || '(no number)') + ' — ' + (clientName(q.clientId) || 'Client removed') +
+          ' (' + fmtGBP(totals.total) + (paid > 0 ? (', ' + fmtGBP(paid) + ' paid') : '') + ')';
+        row.appendChild(left);
+        const badge = document.createElement('span');
+        badge.style.cssText = 'flex-shrink:0;font-weight:700;' + (matches ? 'color:var(--good);' : 'color:var(--warn);');
+        badge.textContent = matches ? 'Matches' : 'Differs';
+        row.appendChild(badge);
+        row.addEventListener('click', function(){ openQuoteEditor(q.id); });
+        ledgerWrap.appendChild(row);
+      });
+    }
   }
 
   // ---------------------------------------------------------------- Flight logs (DJI)
