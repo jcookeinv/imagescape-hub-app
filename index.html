@@ -3459,10 +3459,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data.soleTraderClients.forEach(function(c){
       const group = byClient.get(c.id);
       if (!group || !group.events.length) return;
+      // One row per day a client's events actually cover, not one per calendar event — a
+      // 2-day booking is 2 days of work (2 days of mileage, 2 days on the invoice), so it
+      // needs to produce 2 rows here, each with its own expense-matching flag. Previously
+      // this counted raw events only, so a multi-day booking undercounted itself even after
+      // the calendar grid above was fixed to show it on both days. expenseTripKey is already
+      // per-date, so per-day rows dedupe against the spreadsheet correctly with no other
+      // change needed. Added 29 Sep 2026.
+      const dayRows = [];
+      group.events.forEach(function(ev){
+        soleTraderEventDateRange(ev).forEach(function(iso){ dayRows.push({ iso: iso, ev: ev }); });
+      });
+      dayRows.sort(function(a, b){ return a.iso.localeCompare(b.iso); });
       html += '<div class="zoho-snapshot" style="margin-bottom:10px;"><div class="zoho-row"><strong>' +
-        escapeHtml(c.name) + '</strong><strong>' + group.events.length + ' session' + (group.events.length === 1 ? '' : 's') + '</strong></div>';
-      group.events.slice().sort(function(a, b){ return soleTraderEventDateLabel(a).localeCompare(soleTraderEventDateLabel(b)); }).forEach(function(ev){
-        const isoDate = soleTraderEventDateLabel(ev);
+        escapeHtml(c.name) + '</strong><strong>' + dayRows.length + ' session' + (dayRows.length === 1 ? '' : 's') + '</strong></div>';
+      dayRows.forEach(function(row){
+        const isoDate = row.iso, ev = row.ev;
         let flag = '';
         if (existingDates){
           if (existingDates.has(expenseTripKey(isoDate, c)) ||
@@ -4732,26 +4744,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     try {
       const events = await fetchSoleTraderMonth(yearMonth);
       const matched = events.filter(function(ev){ const c = matchEventToSoleTraderClient(ev); return c && c.id === client.id; });
-      invSessions = matched.map(function(ev, i){
-        const isoD = soleTraderEventDateLabel(ev);
+      // One invoice session per day a matched event actually covers, not one per calendar
+      // event — a 2-day booking bills as 2 day-rate sessions, not 1. Key is event-index +
+      // day-index so two sessions never collide even if two separate events happen to land
+      // on the same date. Added 29 Sep 2026, alongside the same per-day expansion for the
+      // results list and expense matching above (see soleTraderEventDateRange's comment).
+      invSessions = [];
+      matched.forEach(function(ev, i){
         const hours = client.dayHours || 8;
-        return {
-          key: isoD + '-' + i,
-          isoDate: isoD,
-          // No "|| ev.summary" fallback here on purpose: an event titled exactly the
-          // client's own code (e.g. a bare "Shop" or "Josh" calendar entry, with nothing
-          // else in the title) strips down to "" - correct, since there's no extra detail
-          // beyond the code itself. The old fallback re-inserted the raw, unstripped code
-          // ("Shop") as if it were a real description, which then got written into the
-          // generated invoice as literal text next to the template's own fixed wording.
-          // Found and fixed 20 Sep 2026 after comparing a real generated invoice against
-          // Jon's corrected copy of a previous one.
-          summary: (ev.summary || '').replace(new RegExp('^' + client.code + '\\s*[-–—:]*\\s*', 'i'), ''),
-          hours: hours,
-          amount: invSessionAmount(client, hours),
-          checked: true
-        };
-      }).sort(function(a, b){ return a.isoDate.localeCompare(b.isoDate); });
+        // No "|| ev.summary" fallback here on purpose: an event titled exactly the
+        // client's own code (e.g. a bare "Shop" or "Josh" calendar entry, with nothing
+        // else in the title) strips down to "" - correct, since there's no extra detail
+        // beyond the code itself. The old fallback re-inserted the raw, unstripped code
+        // ("Shop") as if it were a real description, which then got written into the
+        // generated invoice as literal text next to the template's own fixed wording.
+        // Found and fixed 20 Sep 2026 after comparing a real generated invoice against
+        // Jon's corrected copy of a previous one.
+        const summary = (ev.summary || '').replace(new RegExp('^' + client.code + '\\s*[-–—:]*\\s*', 'i'), '');
+        soleTraderEventDateRange(ev).forEach(function(isoD, di){
+          invSessions.push({
+            key: i + '-' + di,
+            isoDate: isoD,
+            summary: summary,
+            hours: hours,
+            amount: invSessionAmount(client, hours),
+            checked: true
+          });
+        });
+      });
+      invSessions.sort(function(a, b){ return a.isoDate.localeCompare(b.isoDate); });
       status.textContent = invSessions.length ? ('Found ' + invSessions.length + ' session' + (invSessions.length === 1 ? '' : 's') + ' for ' + client.name + '.') : ('No calendar sessions matched to ' + client.name + ' that month.');
 
       // Split-month check (e.g. Jules): if 2+ invoices are already logged for this
