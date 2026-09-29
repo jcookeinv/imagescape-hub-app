@@ -3342,6 +3342,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return '';
   }
 
+  // Every ISO date (YYYY-MM-DD) a calendar event actually spans, inclusive. Added 29 Sep 2026:
+  // a real multi-day self-employed calendar entry was only showing up on the calendar grid for
+  // its start day, because everything upstream (dayMap in renderSoleTraderCalGrid) keyed off
+  // soleTraderEventDateLabel(), which only ever returns the START date. Google Calendar's
+  // end.date for an all-day event is EXCLUSIVE (the day after the event actually finishes) —
+  // a two-day all-day event from the 20th to the 21st comes back as start.date=2026-09-20,
+  // end.date=2026-09-22, so that exclusive end has to be pulled back a day before walking the
+  // range, or the range comes out a day too long. A timed event's end.dateTime has no such
+  // exclusivity quirk. Falls back to just the start date for a same-day or zero-length event,
+  // or one with no end at all.
+  function soleTraderEventDateRange(ev){
+    const startIso = soleTraderEventDateLabel(ev);
+    if (!startIso) return [];
+    let endIso = startIso;
+    if (ev.end && ev.end.date){
+      const endDate = new Date(ev.end.date + 'T00:00:00');
+      endDate.setDate(endDate.getDate() - 1); // end.date is exclusive
+      endIso = isoDate(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    } else if (ev.end && ev.end.dateTime){
+      endIso = ev.end.dateTime.slice(0, 10);
+    }
+    if (endIso <= startIso) return [startIso];
+    const dates = [];
+    const cur = new Date(startIso + 'T00:00:00');
+    const end = new Date(endIso + 'T00:00:00');
+    while (cur <= end){
+      dates.push(isoDate(cur.getFullYear(), cur.getMonth(), cur.getDate()));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  }
+
   // Holds whatever the last pull found still missing from the Expenses tab, keyed for the
   // "Add N missing entries" button below - repopulated on every pull, cleared once written.
   let pendingExpenseEntries = [];
@@ -3507,19 +3539,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const recognizedOnlyToggle = document.getElementById('stCalRecognizedOnlyToggle');
     const recognizedOnly = !recognizedOnlyToggle || recognizedOnlyToggle.checked;
 
+    // Each event is placed on every day it spans (soleTraderEventDateRange), not just its start
+    // day — a multi-day entry used to only show up on the grid on the day it started. See
+    // soleTraderEventDateRange's comment above for why a plain start-date lookup missed this.
     const dayMap = {};
     byClientMap.forEach(function(group){
       group.events.forEach(function(ev){
-        const iso = soleTraderEventDateLabel(ev);
-        if (!iso) return;
-        (dayMap[iso] = dayMap[iso] || []).push({ text: group.client.code + ' · ' + (ev.summary || ''), matched: true, code: group.client.code });
+        soleTraderEventDateRange(ev).forEach(function(iso){
+          (dayMap[iso] = dayMap[iso] || []).push({ text: group.client.code + ' · ' + (ev.summary || ''), matched: true, code: group.client.code });
+        });
       });
     });
     if (!recognizedOnly){
       unmatchedList.forEach(function(ev){
-        const iso = soleTraderEventDateLabel(ev);
-        if (!iso) return;
-        (dayMap[iso] = dayMap[iso] || []).push({ text: ev.summary || '(no title)', matched: false });
+        soleTraderEventDateRange(ev).forEach(function(iso){
+          (dayMap[iso] = dayMap[iso] || []).push({ text: ev.summary || '(no title)', matched: false });
+        });
       });
     }
 
