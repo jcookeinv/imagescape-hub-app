@@ -1116,6 +1116,8 @@
             <button data-cat="none">No category</button>
           </div>
           <div class="show-completed">
+            <span class="hint-count" id="dueLaterHintCount"></span>
+            <button id="dueWithinMonthBtn" type="button" class="active">Due within a month</button>
             <span class="hint-count" id="completedHintCount"></span>
             <button id="showCompletedBtn" type="button">Show completed</button>
           </div>
@@ -7382,6 +7384,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // View-only preference, not saved to the vault - each device/session starts
   // with completed tasks hidden, same as the app's default.
   let showCompleted = false;
+  // View-only preference, not saved to the vault - starts ON so the list opens
+  // scoped to what's actually coming up (overdue + due in the next month) rather
+  // than every task ever added. Off shows every task regardless of due date.
+  // Added 30 Sep 2026 at Jon's request.
+  let taskDueWithinMonth = true;
 
   document.querySelectorAll('#taskFilter button').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -7397,6 +7404,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderTasks();
   });
 
+  document.getElementById('dueWithinMonthBtn').addEventListener('click', function(){
+    taskDueWithinMonth = !taskDueWithinMonth;
+    renderTasks();
+  });
+
   function renderTasks(){
     const list = document.getElementById('taskList');
     list.innerHTML = '';
@@ -7407,10 +7419,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (taskFilter === 'none') return !t.category;
       return t.category === taskFilter;
     };
+    // Overdue tasks (due < today) count as "within a month" too - a task that's already
+    // late is still very much happening, and hiding it behind a due-date filter would bury
+    // the thing that most needs attention. Only tasks due further out than a month from now
+    // get hidden. Undated tasks aren't part of the "when" dimension at all, so this filter
+    // leaves them alone rather than hiding tasks with no due date to judge.
+    const dueWithinMonthMatch = function(t){
+      if (!taskDueWithinMonth) return true;
+      if (!t.due) return true;
+      return t.due <= in1MonthIso_();
+    };
     const completedInCategory = data.tasks.filter(function(t){ return t.done && categoryMatch(t); });
+    const hiddenByDueFilter = data.tasks.filter(function(t){
+      if (!categoryMatch(t)) return false;
+      if (t.done && !showCompleted) return false;
+      return !!t.due && t.due > in1MonthIso_();
+    });
     const visible = data.tasks.filter(function(t){
       if (!categoryMatch(t)) return false;
       if (t.done && !showCompleted) return false;
+      if (!dueWithinMonthMatch(t)) return false;
       return true;
     });
 
@@ -7422,6 +7450,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       ? (completedInCategory.length + (completedInCategory.length === 1 ? ' completed hidden' : ' completed hidden'))
       : '';
 
+    const dueBtn = document.getElementById('dueWithinMonthBtn');
+    dueBtn.textContent = taskDueWithinMonth ? 'Show all tasks' : 'Due within a month';
+    dueBtn.classList.toggle('active', taskDueWithinMonth);
+    const dueHintEl = document.getElementById('dueLaterHintCount');
+    dueHintEl.textContent = (taskDueWithinMonth && hiddenByDueFilter.length)
+      ? (hiddenByDueFilter.length + (hiddenByDueFilter.length === 1 ? ' later hidden' : ' later hidden'))
+      : '';
+
     if (!data.tasks.length){
       list.innerHTML = '<div class="empty-note">No tasks yet.</div>';
       renderAlerts();
@@ -7429,9 +7465,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
     if (!visible.length){
-      list.innerHTML = '<div class="empty-note">' +
-        (completedInCategory.length && !showCompleted ? 'All tasks in this category are completed — click "Show completed" to see them.' : 'No tasks in this category.') +
-        '</div>';
+      let emptyMsg = 'No tasks in this category.';
+      const hideCompletedNote = completedInCategory.length && !showCompleted;
+      const hideDueLaterNote = hiddenByDueFilter.length && taskDueWithinMonth;
+      if (hideCompletedNote && hideDueLaterNote){
+        emptyMsg = 'Everything in this category is either completed or due later than a month away — click "Show completed" or "Show all tasks" to see them.';
+      } else if (hideCompletedNote){
+        emptyMsg = 'All tasks in this category are completed — click "Show completed" to see them.';
+      } else if (hideDueLaterNote){
+        emptyMsg = 'Everything in this category is due later than a month away — click "Show all tasks" to see them.';
+      }
+      list.innerHTML = '<div class="empty-note">' + emptyMsg + '</div>';
       renderAlerts();
       if (document.getElementById('dashStats')) renderHome();
       return;
@@ -8642,6 +8686,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     URL.revokeObjectURL(url);
   }
   function in7Iso_(){ const d = new Date(); d.setDate(d.getDate() + 7); return isoDate(d.getFullYear(), d.getMonth(), d.getDate()); }
+  // One calendar month out from today, e.g. 30 Sep -> 30 Oct - used by the Tasks tab's
+  // "Due within a month" filter. addMonthsIso clamps day-of-month overflow the same way
+  // it does for compliance deadlines (see its own comment), so this is safe near month end.
+  function in1MonthIso_(){ return addMonthsIso(todayIso_(), 1); }
   // Shared urgency check used everywhere a due date needs a red/amber/neutral treatment:
   // task due dates, paperwork due dates, dashboard tiles. null = not due soon or overdue.
   function dateUrgency(dateStr, isSettled){
