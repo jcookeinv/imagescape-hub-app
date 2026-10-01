@@ -340,6 +340,11 @@
   .pw-badge.gal-complete{background:var(--good-soft);color:var(--good);}
   .pw-badge.ws-live{background:var(--good-soft);color:var(--good);}
   .pw-badge.ws-planned{background:var(--warn-soft);color:var(--warn);}
+  .pw-badge.fr-ok{background:var(--good-soft);color:var(--good);}
+  .pw-badge.fr-soon{background:var(--soon-soft);color:var(--soon);}
+  .pw-badge.fr-overdue{background:var(--warn-soft);color:var(--warn);}
+  .pw-badge.fr-cleared{background:var(--info-soft);color:var(--info);}
+  .pw-badge.fr-none{background:#f1f2f4;color:var(--muted);}
   .line-item-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;}
   .line-item-row input[type=text]{flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:15px;font-family:inherit;}
   .line-item-row input[type=number]{width:80px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:15px;font-family:inherit;}
@@ -943,6 +948,7 @@
     <button data-panel="invoices">Invoices</button>
     <button data-panel="documents">Documents</button>
     <button data-panel="galleries">Galleries</button>
+    <button data-panel="retention">Retention</button>
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavAdmin" style="display:none;">
     <button data-panel="tasks">Tasks</button>
@@ -1330,6 +1336,23 @@ function doPost(e) {
       </div>
     </div>
 
+    <div class="panel" id="panel-retention">
+      <div class="card">
+        <h2>Retention</h2>
+        <div class="sub">Raw footage from every tracked shoot is flagged 60 days after the shoot date. Nothing here deletes anything automatically — it only tells you when it's time to clear the footage yourself; mark it cleared once you have.</div>
+        <div class="task-filter-row">
+          <div class="task-filter" id="retentionFilter">
+            <button data-status="all" class="active">All</button>
+            <button data-status="overdue">Overdue</button>
+            <button data-status="soon">Due soon</button>
+            <button data-status="ok">Within retention</button>
+            <button data-status="cleared">Cleared</button>
+          </div>
+        </div>
+        <div id="retentionList"></div>
+      </div>
+    </div>
+
     <datalist id="pwLabelSuggestions"></datalist>
 
     <div class="panel" id="panel-paperwork">
@@ -1691,7 +1714,7 @@ function doPost(e) {
       <div class="card" style="margin-top:16px;">
         <h2>Email templates</h2>
         <div class="sub">Reusable subject/body templates for each business. Merge fields are filled in from the client, quote, invoice and gallery; anything the Hub doesn't know shows as a [placeholder] to fill in before the draft is made.</div>
-        <div class="hint" style="margin-bottom:12px;">Available tokens: {{firstName}}, {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{signature}}, {{date}}, {{websiteUrl}}, {{reviewUrl}}, {{paymentTermsDays}}, {{quoteTitle}}, {{quoteRef}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDate}}, {{invoiceDueDate}}, {{daysOverdue}}, {{workPeriod}}, {{galleryLabel}}, {{galleryUrl}}, {{shootDate}}, {{deliveredDate}}</div>
+        <div class="hint" style="margin-bottom:12px;">Available tokens: {{firstName}}, {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{signature}}, {{date}}, {{websiteUrl}}, {{reviewUrl}}, {{paymentTermsDays}}, {{quoteTitle}}, {{quoteRef}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDate}}, {{invoiceDueDate}}, {{daysOverdue}}, {{workPeriod}}, {{galleryLabel}}, {{galleryUrl}}, {{shootDate}}, {{deliveredDate}}, {{deliveryFolderUrl}}</div>
         <button class="btn btn-primary" id="templateNewBtn" style="width:auto;margin-bottom:14px;">+ New template</button>
         <div class="link-grid" id="templateGrid"></div>
       </div>
@@ -2412,6 +2435,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       { seedKey: 'is-delivery', business: IS, attach: '', name: 'Gallery delivery',
         subject: 'Your images are ready: {{galleryLabel}}',
         body: 'Hi {{firstName}},\n\nYour gallery is ready. You can view and download everything here:\n\n{{galleryUrl}}\n\nPlease download the files you need, as the gallery link will not stay live indefinitely. If you would like any tweaks or extra edits, just let me know.\n\nThank you again for working with {{companyName}}.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-delivery-secure', business: IS, attach: '', name: 'Secure folder delivery',
+        subject: 'Your files are ready to download',
+        body: 'Hi {{firstName}},\n\nYour files are ready. You can download everything from this folder:\n\n{{deliveryFolderUrl}}\n\nThe contents are password-protected - I will send you the password separately. Please download what you need, as this link will not stay live indefinitely.\n\nThank you again for working with {{companyName}}.\n\nKind regards,\n{{signature}}' },
       { seedKey: 'is-invoice', business: IS, attach: 'invoice', name: 'Invoice (PDF attached)',
         subject: 'Invoice {{invoiceNumber}} from {{companyName}}',
         body: 'Hi {{firstName}},\n\nPlease find attached invoice {{invoiceNumber}} for {{invoiceAmount}}, due by {{invoiceDueDate}}.\n\nPayment details are on the invoice. If you have any questions, just reply to this email.\n\nMany thanks,\n{{signature}}' },
@@ -2572,12 +2598,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       c.notes = c.notes || '';
       c.referralSource = c.referralSource || '';
       c.address = c.address || '';
+      // A client-specific Drive folder for secure delivery (see "Generate secure Drive
+      // folder" in the client detail panel) - set to "anyone with the link can view"
+      // rather than restricted to the client's own Google account, since that would
+      // otherwise force a client with no Google account to create one. The actual
+      // content protection is the password: whatever Jon zips into the folder should be
+      // password-protected using deliveryFolderPassword, which only ever leaves the Hub
+      // through a channel Jon chooses himself - never auto-included in the email draft.
+      c.deliveryFolderId = c.deliveryFolderId || '';
+      c.deliveryFolderName = c.deliveryFolderName || '';
+      c.deliveryFolderUrl = c.deliveryFolderUrl || '';
+      c.deliveryFolderCreatedAt = c.deliveryFolderCreatedAt || '';
+      c.deliveryFolderPassword = c.deliveryFolderPassword || '';
+      c.deliveryFolderPasswordSetAt = c.deliveryFolderPasswordSetAt || '';
     });
     // Where the ImageScape quote/invoice document generator saves its output - Jon
     // picks a folder the first time (see ensureImageScapeDocsFolder) and it's
     // remembered here, since there's no existing per-client folder convention on this
     // side the way the sole-trader invoice flow has.
     d.imageScapeDocsFolder = d.imageScapeDocsFolder || null;
+    // Parent folder that holds one subfolder per client's secure delivery folder (see
+    // ensureClientDeliveriesParentFolder) - same pick-once-and-remember pattern as
+    // imageScapeDocsFolder above, kept separate since the two don't belong together.
+    d.clientDeliveriesParentFolder = d.clientDeliveriesParentFolder || null;
     d.paperwork = d.paperwork || [];
     d.paperwork.forEach(function(p){
       p.clientId = p.clientId || '';
@@ -2751,6 +2794,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       g.galleryUrl = g.galleryUrl || '';
       g.status = g.status || 'editing';
       g.notes = g.notes || '';
+      // Set only once Jon's actually cleared the raw footage for this shoot (see "Mark
+      // footage cleared" in the gallery editor) - the Hub never deletes anything itself,
+      // it just stops flagging a shoot as due/overdue once this is filled in.
+      g.footageDeletedAt = g.footageDeletedAt || '';
     });
     // Only ever backfilled when this field is entirely missing (a vault saved before this
     // feature existed) - a fresh object each time (never a shared module-level literal)
@@ -4617,6 +4664,109 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data.imageScapeDocsFolder = { id: picked.id, name: picked.name };
     markDirty();
     return data.imageScapeDocsFolder;
+  }
+
+  // ---------------------------------------------------------------- secure client delivery folders
+  // Parent folder holding one subfolder per client's secure delivery folder - same
+  // pick-once-and-remember pattern as ensureImageScapeDocsFolder above.
+  async function ensureClientDeliveriesParentFolder(forcePick){
+    if (!forcePick && data.clientDeliveriesParentFolder && data.clientDeliveriesParentFolder.id) return data.clientDeliveriesParentFolder;
+    await getAccessToken(true);
+    const picked = await showDriveFolderPicker();
+    if (!picked) return data.clientDeliveriesParentFolder || null;
+    data.clientDeliveriesParentFolder = { id: picked.id, name: picked.name };
+    markDirty();
+    return data.clientDeliveriesParentFolder;
+  }
+
+  // A rough, advisory-only headroom check against the signed-in account's own Drive
+  // quota before creating a new folder - this is Jon's own Drive storage (the folder
+  // lives there, shared out to the client), not the client's. Never blocks on its own;
+  // just surfaces a warning so a near-full Drive doesn't silently fail partway through.
+  async function checkDriveStorageHeadroom(){
+    try {
+      const res = await driveApiFetch('/about?fields=storageQuota');
+      if (!res.ok) return null;
+      const q = (await res.json()).storageQuota || {};
+      const limit = Number(q.limit); // unlimited plans omit this field entirely
+      const usage = Number(q.usage);
+      if (!limit || isNaN(usage)) return null;
+      return { limit: limit, usage: usage, pctUsed: usage / limit };
+    } catch (e){ return null; }
+  }
+
+  // Sets a Drive folder to "anyone with the link can view" - no Google account needed
+  // to open it, unlike sharing with one specific email address. This is deliberate:
+  // the content itself is meant to be protected by the password Jon zips the files
+  // with (see generateStrongPassword / deliveryFolderPassword), not by Drive's own
+  // access control - so a client with no Google account isn't locked out.
+  async function makeDeliveryFolderLinkShared(folderId){
+    const res = await driveApiFetch('/files/' + encodeURIComponent(folderId) + '/permissions?fields=id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' })
+    });
+    if (!res.ok){
+      const body = await res.json().catch(function(){ return {}; });
+      throw new Error('Could not set the folder to "anyone with the link"' + (body && body.error && body.error.message ? (' — ' + body.error.message) : '.'));
+    }
+  }
+
+  // Cryptographically random password, read-aloud friendly: no 0/O/1/l/I, and no
+  // symbols that cause grief when typed into a zip tool's password field. ~95 bits
+  // of entropy at the default length, which is comfortably enough for this purpose.
+  function generateStrongPassword(length){
+    length = length || 16;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    const rnd = new Uint32Array(length);
+    crypto.getRandomValues(rnd);
+    let out = '';
+    for (let i = 0; i < length; i++) out += chars[rnd[i] % chars.length];
+    return out;
+  }
+
+  // Creates (or reuses, if already present) a per-client subfolder under the shared
+  // "client deliveries" parent, and sets it to link-shared (view only). Never touches
+  // sharing on an existing folder beyond this one permission - it doesn't revoke or
+  // change anything already set up on a folder from an earlier run. A password is only
+  // generated the FIRST time, so re-running this (e.g. to re-check sharing) never
+  // silently invalidates a password already used to encrypt a zip sitting in the
+  // folder - see regenerateDeliveryFolderPassword for the explicit, separate action
+  // that rotates it on purpose.
+  async function generateClientDeliveryFolder(client){
+    const parent = await ensureClientDeliveriesParentFolder(false);
+    if (!parent) throw new Error('No parent folder was chosen — folder not created.');
+    let folder = await findDriveFolderByName(client.name, parent.id);
+    if (!folder){
+      const createRes = await driveApiFetch('/files?fields=id,name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: client.name, mimeType: 'application/vnd.google-apps.folder', parents: [parent.id] })
+      });
+      if (!createRes.ok) throw new Error('Could not create a Drive folder for "' + client.name + '".');
+      folder = await createRes.json();
+    }
+    await makeDeliveryFolderLinkShared(folder.id);
+    client.deliveryFolderId = folder.id;
+    client.deliveryFolderName = folder.name;
+    client.deliveryFolderUrl = 'https://drive.google.com/drive/folders/' + folder.id;
+    client.deliveryFolderCreatedAt = todayIso_();
+    if (!client.deliveryFolderPassword){
+      client.deliveryFolderPassword = generateStrongPassword();
+      client.deliveryFolderPasswordSetAt = todayIso_();
+    }
+    markDirty();
+    return client;
+  }
+
+  // Explicit, separate action for rotating the password - never done silently by
+  // generateClientDeliveryFolder above, since that would invalidate a password Jon may
+  // already have used to encrypt a zip sitting in the folder right now.
+  function regenerateDeliveryFolderPassword(client){
+    client.deliveryFolderPassword = generateStrongPassword();
+    client.deliveryFolderPasswordSetAt = todayIso_();
+    markDirty();
+    return client.deliveryFolderPassword;
   }
 
   // ---------------------------------------------------------------- Invoices tab UI
@@ -6569,6 +6719,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderWpStatus();
     renderBlogHistory();
     renderGalleries();
+    renderRetention();
     renderChecklists();
     renderSoleTraderClients();
     renderSoleTraderCalStatus();
@@ -6607,7 +6758,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
-    clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client',
+    clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client', retention: 'Client',
     tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
@@ -8700,6 +8851,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return null;
   }
 
+  // ---------------------------------------------------------------- raw footage retention
+  // Raw footage retention policy (matches the 60-day retention stated on the public
+  // website's footer/privacy policy): a shoot's footage is due for deletion 60 days
+  // after the shoot date. The Hub only ever flags this - it has no access to wherever
+  // the actual footage lives, so it never deletes anything itself. Jon clears the flag
+  // by hand once he's actually deleted the footage (see "Mark footage cleared").
+  const RAW_FOOTAGE_RETENTION_DAYS = 60;
+  const FOOTAGE_STATUS_LABELS = {
+    overdue: 'Overdue for deletion', soon: 'Due soon', ok: 'Within retention',
+    cleared: 'Footage cleared', none: 'No shoot date'
+  };
+  function galleryFootageDueDate(g){
+    return g.shootDate ? addDaysIso(g.shootDate, RAW_FOOTAGE_RETENTION_DAYS) : '';
+  }
+  function galleryFootageStatus(g){
+    if (g.footageDeletedAt) return 'cleared';
+    if (!g.shootDate) return 'none';
+    const urgency = dateUrgency(galleryFootageDueDate(g), false);
+    return urgency === 'overdue' ? 'overdue' : (urgency === 'soon' ? 'soon' : 'ok');
+  }
+
   // ---------------------------------------------------------------- paperwork
   let pwFilterStatus = 'all';
 
@@ -9542,12 +9714,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (g.deliveredDate) dueBits.push('Delivered ' + g.deliveredDate);
       if (g.galleryUrl) dueBits.push('Gallery linked');
       row.querySelector('.due').textContent = dueBits.join('  ·  ');
+      const footageStatus = galleryFootageStatus(g);
+      if (footageStatus === 'overdue' || footageStatus === 'soon'){
+        const chip = document.createElement('span');
+        chip.className = 'urgency-chip ' + footageStatus;
+        chip.textContent = 'Footage ' + (footageStatus === 'overdue' ? 'overdue' : 'due soon');
+        chip.title = 'Raw footage due date: ' + galleryFootageDueDate(g);
+        row.querySelector('.txt').appendChild(chip);
+      }
       row.addEventListener('click', function(){ openGalleryEditModal(g.id); });
       row.querySelector('.del').addEventListener('click', function(e){
         e.stopPropagation();
         if (!confirm('Delete "' + (g.label || 'Untitled gallery') + '"?')) return;
         data.galleries = data.galleries.filter(function(x){ return x.id !== g.id; });
-        markDirty(); renderGalleries(); renderClients();
+        markDirty(); renderGalleries(); renderClients(); renderRetention();
       });
       list.appendChild(row);
     });
@@ -9562,6 +9742,60 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   });
 
+  // ------------------------------------------------------- retention dashboard
+  let retentionFilterStatus = 'all';
+
+  function renderRetention(){
+    const list = document.getElementById('retentionList');
+    if (!list) return;
+    const clientIdx = buildClientIndex();
+    const tracked = data.galleries.filter(function(g){ return !!g.shootDate; });
+    if (!tracked.length){
+      list.innerHTML = '<div class="empty-note">No shoots with a shoot date yet — set one on a gallery to start tracking its 60-day retention window.</div>';
+      return;
+    }
+    const visible = tracked.filter(function(g){ return retentionFilterStatus === 'all' || galleryFootageStatus(g) === retentionFilterStatus; });
+    if (!visible.length){
+      list.innerHTML = '<div class="empty-note">Nothing matches this filter.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    // Soonest due date first - overdue sorts to the very top since its due date is
+    // furthest in the past, which is exactly what needs attention first.
+    visible.slice().sort(function(a, b){
+      const ad = galleryFootageDueDate(a), bd = galleryFootageDueDate(b);
+      return ad < bd ? -1 : (ad > bd ? 1 : 0);
+    }).forEach(function(g){
+      const status = galleryFootageStatus(g);
+      const row = document.createElement('div');
+      row.className = 'task-row' + (status === 'cleared' ? ' done' : '');
+      row.style.cursor = 'pointer';
+      row.innerHTML =
+        '<div class="body"><div class="txt"><span class="galLabelText"></span><span class="pw-badge"></span>' +
+        (g.clientId ? '<span class="cat-badge client-badge"></span>' : '') + '</div><div class="due"></div></div>';
+      row.querySelector('.galLabelText').textContent = g.label || 'Untitled gallery';
+      if (g.clientId) row.querySelector('.client-badge').textContent = clientNameIndexed(clientIdx, g.clientId);
+      const badge = row.querySelector('.pw-badge');
+      badge.textContent = FOOTAGE_STATUS_LABELS[status] || status;
+      badge.classList.add('fr-' + status);
+      const dueBits = ['Shoot ' + g.shootDate];
+      if (status === 'cleared') dueBits.push('Footage cleared ' + g.footageDeletedAt);
+      else dueBits.push((status === 'overdue' ? 'Was due ' : 'Due ') + galleryFootageDueDate(g));
+      row.querySelector('.due').textContent = dueBits.join('  ·  ');
+      row.addEventListener('click', function(){ openGalleryEditModal(g.id); });
+      list.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll('#retentionFilter button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#retentionFilter button').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      retentionFilterStatus = btn.dataset.status;
+      renderRetention();
+    });
+  });
+
   document.getElementById('galAddBtn').addEventListener('click', function(){
     const labelEl = document.getElementById('galLabel');
     const clientEl = document.getElementById('galClient');
@@ -9571,10 +9805,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!label) return;
     data.galleries.push({
       id: randomId(), clientId: clientEl.value || '', label: label, shootDate: shootEl.value || '',
-      deliveredDate: '', galleryUrl: '', status: statusEl.value || 'editing', notes: ''
+      deliveredDate: '', galleryUrl: '', status: statusEl.value || 'editing', notes: '', footageDeletedAt: ''
     });
     labelEl.value = ''; shootEl.value = ''; statusEl.value = 'editing';
-    markDirty(); renderGalleries(); renderClients();
+    markDirty(); renderGalleries(); renderClients(); renderRetention();
   });
 
   function openGalleryEditModal(id){
@@ -9594,6 +9828,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="field"><label>Delivered date</label><input type="date" id="galEditDeliveredDate"></div>' +
         '<div class="field"><label>Online gallery link</label><input type="text" id="galEditUrl" placeholder="https://…"></div>' +
         '<div class="field"><label>Notes</label><textarea id="galEditNotes" rows="2"></textarea></div>' +
+        '<h3 style="margin-top:18px;font-size:14px;">Raw footage retention</h3>' +
+        '<div class="hint" id="galEditFootageInfo" style="margin:-2px 0 8px;"></div>' +
+        '<div class="field"><label>Footage cleared on (leave blank until you\'ve actually deleted it)</label><input type="date" id="galEditFootageCleared"></div>' +
         '<div class="row" style="margin-top:10px;">' +
           '<button class="btn btn-ghost" id="galEditCancel">Close</button>' +
           '<button class="btn btn-ghost" id="galEditDelete" style="color:var(--warn);">Delete</button>' +
@@ -9615,12 +9852,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.querySelector('#galEditDeliveredDate').value = g.deliveredDate || '';
     backdrop.querySelector('#galEditUrl').value = g.galleryUrl || '';
     backdrop.querySelector('#galEditNotes').value = g.notes || '';
+    backdrop.querySelector('#galEditFootageCleared').value = g.footageDeletedAt || '';
+
+    function refreshFootageInfo(){
+      const shootVal = backdrop.querySelector('#galEditShootDate').value;
+      const clearedVal = backdrop.querySelector('#galEditFootageCleared').value;
+      const infoEl = backdrop.querySelector('#galEditFootageInfo');
+      if (!shootVal){ infoEl.textContent = 'Set a shoot date above to start tracking this shoot\'s retention window.'; return; }
+      const due = addDaysIso(shootVal, RAW_FOOTAGE_RETENTION_DAYS);
+      if (clearedVal){ infoEl.textContent = 'Footage cleared ' + clearedVal + ' (was due ' + due + ').'; return; }
+      const urgency = dateUrgency(due, false);
+      infoEl.textContent = urgency === 'overdue' ? ('Overdue — was due ' + due + '.')
+        : urgency === 'soon' ? ('Due soon — ' + due + '.')
+        : ('Due ' + due + ' (within retention).');
+    }
+    refreshFootageInfo();
+    backdrop.querySelector('#galEditShootDate').addEventListener('change', refreshFootageInfo);
+    backdrop.querySelector('#galEditFootageCleared').addEventListener('change', refreshFootageInfo);
 
     backdrop.querySelector('#galEditCancel').addEventListener('click', function(){ backdrop.remove(); });
     backdrop.querySelector('#galEditDelete').addEventListener('click', function(){
       if (!confirm('Delete "' + (g.label || 'Untitled gallery') + '"?')) return;
       data.galleries = data.galleries.filter(function(x){ return x.id !== g.id; });
-      markDirty(); backdrop.remove(); renderGalleries(); renderClients();
+      markDirty(); backdrop.remove(); renderGalleries(); renderClients(); renderRetention();
       toast('Gallery deleted.');
     });
     backdrop.querySelector('#galEditSave').addEventListener('click', function(){
@@ -9640,7 +9894,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
       g.galleryUrl = url;
       g.notes = backdrop.querySelector('#galEditNotes').value.trim();
-      markDirty(); backdrop.remove(); renderGalleries(); renderClients();
+      g.footageDeletedAt = backdrop.querySelector('#galEditFootageCleared').value || '';
+      markDirty(); backdrop.remove(); renderGalleries(); renderClients(); renderRetention();
       toast('Gallery updated.');
     });
     backdrop.querySelector('#galEditEmail').addEventListener('click', function(){
@@ -9686,9 +9941,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         paperworkByClient.get(p.clientId).push(p);
       });
       const galleryCountByClient = new Map();
+      const galleriesByClient = new Map();
       data.galleries.forEach(function(g){
         if (!g.clientId) return;
         galleryCountByClient.set(g.clientId, (galleryCountByClient.get(g.clientId) || 0) + 1);
+        if (!galleriesByClient.has(g.clientId)) galleriesByClient.set(g.clientId, []);
+        galleriesByClient.get(g.clientId).push(g);
       });
       visible.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
         const clientTasks = tasksByClient.get(c.id) || [];
@@ -9730,6 +9988,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           chip.className = 'urgency-chip soon';
           chip.textContent = soonTotal + ' due soon';
           uWrap.appendChild(chip);
+        }
+        const clientGalleries = galleriesByClient.get(c.id) || [];
+        const footageOverdue = clientGalleries.filter(function(g){ return galleryFootageStatus(g) === 'overdue'; }).length;
+        const footageSoon = clientGalleries.filter(function(g){ return galleryFootageStatus(g) === 'soon'; }).length;
+        if (footageOverdue){
+          const fchip = document.createElement('span');
+          fchip.className = 'urgency-chip overdue';
+          fchip.textContent = 'Footage: ' + footageOverdue + ' overdue';
+          fchip.title = 'Raw footage past its 60-day retention window — see the Retention tab.';
+          uWrap.appendChild(fchip);
+        }
+        if (footageSoon){
+          const fchip = document.createElement('span');
+          fchip.className = 'urgency-chip soon';
+          fchip.textContent = 'Footage: ' + footageSoon + ' due soon';
+          uWrap.appendChild(fchip);
         }
         if (data.zohoConnection && !c.zohoContactId){
           const zchip = document.createElement('span');
@@ -9861,6 +10135,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           '<button class="btn btn-primary" id="cdGalAddBtn" style="width:auto;">Add</button>' +
         '</div>' +
 
+        '<h3 style="margin-top:18px;font-size:14px;">Secure delivery folder</h3>' +
+        '<div class="sub" style="margin:-4px 0 8px;">A Drive folder set to "anyone with the link can view" — no Google account needed to open it. Zip whatever you put in it with the password below first; the link alone doesn\'t protect the contents. Nothing is created or shared until you confirm it.</div>' +
+        '<div id="cdDeliveryFolderStatus" class="hint"></div>' +
+        '<div class="field" id="cdDeliveryPasswordField" style="display:none;margin-top:6px;">' +
+          '<label>Zip password</label>' +
+          '<div style="display:flex;gap:6px;">' +
+            '<input type="text" id="cdDeliveryPassword" readonly style="flex:1;font-family:monospace;">' +
+            '<button class="btn btn-ghost" id="cdCopyPasswordBtn" style="width:auto;padding:6px 10px;">Copy</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="row" style="margin-top:8px;flex-wrap:wrap;">' +
+          '<button class="btn btn-primary" id="cdGenFolderBtn" style="width:auto;">Generate secure Drive folder</button>' +
+          '<button class="btn btn-ghost" id="cdOpenFolderBtn" style="width:auto;display:none;">Open in Drive</button>' +
+          '<button class="btn btn-ghost" id="cdNewPasswordBtn" style="width:auto;display:none;">Generate new password</button>' +
+          '<button class="btn btn-ghost" id="cdEmailFolderBtn" style="width:auto;display:none;">Draft delivery email</button>' +
+        '</div>' +
+
         '<h3 style="margin-top:18px;font-size:14px;">Documents</h3>' +
         '<div id="cdDocList"></div>' +
         '<div class="link-add" style="margin-top:8px;">' +
@@ -9987,12 +10278,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (g.shootDate) dueBits.push('Shoot ' + g.shootDate);
         if (g.deliveredDate) dueBits.push('Delivered ' + g.deliveredDate);
         row.querySelector('.due').textContent = dueBits.join('  ·  ');
+        const footageStatus = galleryFootageStatus(g);
+        if (footageStatus === 'overdue' || footageStatus === 'soon'){
+          const chip = document.createElement('span');
+          chip.className = 'urgency-chip ' + footageStatus;
+          chip.textContent = 'Footage ' + (footageStatus === 'overdue' ? 'overdue' : 'due soon');
+          chip.title = 'Raw footage due date: ' + galleryFootageDueDate(g);
+          row.querySelector('.txt').appendChild(chip);
+        }
         row.addEventListener('click', function(){ backdrop.remove(); openGalleryEditModal(g.id); });
         row.querySelector('.del').addEventListener('click', function(e){
           e.stopPropagation();
           if (!confirm('Delete "' + (g.label || 'Untitled gallery') + '"?')) return;
           data.galleries = data.galleries.filter(function(x){ return x.id !== g.id; });
-          markDirty(); renderModalGalleries(); renderGalleries(); renderClients(); renderClientTimeline();
+          markDirty(); renderModalGalleries(); renderGalleries(); renderClients(); renderClientTimeline(); renderRetention();
         });
         wrap.appendChild(row);
       });
@@ -10003,9 +10302,79 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const shootEl = backdrop.querySelector('#cdGalShootDate');
       const label = labelEl.value.trim();
       if (!label) return;
-      data.galleries.push({ id: randomId(), clientId: id, label: label, shootDate: shootEl.value || '', deliveredDate: '', galleryUrl: '', status: 'editing', notes: '' });
+      data.galleries.push({ id: randomId(), clientId: id, label: label, shootDate: shootEl.value || '', deliveredDate: '', galleryUrl: '', status: 'editing', notes: '', footageDeletedAt: '' });
       labelEl.value = ''; shootEl.value = '';
-      markDirty(); renderModalGalleries(); renderGalleries(); renderClients(); renderClientTimeline();
+      markDirty(); renderModalGalleries(); renderGalleries(); renderClients(); renderClientTimeline(); renderRetention();
+    });
+
+    function renderDeliveryFolderStatus(){
+      const statusEl = backdrop.querySelector('#cdDeliveryFolderStatus');
+      const openBtn = backdrop.querySelector('#cdOpenFolderBtn');
+      const genBtn = backdrop.querySelector('#cdGenFolderBtn');
+      const newPwBtn = backdrop.querySelector('#cdNewPasswordBtn');
+      const emailBtn = backdrop.querySelector('#cdEmailFolderBtn');
+      const pwField = backdrop.querySelector('#cdDeliveryPasswordField');
+      const pwInput = backdrop.querySelector('#cdDeliveryPassword');
+      if (c.deliveryFolderId){
+        statusEl.textContent = 'Folder created ' + c.deliveryFolderCreatedAt + ' — anyone with the link can view it.';
+        openBtn.style.display = '';
+        newPwBtn.style.display = '';
+        emailBtn.style.display = '';
+        genBtn.textContent = 'Re-check sharing';
+        pwField.style.display = '';
+        pwInput.value = c.deliveryFolderPassword || '';
+      } else {
+        statusEl.textContent = 'No delivery folder generated yet for this client.';
+        openBtn.style.display = 'none';
+        newPwBtn.style.display = 'none';
+        emailBtn.style.display = 'none';
+        genBtn.textContent = 'Generate secure Drive folder';
+        pwField.style.display = 'none';
+      }
+    }
+    renderDeliveryFolderStatus();
+    backdrop.querySelector('#cdOpenFolderBtn').addEventListener('click', function(){
+      if (c.deliveryFolderUrl) window.open(c.deliveryFolderUrl, '_blank', 'noopener');
+    });
+    backdrop.querySelector('#cdCopyPasswordBtn').addEventListener('click', function(){
+      const pwInput = backdrop.querySelector('#cdDeliveryPassword');
+      pwInput.select();
+      navigator.clipboard.writeText(pwInput.value).then(function(){ toast('Password copied.'); }).catch(function(){ toast('Could not copy — select and copy it by hand.'); });
+    });
+    backdrop.querySelector('#cdNewPasswordBtn').addEventListener('click', function(){
+      if (!confirm('This replaces the current password with a brand new one. It will NOT re-encrypt any zip you\'ve already uploaded with the old password — only use this before creating a new zip. Continue?')) return;
+      regenerateDeliveryFolderPassword(c);
+      renderDeliveryFolderStatus();
+      toast('New password generated.');
+    });
+    backdrop.querySelector('#cdEmailFolderBtn').addEventListener('click', function(){
+      backdrop.remove();
+      openEmailComposer({ business: 'imagescape', clientId: c.id, seedKey: 'is-delivery-secure' });
+    });
+    backdrop.querySelector('#cdGenFolderBtn').addEventListener('click', function(){
+      const already = c.deliveryFolderId;
+      const verb = already ? 're-check' : 'create';
+      if (!confirm('This will ' + verb + ' a Drive folder named "' + c.name + '" and set it to "anyone with the link can view" — no sign-in required, so make sure whatever you put in it is password-protected first. Continue?')) return;
+      const btn = backdrop.querySelector('#cdGenFolderBtn');
+      btn.disabled = true;
+      (async function(){
+        try {
+          const headroom = await checkDriveStorageHeadroom();
+          if (headroom && headroom.pctUsed >= 0.95){
+            if (!confirm('Your Drive storage is ' + Math.round(headroom.pctUsed * 100) + '% full — this may fail partway through. Continue anyway?')){
+              btn.disabled = false;
+              return;
+            }
+          }
+          await generateClientDeliveryFolder(c);
+          renderDeliveryFolderStatus();
+          toast('Delivery folder ready — set to "anyone with the link can view".');
+        } catch (e){
+          toast(e.message || 'Could not generate the delivery folder.');
+        } finally {
+          btn.disabled = false;
+        }
+      })();
     });
 
     function renderModalDocs(){
@@ -13216,6 +13585,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (g.shootDate) ctx.shootDate = emailDate(g.shootDate);
         if (g.deliveredDate) ctx.deliveredDate = emailDate(g.deliveredDate);
       }
+      // Deliberately NOT included: the folder's password. It's per-client, not tied to
+      // one email send, and the whole point of a two-channel handoff is that it never
+      // rides along in the same message as the link - so it's never offered as a token.
+      if (c && c.deliveryFolderUrl) ctx.deliveryFolderUrl = c.deliveryFolderUrl;
     }
     Object.keys(ctx).forEach(function(k){ if (ctx[k] === '') delete ctx[k]; });
     return ctx;
@@ -13228,7 +13601,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     quoteTitle: 'job title', quoteRef: 'quote ref', quoteTotal: 'quote total', quoteLines: 'quote lines',
     invoiceNumber: 'invoice number', invoiceAmount: 'invoice amount', invoiceDate: 'invoice date',
     invoiceDueDate: 'due date', daysOverdue: 'days overdue', workPeriod: 'dates worked',
-    galleryLabel: 'gallery name', galleryUrl: 'gallery link', shootDate: 'shoot date', deliveredDate: 'delivery date'
+    galleryLabel: 'gallery name', galleryUrl: 'gallery link', shootDate: 'shoot date', deliveredDate: 'delivery date',
+    deliveryFolderUrl: 'secure delivery folder link'
   };
 
   // Like renderTemplateString, but an unknown/empty token becomes a visible [placeholder]
@@ -13685,7 +14059,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '</div>' +
         '<div class="field"><label>Subject</label><input type="text" id="tSubject"></div>' +
         '<div class="field"><label>Body</label><textarea id="tBody" rows="12" style="font-family:inherit;"></textarea></div>' +
-        '<div class="hint">Tokens: {{firstName}}, {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{signature}}, {{date}}, {{websiteUrl}}, {{reviewUrl}}, {{paymentTermsDays}}, {{quoteTitle}}, {{quoteRef}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDate}}, {{invoiceDueDate}}, {{daysOverdue}}, {{workPeriod}}, {{galleryLabel}}, {{galleryUrl}}, {{shootDate}}, {{deliveredDate}}</div>' +
+        '<div class="hint">Tokens: {{firstName}}, {{clientName}}, {{clientCompany}}, {{clientEmail}}, {{companyName}}, {{senderName}}, {{signature}}, {{date}}, {{websiteUrl}}, {{reviewUrl}}, {{paymentTermsDays}}, {{quoteTitle}}, {{quoteRef}}, {{quoteTotal}}, {{quoteLines}}, {{invoiceNumber}}, {{invoiceAmount}}, {{invoiceDate}}, {{invoiceDueDate}}, {{daysOverdue}}, {{workPeriod}}, {{galleryLabel}}, {{galleryUrl}}, {{shootDate}}, {{deliveredDate}}, {{deliveryFolderUrl}}</div>' +
         '<div style="margin-top:16px;display:flex;gap:8px;">' +
           '<button class="btn btn-ghost" id="tCancel">Close</button>' +
           '<button class="btn btn-primary" id="tSave">Save</button>' +
