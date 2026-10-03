@@ -2621,6 +2621,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // ensureClientDeliveriesParentFolder) - same pick-once-and-remember pattern as
     // imageScapeDocsFolder above, kept separate since the two don't belong together.
     d.clientDeliveriesParentFolder = d.clientDeliveriesParentFolder || null;
+    // Secondary, independent backup of the encrypted vault: pushed to a private GitHub
+    // repo (separate from the public app repo) as its own commit on every successful
+    // Drive save - see pushVaultBackupToGithub. The token lives in here, inside the
+    // encrypted vault, same as everything else - never in localStorage or anywhere
+    // unencrypted. null means not set up yet.
+    d.githubBackup = d.githubBackup || null;
+    if (d.githubBackup){
+      d.githubBackup.enabled = d.githubBackup.enabled !== false; // default true once configured
+      d.githubBackup.token = d.githubBackup.token || '';
+      d.githubBackup.owner = d.githubBackup.owner || '';
+      d.githubBackup.repo = d.githubBackup.repo || '';
+      d.githubBackup.branch = d.githubBackup.branch || 'main';
+      d.githubBackup.path = d.githubBackup.path || 'vault.json';
+      d.githubBackup.lastPushedAt = d.githubBackup.lastPushedAt || '';
+      d.githubBackup.lastPushError = d.githubBackup.lastPushError || '';
+      // GitHub has no API for a token to report its own expiry, so this is just what
+      // GitHub showed Jon when he created it, typed in by hand - used only to raise a
+      // Dashboard reminder (see accessReminderItems) before it lapses and backups go quiet.
+      d.githubBackup.tokenExpiresAt = d.githubBackup.tokenExpiresAt || '';
+    }
     d.paperwork = d.paperwork || [];
     d.paperwork.forEach(function(p){
       p.clientId = p.clientId || '';
@@ -6278,6 +6298,73 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function repoLabel(){ return (conn && conn.fileName) ? ('Google Drive → ' + conn.fileName) : 'Google Drive'; }
 
+  // ---------------------------------------------------------------- secondary GitHub backup
+  // Drive is still the only place the app reads from — this is a one-way, best-effort
+  // mirror of the same encrypted bytes into a private GitHub repo (separate from the
+  // public app repo), so there's a second, independently-hosted copy if Drive is ever
+  // unreachable or a revision gets pruned past Drive's own retention window. Every push
+  // is its own commit, so unlike Drive's revision history (pruned after ~30 days), git
+  // keeps the full history indefinitely - this ends up being the longer-lived backup
+  // of the two. Never blocks or fails a save: see the single call site in saveToDrive.
+  async function githubApiFetch(path, token, opts){
+    opts = opts || {};
+    const headers = Object.assign({
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }, opts.headers || {});
+    return fetch('https://api.github.com' + path, Object.assign({}, opts, { headers: headers }));
+  }
+
+  // b64 of the vault JSON for GitHub's Contents API, which wants UTF-8-safe base64. The
+  // vault object itself (v/iterations/salt/iv/ciphertext) is already all ASCII, but this
+  // goes the safe route in case that ever changes.
+  function b64Utf8_(str){
+    return btoa(String.fromCharCode.apply(null, new TextEncoder().encode(str)));
+  }
+
+  async function pushVaultBackupToGithub(vaultObj){
+    const cfg = data.githubBackup;
+    const statusEl = document.getElementById('ghBackupStatus');
+    if (!cfg || !cfg.enabled || !cfg.token || !cfg.owner || !cfg.repo) return;
+    const path = cfg.path || 'vault.json';
+    const apiPath = '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) + '/contents/' + path;
+    try {
+      // Find the current file's sha, if it already exists, so this updates it rather
+      // than erroring - a 404 here just means this is the first-ever push.
+      let sha;
+      const getRes = await githubApiFetch(apiPath + '?ref=' + encodeURIComponent(cfg.branch), cfg.token);
+      if (getRes.ok){
+        const existing = await getRes.json();
+        sha = existing.sha;
+      } else if (getRes.status !== 404){
+        const b = await getRes.json().catch(function(){ return {}; });
+        throw new Error((b.message || ('GitHub request failed (' + getRes.status + ').')));
+      }
+      const body = {
+        message: 'ImageScape Hub auto-backup — ' + new Date().toISOString(),
+        content: b64Utf8_(JSON.stringify(vaultObj)),
+        branch: cfg.branch
+      };
+      if (sha) body.sha = sha;
+      const putRes = await githubApiFetch(apiPath, cfg.token, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!putRes.ok){
+        const b = await putRes.json().catch(function(){ return {}; });
+        throw new Error((b.message || ('GitHub request failed (' + putRes.status + ').')));
+      }
+      cfg.lastPushedAt = new Date().toISOString();
+      cfg.lastPushError = '';
+      if (statusEl) statusEl.textContent = 'Backed up to GitHub just now.';
+    } catch (e){
+      cfg.lastPushError = e.message || 'GitHub backup failed.';
+      if (statusEl){ statusEl.textContent = 'GitHub backup failed: ' + cfg.lastPushError; statusEl.style.color = 'var(--warn)'; }
+    }
+  }
+
   // ---------------------------------------------------------------- version history
   // Every save overwrites vault.json in place, but Google Drive keeps its own revision
   // history of that file automatically (same mechanism the doc comments at the top of
@@ -6947,6 +7034,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const sha = await pushVaultFile(newVault, currentSha);
     currentSha = sha;
     syncReminders(); // best-effort side channel — never awaited, never blocks or fails a save
+    pushVaultBackupToGithub(newVault); // ditto — mirrors the same encrypted bytes to GitHub
     return sha;
   }
 
@@ -7050,10 +7138,99 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div id="bkHistMsg"></div>' +
         '<div id="bkHistList"></div>' +
 
+        '<h3 style="margin-top:22px;font-size:14px;">GitHub backup</h3>' +
+        '<p class="hint">A second, independent copy of the same encrypted vault, mirrored to a private GitHub repo as its own commit every time you save. GitHub never prunes old commits the way Drive prunes old revisions, so this ends up being the longer-lived backup of the two. The token is stored inside the encrypted vault itself, like everything else here — it only needs read/write on this one repo\'s contents.</p>' +
+        '<div id="ghBackupMsg"></div>' +
+        '<div class="field"><label>Personal access token</label><input type="password" id="ghToken" autocomplete="off" placeholder="ghp_…"><div class="hint" style="margin-top:4px;"><a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">See all fine-grained tokens on GitHub →</a></div></div>' +
+        '<div class="field" style="display:flex;gap:8px;"><div style="flex:1;"><label>Owner</label><input type="text" id="ghOwner" placeholder="jcookeinv"></div><div style="flex:1;"><label>Repo</label><input type="text" id="ghRepo" placeholder="imagescape-hub-data"></div></div>' +
+        '<div class="field" style="display:flex;gap:8px;"><div style="flex:1;"><label>Branch</label><input type="text" id="ghBranch" placeholder="main"></div><div style="flex:1;"><label>Path</label><input type="text" id="ghPath" placeholder="vault.json"></div></div>' +
+        '<div class="field"><label>Token expires</label><input type="date" id="ghTokenExpires"><div class="hint" style="margin-top:4px;">Whatever GitHub showed when you created it — the Hub has no way to read this back from GitHub itself, so this is just a reminder you set. Shows on the Dashboard as it approaches.</div></div>' +
+        '<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin:6px 0;"><input type="checkbox" id="ghEnabled"> Back up on every save</label>' +
+        '<div class="row"><button class="btn btn-primary" id="ghSaveSettings" style="width:auto;">Save GitHub backup settings</button><button class="btn btn-ghost" id="ghBackupNow" style="width:auto;">Back up now</button></div>' +
+        '<div id="ghBackupStatus" class="hint" style="margin-top:6px;"></div>' +
+
         '<div class="row" style="margin-top:14px;"><button class="btn btn-ghost" id="bkCancel">Close</button></div>' +
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#bkCancel').addEventListener('click', function(){ backdrop.remove(); });
+
+    // ---- GitHub backup settings ----
+    (function(){
+      const cfg = data.githubBackup; // only for the initial field population below
+      const statusEl = backdrop.querySelector('#ghBackupStatus');
+      // Reads data.githubBackup fresh each time, rather than closing over cfg above -
+      // Save Settings below replaces that object outright, which would otherwise leave
+      // this showing stale (or "Not set up yet") after the very save that sets it up.
+      function renderGhStatus(){
+        const bits = [];
+        const cfg = data.githubBackup;
+        if (!cfg){ statusEl.textContent = 'Not set up yet.'; statusEl.style.color = ''; return; }
+        if (cfg.lastPushError) bits.push({ text: 'Last attempt failed: ' + cfg.lastPushError, warn: true });
+        else if (cfg.lastPushedAt) bits.push({ text: 'Last backed up ' + new Date(cfg.lastPushedAt).toLocaleString() + '.', warn: false });
+        else bits.push({ text: cfg.enabled ? 'Set up — not backed up yet (will happen on next save).' : 'Set up but turned off.', warn: false });
+        if (cfg.tokenExpiresAt){
+          const urgency = dateUrgency(cfg.tokenExpiresAt, false);
+          if (urgency === 'overdue') bits.push({ text: 'Token expired ' + cfg.tokenExpiresAt + ' — generate a new one.', warn: true });
+          else if (urgency === 'soon') bits.push({ text: 'Token expires ' + cfg.tokenExpiresAt + ' — renew it soon.', warn: true });
+          else bits.push({ text: 'Token expires ' + cfg.tokenExpiresAt + '.', warn: false });
+        }
+        statusEl.innerHTML = bits.map(function(b){ return b.warn ? ('<span style="color:var(--warn);">' + escapeHtml(b.text) + '</span>') : escapeHtml(b.text); }).join(' ');
+      }
+      if (cfg){
+        backdrop.querySelector('#ghToken').value = cfg.token || '';
+        backdrop.querySelector('#ghOwner').value = cfg.owner || '';
+        backdrop.querySelector('#ghRepo').value = cfg.repo || '';
+        backdrop.querySelector('#ghBranch').value = cfg.branch || 'main';
+        backdrop.querySelector('#ghPath').value = cfg.path || 'vault.json';
+        backdrop.querySelector('#ghTokenExpires').value = cfg.tokenExpiresAt || '';
+        backdrop.querySelector('#ghEnabled').checked = !!cfg.enabled;
+      } else {
+        backdrop.querySelector('#ghBranch').value = 'main';
+        backdrop.querySelector('#ghPath').value = 'vault.json';
+        backdrop.querySelector('#ghEnabled').checked = true;
+      }
+      renderGhStatus();
+
+      backdrop.querySelector('#ghSaveSettings').addEventListener('click', function(){
+        const msg = backdrop.querySelector('#ghBackupMsg');
+        const token = backdrop.querySelector('#ghToken').value.trim();
+        const owner = backdrop.querySelector('#ghOwner').value.trim();
+        const repo = backdrop.querySelector('#ghRepo').value.trim();
+        const branch = backdrop.querySelector('#ghBranch').value.trim() || 'main';
+        const path = backdrop.querySelector('#ghPath').value.trim() || 'vault.json';
+        const tokenExpiresAt = backdrop.querySelector('#ghTokenExpires').value.trim();
+        const enabled = backdrop.querySelector('#ghEnabled').checked;
+        if (enabled && (!token || !owner || !repo)){
+          msg.innerHTML = '<div class="msg error">Token, owner and repo are all needed to turn this on.</div>';
+          return;
+        }
+        data.githubBackup = Object.assign({}, data.githubBackup, {
+          token: token, owner: owner, repo: repo, branch: branch, path: path, tokenExpiresAt: tokenExpiresAt, enabled: enabled
+        });
+        markDirty();
+        renderHome();
+        renderGhStatus();
+        msg.innerHTML = '<div class="msg success">Saved — click the header Save button to write this to Drive.</div>';
+      });
+
+      backdrop.querySelector('#ghBackupNow').addEventListener('click', async function(){
+        const msg = backdrop.querySelector('#ghBackupMsg');
+        if (!data.githubBackup || !data.githubBackup.token || !data.githubBackup.owner || !data.githubBackup.repo){
+          msg.innerHTML = '<div class="msg error">Save GitHub backup settings first.</div>';
+          return;
+        }
+        if (!currentPassword){ msg.innerHTML = '<div class="msg error">Unlock the vault first.</div>'; return; }
+        const btn = backdrop.querySelector('#ghBackupNow');
+        btn.disabled = true; btn.textContent = 'Backing up…';
+        try {
+          const vaultObj = await encryptData(currentPassword, data);
+          await pushVaultBackupToGithub(vaultObj);
+          renderGhStatus();
+        } finally {
+          btn.disabled = false; btn.textContent = 'Back up now';
+        }
+      });
+    })();
     backdrop.querySelector('#bkExport').addEventListener('click', function(){
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -9356,6 +9533,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
       items.push({ level: 'soon', title: 'Tax spreadsheet not linked', sub: 'Needed for invoice numbers, logging invoices and mileage, and the tax pack - Locate spreadsheet on the Tax spreadsheet tab.', panel: 'setax', when: 'Access' });
+    }
+    if (data.githubBackup && data.githubBackup.enabled && data.githubBackup.tokenExpiresAt){
+      const ghUrgency = dateUrgency(data.githubBackup.tokenExpiresAt, false);
+      if (ghUrgency){
+        items.push({
+          level: ghUrgency,
+          title: ghUrgency === 'overdue' ? 'GitHub backup token has expired' : 'GitHub backup token expires soon',
+          sub: 'Expires ' + data.githubBackup.tokenExpiresAt + ' for ' + (data.githubBackup.owner || '?') + '/' + (data.githubBackup.repo || '?') +
+            ' — generate a new fine-grained token and paste it into Backup / Restore, or backups go quiet.',
+          url: 'https://github.com/settings/tokens?type=beta', when: 'Access'
+        });
+      }
     }
     const fp = data.financeProfile || {};
     try { accessManualReminderItems().forEach(function(it){ items.push(it); }); } catch (e){ /* ignore */ }
