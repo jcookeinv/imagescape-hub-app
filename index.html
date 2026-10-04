@@ -940,6 +940,7 @@
     <button data-panel="cal">Calendar</button>
     <button data-group="client" class="group-btn">Clients <span class="chev">▾</span></button>
     <button data-panel="flights">Flight Logs</button>
+    <button data-group="website" class="group-btn">Website <span class="chev">▾</span></button>
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavClient" style="display:none;">
     <button data-panel="clients">Clients</button>
@@ -955,9 +956,12 @@
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="finance">Finance &amp; Tax</button>
     <button data-panel="emails">Email Templates</button>
+  </nav>
+  <nav class="tabs tabs-sub ro-allow" id="subNavWebsite" style="display:none;">
     <button data-panel="blog">Blog</button>
     <button data-panel="links">Site &amp; Hosting</button>
-    <button data-panel="social">Website &amp; Socials</button>
+    <button data-panel="webdev">Web Development</button>
+    <button data-panel="social">Socials</button>
   </nav>
   <!-- Self-employed context's own top-level tab row, added 16 Sep 2026 — swapped in for
        tabsImagescape (and both sub-navs) by setContext() below, rather than nested inside
@@ -998,6 +1002,41 @@
         </div>
         <div class="sub">Manual events plus paperwork due/sent dates and task due dates, whichever comes first.</div>
         <div id="dashUpcomingList"></div>
+      </div>
+      <div class="card" id="zohoCard" style="margin-top:16px;">
+        <h2>Zoho Books</h2>
+        <div class="sub">Everything Zoho in one place: the connection, sync, health checks, the invoices folder and the log of what the Hub has sent. Lets client records show live balance and recent invoices, and posts invoices, payments and prepayment journals, via a small Google Apps Script proxy you control (Zoho's API can't be called directly from a static page). See the setup guide for the one-time Apps Script deployment.</div>
+        <div class="wp-status">
+          <span class="pill disconnected" id="zohoStatusPill"><span class="dot"></span><span id="zohoStatusText">Not connected</span></span>
+          <button class="btn btn-ghost" id="zohoEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
+        </div>
+        <div class="wp-connect-fields" id="zohoConnectFields">
+          <div class="hint">Paste the Apps Script Web App URL (ends in /exec) and the shared secret you set in the script's Project Settings → Script Properties.</div>
+          <input type="text" id="zohoWebAppUrl" placeholder="Apps Script Web App URL (ends in /exec)">
+          <input type="password" id="zohoSharedSecret" placeholder="Shared secret" autocomplete="off">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="zohoSaveBtn" style="width:auto;">Save connection</button>
+            <button class="btn btn-ghost" id="zohoDisconnectBtn" style="width:auto;">Remove connection</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;align-items:center;gap:10px;">
+          <button class="btn btn-ghost" id="zohoSyncBtn" style="width:auto;">Sync now</button>
+          <button class="btn btn-ghost" id="zohoReviewBtn" style="width:auto;display:none;">Contacts to review</button>
+          <span class="hint" id="zohoSyncedLabel"></span>
+        </div>
+        <div id="zohoHealth" style="margin-top:12px;"></div>
+        <div class="hint" style="margin-top:10px;">"Sync now" just asks the Apps Script to run — the script also refreshes itself on its own schedule (see setup guide). Because of how Apps Script's cross-origin handling works, the Hub can't confirm the request landed; check the "last synced" time above after a minute to know it worked. Clients and Zoho contacts are matched automatically by email; anything that can't be matched shows up in "Contacts to review" instead of being created without asking.</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          <div class="sub" style="margin:0 0 6px;">Once Zoho shows an invoice as paid, the Hub moves its saved PDF and .ods files into a "PAID" subfolder on its own — checked every time it reconciles with Zoho, no manual step. Point it at your invoices folder once and it just runs from then on.</div>
+          <div class="row" style="align-items:center;gap:10px;">
+            <span class="hint" id="invoicesFolderLabel">Invoices folder: not set</span>
+            <button class="btn btn-ghost" id="invoicesFolderBtn" style="width:auto;">Choose invoices folder…</button>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          <div class="sub" style="margin:0 0 6px;">Every button that talks to Zoho — creating a contact, sending an invoice, recording a payment, marking one sent — logs its outcome here once it lands: "Zoho updated" if it worked, or the exact error if it didn't, ready to copy and hand to Claude.</div>
+          <div id="zohoActionLog"></div>
+        </div>
       </div>
     </div>
 
@@ -1047,41 +1086,6 @@
           <input type="text" id="clientSearch" placeholder="Search name, company, email…" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;min-width:220px;">
         </div>
         <div class="link-grid" id="clientGrid"></div>
-      </div>
-
-      <div class="card" style="margin-top:16px;">
-        <h2>Zoho Books connection</h2>
-        <div class="sub">Lets client records show live balance and recent invoices from Zoho Books, via a small Google Apps Script proxy you control (Zoho's API can't be called directly from a static page). See the setup guide for the one-time Apps Script deployment.</div>
-        <div class="wp-status">
-          <span class="pill disconnected" id="zohoStatusPill"><span class="dot"></span><span id="zohoStatusText">Not connected</span></span>
-          <button class="btn btn-ghost" id="zohoEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
-        </div>
-        <div class="wp-connect-fields" id="zohoConnectFields">
-          <div class="hint">Paste the Apps Script Web App URL (ends in /exec) and the shared secret you set in the script's Project Settings → Script Properties.</div>
-          <input type="text" id="zohoWebAppUrl" placeholder="Apps Script Web App URL (ends in /exec)">
-          <input type="password" id="zohoSharedSecret" placeholder="Shared secret" autocomplete="off">
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-primary" id="zohoSaveBtn" style="width:auto;">Save connection</button>
-            <button class="btn btn-ghost" id="zohoDisconnectBtn" style="width:auto;">Remove connection</button>
-          </div>
-        </div>
-        <div class="row" style="margin-top:10px;align-items:center;gap:10px;">
-          <button class="btn btn-ghost" id="zohoSyncBtn" style="width:auto;">Sync now</button>
-          <button class="btn btn-ghost" id="zohoReviewBtn" style="width:auto;display:none;">Contacts to review</button>
-          <span class="hint" id="zohoSyncedLabel"></span>
-        </div>
-        <div class="hint" style="margin-top:10px;">"Sync now" just asks the Apps Script to run — the script also refreshes itself on its own schedule (see setup guide). Because of how Apps Script's cross-origin handling works, the Hub can't confirm the request landed; check the "last synced" time above after a minute to know it worked. Clients and Zoho contacts are matched automatically by email; anything that can't be matched shows up in "Contacts to review" instead of being created without asking.</div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-          <div class="sub" style="margin:0 0 6px;">Once Zoho shows an invoice as paid, the Hub moves its saved PDF and .ods files into a "PAID" subfolder on its own — checked every time it reconciles with Zoho, no manual step. Point it at your invoices folder once and it just runs from then on.</div>
-          <div class="row" style="align-items:center;gap:10px;">
-            <span class="hint" id="invoicesFolderLabel">Invoices folder: not set</span>
-            <button class="btn btn-ghost" id="invoicesFolderBtn" style="width:auto;">Choose invoices folder…</button>
-          </div>
-        </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-          <div class="sub" style="margin:0 0 6px;">Every button that talks to Zoho — creating a contact, sending an invoice, recording a payment, marking one sent — logs its outcome here once it lands: "Zoho updated" if it worked, or the exact error if it didn't, ready to copy and hand to Claude.</div>
-          <div id="zohoActionLog"></div>
-        </div>
       </div>
     </div>
 
@@ -1430,7 +1434,7 @@ function doPost(e) {
 
       <div class="card">
         <h2>Financial snapshots</h2>
-        <div class="sub">Period profit-and-loss figures aren't part of the live Zoho connection on the Clients tab (that covers contacts, invoices and payments), so these snapshots are imported: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
+        <div class="sub">Period profit-and-loss figures aren't part of the live Zoho connection on the Dashboard (that covers contacts, invoices and payments), so these snapshots are imported: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
         <div class="finance-import">
           <input type="file" id="finImportFile" accept=".json,application/json">
           <textarea id="finImportText" placeholder="…or paste the snapshot JSON here"></textarea>
@@ -1844,7 +1848,7 @@ function doPost(e) {
       </div>
     </div>
 
-    <div class="panel" id="panel-social">
+    <div class="panel" id="panel-webdev">
       <div class="card">
         <h2>Ops Hub — Website &amp; Media Tools</h2>
         <div class="sub">The live toolkit for the website's pages and media, embedded directly — currently v21, embedded 16 Sep 2026. It runs for real here, exactly as it does opened on its own; when a new version is ready, send it over and it gets swapped in.</div>
@@ -1884,7 +1888,9 @@ function doPost(e) {
           </div>
         </div>
       </div>
+    </div>
 
+    <div class="panel" id="panel-social">
       <div class="card">
         <h2>Website &amp; Socials</h2>
         <div class="sub">Where the live site and social accounts actually are. Add, edit, or remove entries as accounts change — mark one "Not live yet" if it's planned but not public.</div>
@@ -7011,20 +7017,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     hydrateOpsHubConn();
   }
 
-  // Nav is two-tier: a primary row (Dashboard, Calendar, and two group buttons), and a
+  // Nav is two-tier: a primary row (Dashboard, Calendar, and the group buttons: Business Admin, Clients, Website), and a
   // sub row per group that shows/hides depending which group the active panel belongs
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
     clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client', retention: 'Client',
-    tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', blog: 'Admin', links: 'Admin', social: 'Admin'
+    tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin',
+    blog: 'Website', links: 'Website', webdev: 'Website', social: 'Website'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
   // clicking "Clients" again) returns you where you left off instead of always
   // resetting to that group's first tab. Kept as plain JS state rather than read back
   // off DOM .active classes, since activatePanel() clears .active on every button when
   // navigating away (see below) and that would otherwise erase this memory.
-  const lastPanelForGroup = { Client: 'clients', Admin: 'tasks' };
+  const lastPanelForGroup = { Client: 'clients', Admin: 'tasks', Website: 'blog' };
 
   function activatePanel(panelId){
     const panel = document.getElementById('panel-' + panelId);
@@ -7051,7 +7058,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
   document.querySelectorAll('.group-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
-      const group = btn.dataset.group === 'client' ? 'Client' : 'Admin';
+      const group = btn.dataset.group.charAt(0).toUpperCase() + btn.dataset.group.slice(1);
       // Land on whichever panel in that group was last visited (so re-clicking the
       // group button returns you where you left off), otherwise its first tab.
       activatePanel(lastPanelForGroup[group]);
@@ -10990,7 +10997,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!data.zohoConnection){ wrap.innerHTML = ''; return; }
       if (!c.zohoContactId){
         const noEmailWarn = c.email ? '' : '<div class="hint" style="color:var(--warn);font-weight:700;">⚠ No email set — Zoho can\'t auto-link this client until one is added.</div>';
-        wrap.innerHTML = noEmailWarn + '<div class="hint">Add a Zoho contact ID above, save, then use "Sync now" on the Zoho Books connection (Clients tab) to pull their balance and invoices here.</div>';
+        wrap.innerHTML = noEmailWarn + '<div class="hint">Add a Zoho contact ID above, save, then use "Sync now" on the Zoho Books card (bottom of the Dashboard) to pull their balance and invoices here.</div>';
         return;
       }
       const snap = zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
@@ -11084,6 +11091,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // the same mechanism the vault itself uses). The Hub creates the file itself first
   // (so it's within its drive.file grant) — the script only ever updates its content.
   const ZOHO_SNAPSHOT_FILENAME = 'zoho-snapshot.json';
+  const ZOHO_SCRIPT_VERSION_REQUIRED = 2; // Apps Script version that supports reference + date prepayment posting
 
   async function findZohoSnapshotFile(){
     const folderId = await ensureDriveFolder();
@@ -11146,6 +11154,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (label){
       label.textContent = (zohoSnapshotCache && zohoSnapshotCache.syncedAt) ? ('Last synced: ' + zohoSnapshotCache.syncedAt) : '';
     }
+    renderZohoHealth();
+  }
+
+  // One line per thing that has to be true for everything Zoho-related in the Hub to work,
+  // so a mismatch (old Apps Script, missing API permission, nothing synced) is visible here
+  // instead of showing up as an error somewhere else.
+  function renderZohoHealth(){
+    const wrap = document.getElementById('zohoHealth');
+    if (!wrap) return;
+    const conn = data && data.zohoConnection;
+    const snap = zohoSnapshotCache;
+    const rows = [];
+    const ok = function(t){ return '<span style="color:var(--good, #2e7d32);">✓ ' + escapeHtml(t) + '</span>'; };
+    const bad = function(t){ return '<span style="color:#b3261e;">✗ ' + escapeHtml(t) + '</span>'; };
+    const meh = function(t){ return '<span style="color:var(--muted);">' + escapeHtml(t) + '</span>'; };
+    rows.push(['Apps Script link', (conn && conn.webAppUrl) ? ok('Saved') : bad('Not connected')]);
+    rows.push(['Last sync', snap && snap.syncedAt ? ok(snap.syncedAt.slice(0, 16).replace('T', ' ') + ' UTC') : meh('Nothing synced yet, press Sync now')]);
+    if (snap){
+      const v = Number(snap.scriptVersion) || 1;
+      rows.push(['Apps Script version', v >= ZOHO_SCRIPT_VERSION_REQUIRED ? ok('Version ' + v + ' (current)') : bad('Older version, replace it with the latest Code.gs and deploy a new version')]);
+      if (snap.subscriptionEntriesError) rows.push(['Prepayment entries', bad('Zoho refused the listing: ' + snap.subscriptionEntriesError)]);
+      else if (Array.isArray(snap.subscriptionEntries)) rows.push(['Prepayment entries', ok('Readable (' + snap.subscriptionEntries.length + ' journals and referenced expenses seen)')]);
+      else rows.push(['Prepayment entries', meh('Not reported by this Apps Script version')]);
+    }
+    const pending = (data && data.zohoPending) ? data.zohoPending.length : 0;
+    rows.push(['Actions waiting on Zoho', pending ? meh(pending + ' sent, not yet confirmed') : ok('None')]);
+    wrap.innerHTML = rows.map(function(r){
+      return '<div class="zoho-row" style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13px;"><span>' + escapeHtml(r[0]) + '</span><span style="text-align:right;">' + r[1] + '</span></div>';
+    }).join('');
   }
 
   document.getElementById('zohoEditBtn').addEventListener('click', function(){
@@ -11231,7 +11268,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // to know what the result is *for* (which client, which quote).
   async function zohoFireWrite(kind, payload, meta){
     const conn = data.zohoConnection;
-    if (!conn || !conn.webAppUrl){ toast('Connect a Zoho Books destination first (Clients tab).'); return null; }
+    if (!conn || !conn.webAppUrl){ toast('Connect a Zoho Books destination first (Zoho Books card, bottom of the Dashboard).'); return null; }
     const requestId = zohoRequestId();
     data.zohoPending.push({ requestId: requestId, kind: kind, meta: meta || {}, sentAt: new Date().toISOString() });
     markDirty();
@@ -11293,6 +11330,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const results = zohoSnapshotCache.writeResults;
     const stillPending = [];
     let applied = 0, failed = 0;
+    // Anything Jon needs to read goes into one dialog he has to click OK on, rather than a
+    // toast that disappears after a few seconds.
+    const needsOk = [];
     data.zohoPending.forEach(function(p){
       const r = results[p.requestId];
       if (!r){ stillPending.push(p); return; }
@@ -11300,8 +11340,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         failed++;
         const label = zohoActionLabel(p, r);
         zohoLogAction({ kind: p.kind, ok: false, label: label, error: r.error || 'unknown error' });
-        toast('Zoho error — ' + label + ': ' + (r.error || 'unknown error'));
+        needsOk.push('NOT DONE - ' + label + '\n   Zoho said: ' + (r.error || 'unknown error') + (String(r.error || '').indexOf('Bad or missing reference') === 0 ? '\n   This message comes from an OLD version of the Apps Script. Replace it with the latest Code.gs and deploy a new version, then try again.' : ''));
         return;
+      }
+      if (r.result && r.result.duplicate){
+        needsOk.push('SKIPPED - ' + zohoActionLabel(p, r) + '\n   Zoho already has an entry with this reference on this date, so nothing new was created.');
+      }
+      if (r.result && r.result.publishError){
+        needsOk.push('NEEDS ATTENTION - ' + zohoActionLabel(p, r) + '\n   Created in Zoho but could not be published (it is a draft): ' + r.result.publishError);
       }
       applied++;
       if (p.kind === 'createContact'){
@@ -11318,6 +11364,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     data.zohoPending = stillPending;
     if (applied || failed){ markDirty(); renderZohoActionLog(); renderInvoiceQueue(); renderSubscriptions(); renderHome(); }
+    if (needsOk.length){
+      setTimeout(function(){ alert('Zoho update - please read:\n\n' + needsOk.join('\n\n')); }, 50);
+    }
     if (applied) return applied + ' Zoho update' + (applied === 1 ? '' : 's') + ' landed.';
     return null;
   }
@@ -11559,7 +11608,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let paidSubfolderId = null;
   async function ensurePaidSubfolder(){
     if (paidSubfolderId) return paidSubfolderId;
-    if (!data.invoicesFolder || !data.invoicesFolder.id) throw new Error('No invoices folder set yet (Clients tab, Zoho Books connection).');
+    if (!data.invoicesFolder || !data.invoicesFolder.id) throw new Error('No invoices folder set yet (Dashboard, Zoho Books card).');
     const existing = await findDriveFolderByName('PAID', data.invoicesFolder.id);
     if (existing){ paidSubfolderId = existing.id; return paidSubfolderId; }
     const createRes = await driveApiFetch('/files?fields=id,name', {
@@ -11945,7 +11994,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!c){
         html += '<div class="hint">Select a client above to send this to Zoho.</div>';
       } else if (!c.zohoContactId){
-        html += '<div class="hint">"' + escapeHtml(c.name) + '" isn\'t linked to a Zoho contact yet — resolve that from "Contacts to review" on the Clients tab, then reopen this quote.</div>';
+        html += '<div class="hint">"' + escapeHtml(c.name) + '" isn\'t linked to a Zoho contact yet — resolve that from "Contacts to review" on the Dashboard (Zoho Books card), then reopen this quote.</div>';
       } else if (q.zohoInvoiceId){
         const snapC = zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
         const snapInv = snapC && (snapC.invoices || []).find(function(iv){ return iv.invoiceId === q.zohoInvoiceId; });
@@ -14919,7 +14968,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function subLegacyRef_(s, suffix){
     return 'MH-SUB-' + String(s.id).replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() + '-' + suffix;
   }
-  function subEntryKey_(kind, ref, date){ return kind + '|' + ref + '|' + date; }
+  // Reference text is compared ignoring case, spacing at the ends and repeated spaces, so
+  // "GoDaddy.com Domain purchases" and "GoDaddy.com domain purchases" are the same entry.
+  function subNormRef_(ref){ return String(ref || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+  function subEntryKey_(kind, ref, date){ return kind + '|' + subNormRef_(ref) + '|' + date; }
   function subInitialDate_(s){ return s.paidDate || s.coverageStart; }
 
   // Everything the card and the dashboard show comes from here: the computed schedule laid
@@ -14929,7 +14981,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function subscriptionZohoState(s){
     const snap = zohoSnapshotCache;
     const connected = !!(data.zohoConnection && data.zohoConnection.webAppUrl);
-    const entriesKnown = !!(snap && Array.isArray(snap.subscriptionEntries));
+    const listed = !!(snap && Array.isArray(snap.subscriptionEntries));
+    const scriptOk = !!(snap && Number(snap.scriptVersion) >= ZOHO_SCRIPT_VERSION_REQUIRED);
+    const entriesKnown = listed && scriptOk;
     const byKey = {}, byLegacy = {};
     (entriesKnown ? snap.subscriptionEntries : []).forEach(function(e){
       byKey[subEntryKey_(e.kind, e.reference, e.date)] = e;
@@ -14962,7 +15016,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       .sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
     let numbersInOrder = true;
     for (let k = 1; k < numbered.length; k++){ if (numbered[k].n < numbered[k - 1].n){ numbersInOrder = false; break; } }
-    return { connected: connected, entriesKnown: entriesKnown, error: snap && snap.subscriptionEntriesError, snapshotLoaded: !!snap,
+    const stateError = (snap && snap.subscriptionEntriesError) ||
+      (listed && !scriptOk ? 'The Apps Script is an older version that cannot post prepayments using your own reference. Replace it with the latest Code.gs and deploy a new version.' : '');
+    return { connected: connected, entriesKnown: entriesKnown, error: stateError, snapshotLoaded: !!snap,
              init: init, lines: lines, needsInitial: needsInitial, dueLines: dueLines, complete: complete, numbersInOrder: numbersInOrder };
   }
 
@@ -14974,7 +15030,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function postSubscriptionInitial_(s){
     const st = subscriptionZohoState(s);
-    if (!st.entriesKnown){ toast('Zoho state unknown, sync first.'); return; }
+    if (!st.entriesKnown){ alert('Zoho state unknown. Press Sync now on the Zoho Books card at the bottom of the Dashboard first, then try again.'); return; }
     const date = subInitialDate_(s);
     if (!confirm('Post to Zoho now?\n\nExpense ' + fmtGBP(s.totalAmount) + ' dated ' + date + '\nFrom the SKYSIGHT LTD bank account to Prepaid Expenses\nReference: ' + s.reference + '\n\nIf your bank feed has already recorded this payment, cancel and tick "already in Zoho" instead, or it will be counted twice.')) return;
     await zohoFireWrite('createPrepaidExpense', {
@@ -14994,7 +15050,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!st.entriesKnown) return;
       st.dueLines.forEach(function(l){ items.push({ s: s, line: l }); });
     });
-    if (!items.length){ toast('Nothing due to post.'); return; }
+    if (!items.length){ alert('Nothing is due to post.'); return; }
     items.sort(function(a, b){
       if (a.line.dateIso !== b.line.dateIso) return a.line.dateIso < b.line.dateIso ? -1 : 1;
       return (a.s.createdAt || '').localeCompare(b.s.createdAt || '');
@@ -15096,9 +15152,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       card.querySelector('.snap-period').textContent = 'Coverage: ' + (s.coverageStart || '?') + ' → ' + subscriptionCoverageEndIso(s);
       card.querySelector('.sub-account').textContent = 'Zoho account ' + subscriptionAccountLabel(cat) + ' (debit on recognition; credit Prepaid Expenses)';
       const statusEl = card.querySelector('.sub-status');
-      if (!st.connected) statusEl.textContent = 'Zoho is not connected. Set it up on the Clients tab to post from here.';
+      if (!st.connected) statusEl.textContent = 'Zoho is not connected. Set it up on the Zoho Books card at the bottom of the Dashboard to post from here.';
       else if (!st.snapshotLoaded) statusEl.textContent = 'Waiting for the first Zoho sync.';
-      else if (!st.entriesKnown) statusEl.textContent = st.error ? ('Zoho would not list prepayment entries: ' + st.error + ' (the new API permissions are probably not granted yet).') : 'The Apps Script has not been updated for prepayments yet, so Zoho state is unknown.';
+      else if (!st.entriesKnown) statusEl.textContent = st.error ? ('Cannot post yet: ' + st.error) : 'The Apps Script has not been updated for prepayments yet, so Zoho state is unknown.';
       else if (st.complete) statusEl.textContent = '✓ Fully matched in Zoho. Safe to remove from this list.';
       else statusEl.textContent = 'Read back from Zoho at last sync' + (zohoSnapshotCache && zohoSnapshotCache.syncedAt ? (' (' + zohoSnapshotCache.syncedAt.slice(0, 16).replace('T', ' ') + ' UTC)') : '') + '.';
       const actions = card.querySelector('.snap-actions');
@@ -15114,7 +15170,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const v = prompt('Reference for this subscription (what Zoho shows).\n\nNote: entries already in Zoho under the old reference will no longer be recognised, so only change this before posting.', s.reference);
         if (v === null) return;
         const nv = v.trim();
-        if (!nv){ toast('Reference cannot be empty.'); return; }
+        if (!nv){ alert('Reference cannot be empty.'); return; }
         s.reference = nv.slice(0, 100); markDirty(); renderSubscriptions(); renderHome();
       });
       actions.appendChild(refBtn);
@@ -15142,20 +15198,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const dateMode = document.getElementById('subDateMode').value || 'monthend';
     const paidDate = document.getElementById('subPaidDate').value;
     const initInZoho = document.getElementById('subInitInZoho').checked;
-    if (!vendor){ toast('Vendor is required.'); return; }
-    if (!reference){ toast('Reference is required (it is what Zoho will show).'); return; }
-    if (months < 1 || months > 120){ toast('Months covered must be between 1 and 120.'); return; }
-    if (!totalAmount || totalAmount <= 0){ toast('Total amount must be more than £0.'); return; }
-    if (!coverageStart){ toast('Coverage start date is required.'); return; }
+    if (!vendor){ alert('Vendor is required.'); return; }
+    if (!reference){ alert('Reference is required (it is what Zoho will show).'); return; }
+    if (months < 1 || months > 120){ alert('Months covered must be between 1 and 120.'); return; }
+    if (!totalAmount || totalAmount <= 0){ alert('Total amount must be more than £0.'); return; }
+    if (!coverageStart){ alert('Coverage start date is required.'); return; }
     // Same reference on the same day as another tracked subscription would look like one entry in Zoho.
     const candidate = { totalAmount: totalAmount, coverageStart: coverageStart, months: months, dateMode: dateMode, reference: reference };
     const candDates = {};
     computeSubscriptionSchedule(candidate).forEach(function(l){ candDates[l.dateIso] = true; });
     const clash = data.subscriptions.find(function(o){
-      if (o.reference !== reference) return false;
+      if (subNormRef_(o.reference) !== subNormRef_(reference)) return false;
       return computeSubscriptionSchedule(o).some(function(l){ return candDates[l.dateIso]; });
     });
-    if (clash){ toast('"' + reference + '" would land on the same day as ' + (clash.vendor || 'another subscription') + ' under the same reference. Make the reference different.'); return; }
+    if (clash){ alert('Not added.\n\n"' + reference + '" would land on the same day as ' + (clash.vendor || 'another subscription') + ' under the same reference, and Zoho would see them as one entry. Make the reference different.'); return; }
     data.subscriptions.push({
       id: randomId(), vendor: vendor, category: category, totalAmount: totalAmount,
       coverageStart: coverageStart, months: months, notes: '', reference: reference.slice(0, 100), dateMode: dateMode, paidDate: paidDate, initInZoho: initInZoho, createdAt: todayIso_()
