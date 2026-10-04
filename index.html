@@ -1457,7 +1457,12 @@ function doPost(e) {
             <input type="date" id="subPaidDate" title="Date paid">
             <div class="hint">Date paid (optional, defaults to the coverage start date)</div>
             <label style="display:flex;gap:8px;align-items:center;font-size:13px;"><input type="checkbox" id="subInitInZoho"> Initial payment is already in Zoho (e.g. from the bank feed), only post the monthly journals</label>
-            <textarea id="subNotes" placeholder="Notes (optional)"></textarea>
+            <input type="text" id="subReference" placeholder="Reference (what Zoho shows, e.g. GoDaddy.com domain purchases)" maxlength="100">
+            <div class="hint">This text becomes the journal Reference and Notes in Zoho. The same reference can repeat across months, but never twice on the same day.</div>
+            <select id="subDateMode" title="Journal dates">
+              <option value="monthend">Journal dates: last day of each month</option>
+              <option value="anniversary">Journal dates: same day each month as the purchase</option>
+            </select>
             <button class="btn btn-primary" id="subAddBtn" style="width:auto;">Add subscription</button>
           </div>
         </div>
@@ -2688,6 +2693,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       s.coverageStart = s.coverageStart || '';
       s.months = Number(s.months) || 12;
       s.notes = s.notes || '';
+      // What Zoho records as the journal reference (and notes). Older entries had only a free-text
+      // note, so fall back to that, then the vendor name.
+      s.reference = s.reference || s.notes || s.vendor || '';
+      // Month-end is the default; same-day-each-month is available per subscription.
+      s.dateMode = s.dateMode || 'monthend';
       s.paidDate = s.paidDate || '';
       s.initInZoho = !!s.initInZoho;
       s.createdAt = s.createdAt || todayIso_();
@@ -14879,13 +14889,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const totalCents = Math.round((Number(sub.totalAmount) || 0) * 100);
     const baseCents = Math.floor(totalCents / months);
     const start = sub.coverageStart ? new Date(sub.coverageStart + 'T00:00:00') : new Date();
+    const anniversary = (sub.dateMode === 'anniversary');
     const lines = [];
     let runningCents = 0;
     for (let i = 0; i < months; i++){
       const isLast = (i === months - 1);
       const cents = isLast ? (totalCents - runningCents) : baseCents;
       runningCents += cents;
-      const d = new Date(start.getFullYear(), start.getMonth() + i + 1, 0); // last day of covered month i
+      let d;
+      if (anniversary){
+        // Same day of the month as the start date, one month on for the first line, so the last
+        // line falls exactly months-after-start. Clamped for short months (31st becomes 30th/28th).
+        const lastDay = new Date(start.getFullYear(), start.getMonth() + i + 2, 0).getDate();
+        d = new Date(start.getFullYear(), start.getMonth() + i + 1, Math.min(start.getDate(), lastDay));
+      } else {
+        d = new Date(start.getFullYear(), start.getMonth() + i + 1, 0); // last day of covered month i
+      }
       lines.push({ monthIndex: i, dateIso: isoDate(d.getFullYear(), d.getMonth(), d.getDate()), amount: cents / 100 });
     }
     return lines;
@@ -14895,73 +14914,105 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return lines.length ? lines[lines.length - 1].dateIso : '';
   }
 
-  function subRef_(s, suffix){
+  // Journals the Hub posted before references became user-chosen carried a tag like
+  // MH-SUB-E18CDDF2-M01. Still recognised so they are never posted a second time.
+  function subLegacyRef_(s, suffix){
     return 'MH-SUB-' + String(s.id).replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() + '-' + suffix;
   }
+  function subEntryKey_(kind, ref, date){ return kind + '|' + ref + '|' + date; }
+  function subInitialDate_(s){ return s.paidDate || s.coverageStart; }
+
   // Everything the card and the dashboard show comes from here: the computed schedule laid
-  // against what the Zoho snapshot says exists. entriesKnown is false until the snapshot
-  // carries a subscriptionEntries list (script not updated, scope not granted, or no sync yet).
+  // against what the Zoho snapshot says exists. An entry counts as "the same" when kind,
+  // reference text and date all match. entriesKnown is false until the snapshot carries a
+  // subscriptionEntries list (script not updated, scope not granted, or no sync yet).
   function subscriptionZohoState(s){
     const snap = zohoSnapshotCache;
     const connected = !!(data.zohoConnection && data.zohoConnection.webAppUrl);
     const entriesKnown = !!(snap && Array.isArray(snap.subscriptionEntries));
-    const byRef = {};
-    (entriesKnown ? snap.subscriptionEntries : []).forEach(function(e){ byRef[e.reference] = e; });
-    const pendingRefs = {};
+    const byKey = {}, byLegacy = {};
+    (entriesKnown ? snap.subscriptionEntries : []).forEach(function(e){
+      byKey[subEntryKey_(e.kind, e.reference, e.date)] = e;
+      if (String(e.reference).indexOf('MH-SUB-') === 0) byLegacy[e.reference] = e;
+    });
+    const pendingKeys = {};
     (data.zohoPending || []).forEach(function(p){
-      if ((p.kind === 'createJournal' || p.kind === 'createPrepaidExpense') && p.meta && p.meta.ref) pendingRefs[p.meta.ref] = true;
+      if ((p.kind === 'createJournal' || p.kind === 'createPrepaidExpense') && p.meta && p.meta.key) pendingKeys[p.meta.key] = true;
     });
     const today = todayIso_();
-    const initRef = subRef_(s, 'INIT');
-    const init = { ref: initRef, entry: byRef[initRef] || null, pending: !!pendingRefs[initRef] };
+    const initKey = subEntryKey_('expense', s.reference, subInitialDate_(s));
+    const init = { key: initKey, entry: byKey[initKey] || byLegacy[subLegacyRef_(s, 'INIT')] || null, pending: !!pendingKeys[initKey] };
     const lines = computeSubscriptionSchedule(s).map(function(l, i){
-      const ref = subRef_(s, 'M' + String(i + 1).padStart(2, '0'));
-      const entry = byRef[ref] || null;
+      const key = subEntryKey_('journal', s.reference, l.dateIso);
+      const entry = byKey[key] || byLegacy[subLegacyRef_(s, 'M' + String(i + 1).padStart(2, '0'))] || null;
       let state;
       if (entry) state = (entry.kind === 'journal' && entry.status && entry.status !== 'published') ? 'draft' : 'in_zoho';
-      else if (pendingRefs[ref]) state = 'sending';
+      else if (pendingKeys[key]) state = 'sending';
       else if (l.dateIso <= today) state = 'due';
       else state = 'upcoming';
-      return { monthIndex: l.monthIndex, dateIso: l.dateIso, amount: l.amount, ref: ref, entry: entry, state: state };
+      return { monthIndex: l.monthIndex, dateIso: l.dateIso, amount: l.amount, key: key, entry: entry, state: state };
     });
     const needsInitial = entriesKnown && !s.initInZoho && !init.entry && !init.pending;
     const dueLines = lines.filter(function(l){ return l.state === 'due'; });
     const complete = entriesKnown && (s.initInZoho || !!init.entry) && lines.every(function(l){ return l.state === 'in_zoho'; });
+    // Zoho numbers journals itself, in the order they are created. Check the ones we can see
+    // against date order so a mismatch is visible rather than silent.
+    const numbered = lines.filter(function(l){ return l.entry && l.entry.number && parseInt(String(l.entry.number).replace(/\D/g, ''), 10); })
+      .map(function(l){ return { date: l.dateIso, n: parseInt(String(l.entry.number).replace(/\D/g, ''), 10) }; })
+      .sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    let numbersInOrder = true;
+    for (let k = 1; k < numbered.length; k++){ if (numbered[k].n < numbered[k - 1].n){ numbersInOrder = false; break; } }
     return { connected: connected, entriesKnown: entriesKnown, error: snap && snap.subscriptionEntriesError, snapshotLoaded: !!snap,
-             init: init, lines: lines, needsInitial: needsInitial, dueLines: dueLines, complete: complete };
+             init: init, lines: lines, needsInitial: needsInitial, dueLines: dueLines, complete: complete, numbersInOrder: numbersInOrder };
   }
 
   function subscriptionJournalPayload_(s, line){
     const cat = subscriptionCategoryInfo(s.category);
-    const n = s.months;
-    const desc = (s.vendor || 'Subscription') + ' prepayment recognition ' + line.dateIso.slice(0, 7) + ' (' + (line.monthIndex + 1) + '/' + n + ')';
-    return { reference: line.ref, date: line.dateIso, amount: line.amount, notes: desc, lineDescription: desc,
+    return { reference: s.reference, date: line.dateIso, amount: line.amount,
              expenseAccountId: cat.accountId, prepaidAccountId: SUB_PREPAID_ACCOUNT_ID };
   }
 
   async function postSubscriptionInitial_(s){
     const st = subscriptionZohoState(s);
     if (!st.entriesKnown){ toast('Zoho state unknown, sync first.'); return; }
-    const date = s.paidDate || s.coverageStart;
-    if (!confirm('Post to Zoho now?\n\nExpense ' + fmtGBP(s.totalAmount) + ' dated ' + date + '\nFrom the SKYSIGHT LTD bank account to Prepaid Expenses\nReference ' + st.init.ref + '\n\nIf your bank feed has already recorded this payment, cancel and tick "already in Zoho" instead, or it will be counted twice.')) return;
+    const date = subInitialDate_(s);
+    if (!confirm('Post to Zoho now?\n\nExpense ' + fmtGBP(s.totalAmount) + ' dated ' + date + '\nFrom the SKYSIGHT LTD bank account to Prepaid Expenses\nReference: ' + s.reference + '\n\nIf your bank feed has already recorded this payment, cancel and tick "already in Zoho" instead, or it will be counted twice.')) return;
     await zohoFireWrite('createPrepaidExpense', {
-      reference: st.init.ref, date: date, amount: s.totalAmount,
-      description: (s.vendor || 'Subscription') + ' prepayment, covers ' + s.coverageStart + ' to ' + subscriptionCoverageEndIso(s),
+      reference: s.reference, date: date, amount: s.totalAmount,
+      description: s.reference + ' (prepayment, covers ' + s.coverageStart + ' to ' + subscriptionCoverageEndIso(s) + ')',
       prepaidAccountId: SUB_PREPAID_ACCOUNT_ID, bankAccountId: SUB_BANK_ACCOUNT_ID
-    }, { subId: s.id, ref: st.init.ref });
+    }, { subId: s.id, ref: s.reference, key: st.init.key });
     renderSubscriptions(); renderHome();
   }
 
-  async function postSubscriptionDue_(s){
-    const st = subscriptionZohoState(s);
-    if (!st.entriesKnown){ toast('Zoho state unknown, sync first.'); return; }
-    const due = st.dueLines;
-    if (!due.length){ toast('Nothing due to post.'); return; }
-    const cat = subscriptionCategoryInfo(s.category);
-    const total = due.reduce(function(a, l){ return a + Math.round(l.amount * 100); }, 0) / 100;
-    if (!confirm('Post ' + due.length + ' journal' + (due.length === 1 ? '' : 's') + ' to Zoho now?\n\nDebit ' + cat.accountName + ', credit Prepaid Expenses\nTotal ' + fmtGBP(total) + ' across ' + due[0].dateIso + (due.length > 1 ? (' to ' + due[due.length - 1].dateIso) : '') + '\nEach is checked against Zoho by reference first, so nothing is posted twice.')) return;
-    for (let i = 0; i < due.length; i++){
-      await zohoFireWrite('createJournal', subscriptionJournalPayload_(s, due[i]), { subId: s.id, ref: due[i].ref });
+  // One batch across every subscription, oldest date first. Zoho numbers journals in the order
+  // they are created, so creating them in date order keeps the numbers in date order too.
+  async function postAllDueSubscriptionJournals_(){
+    const items = [];
+    data.subscriptions.forEach(function(s){
+      const st = subscriptionZohoState(s);
+      if (!st.entriesKnown) return;
+      st.dueLines.forEach(function(l){ items.push({ s: s, line: l }); });
+    });
+    if (!items.length){ toast('Nothing due to post.'); return; }
+    items.sort(function(a, b){
+      if (a.line.dateIso !== b.line.dateIso) return a.line.dateIso < b.line.dateIso ? -1 : 1;
+      return (a.s.createdAt || '').localeCompare(b.s.createdAt || '');
+    });
+    const seen = {};
+    for (let k = 0; k < items.length; k++){
+      if (seen[items[k].line.key]){
+        alert('Two subscriptions would post the same reference on the same day:\n\n' + items[k].s.reference + ' on ' + items[k].line.dateIso + '\n\nGive one of them a different reference first.');
+        return;
+      }
+      seen[items[k].line.key] = true;
+    }
+    const total = items.reduce(function(a, it){ return a + Math.round(it.line.amount * 100); }, 0) / 100;
+    const preview = items.slice(0, 8).map(function(it){ return it.line.dateIso + '  ' + fmtGBP(it.line.amount) + '  ' + it.s.reference; }).join('\n') + (items.length > 8 ? ('\n...and ' + (items.length - 8) + ' more') : '');
+    if (!confirm('Post ' + items.length + ' journal' + (items.length === 1 ? '' : 's') + ' to Zoho now, oldest first?\n\nTotal ' + fmtGBP(total) + '\n\n' + preview + '\n\nEach is checked against Zoho (same reference and same date) first, so nothing is posted twice.')) return;
+    for (let k = 0; k < items.length; k++){
+      const it = items[k];
+      await zohoFireWrite('createJournal', subscriptionJournalPayload_(it.s, it.line), { subId: it.s.id, ref: it.s.reference, key: it.line.key, date: it.line.dateIso });
       renderSubscriptions();
     }
     renderHome();
@@ -14992,6 +15043,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       wrap.innerHTML = '<div class="empty-note">No subscriptions tracked yet.</div>';
       return;
     }
+    const dueTotal = subs.reduce(function(n, s){ const st0 = subscriptionZohoState(s); return n + (st0.entriesKnown ? st0.dueLines.length : 0); }, 0);
+    if (dueTotal){
+      const bar = document.createElement('div'); bar.style.marginBottom = '10px';
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-primary'; b.style.width = 'auto';
+      b.textContent = 'Post ' + dueTotal + ' due journal' + (dueTotal === 1 ? '' : 's') + ' to Zoho, oldest first';
+      b.addEventListener('click', function(){ postAllDueSubscriptionJournals_(); });
+      bar.appendChild(b); wrap.appendChild(bar);
+    }
     subs.forEach(function(s){
       const cat = subscriptionCategoryInfo(s.category);
       const st = subscriptionZohoState(s);
@@ -15009,7 +15068,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // including the next 3 upcoming months shows, and the rest folds into a details block.
       const lineRow = function(line){
         const t = SUB_STATE_TEXT[line.state];
-        return '<tr><td>' + escapeHtml(line.dateIso) + '</td><td>' + fmtGBP(line.amount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || line.state === 'sending' ? t[0] : 'Zoho state unknown') + '</td></tr>';
+        const num = (line.entry && line.entry.number) ? (' (journal #' + escapeHtml(String(line.entry.number)) + ')') : '';
+        return '<tr><td>' + escapeHtml(line.dateIso) + '</td><td>' + fmtGBP(line.amount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || line.state === 'sending' ? (t[0] + num) : 'Zoho state unknown') + '</td></tr>';
       };
       let shownUpcoming = 0, foldedRows = '', foldedCount = 0;
       st.lines.forEach(function(line){
@@ -15025,12 +15085,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="snap-period"></div>' +
         '<div class="hint sub-account"></div>' +
         '<div class="hint sub-status" style="margin-top:6px;"></div>' +
-        (s.notes ? ('<div class="snap-notes">' + escapeHtml(s.notes) + '</div>') : '') +
+        '<div class="snap-notes">Reference in Zoho: <b></b></div>' +
         '<div class="hint" style="margin-top:6px;">' + (st.entriesKnown ? (inZohoCount + ' of ' + st.lines.length + ' monthly journals in Zoho') : (st.lines.length + ' monthly journals planned')) + '</div>' +
         '<table style="margin-top:8px;">' + rows + '</table>' +
         (foldedCount ? ('<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;color:var(--muted);">' + foldedCount + ' further upcoming month' + (foldedCount === 1 ? '' : 's') + ' (to ' + escapeHtml(st.lines[st.lines.length - 1].dateIso) + ')</summary><table style="margin-top:6px;">' + foldedRows + '</table></details>') : '') +
         '<div class="snap-actions" style="margin-top:8px;"></div>';
       card.querySelector('.snap-title').textContent = s.vendor || 'Untitled subscription';
+      card.querySelector('.snap-notes b').textContent = s.reference;
       card.querySelector('.snap-pulled').textContent = fmtGBP(s.totalAmount) + ' over ' + s.months + ' mo';
       card.querySelector('.snap-period').textContent = 'Coverage: ' + (s.coverageStart || '?') + ' → ' + subscriptionCoverageEndIso(s);
       card.querySelector('.sub-account').textContent = 'Zoho account ' + subscriptionAccountLabel(cat) + ' (debit on recognition; credit Prepaid Expenses)';
@@ -15047,11 +15108,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         b.addEventListener('click', function(){ postSubscriptionInitial_(s); });
         actions.appendChild(b);
       }
-      if (st.dueLines.length){
-        const b = document.createElement('button'); b.type = 'button'; b.className = 'snap-csv-btn';
-        b.textContent = 'Post ' + st.dueLines.length + ' due journal' + (st.dueLines.length === 1 ? '' : 's') + ' to Zoho';
-        b.addEventListener('click', function(){ postSubscriptionDue_(s); });
-        actions.appendChild(b);
+      const refBtn = document.createElement('button'); refBtn.type = 'button'; refBtn.className = 'snap-csv-btn';
+      refBtn.textContent = 'Change reference';
+      refBtn.addEventListener('click', function(){
+        const v = prompt('Reference for this subscription (what Zoho shows).\n\nNote: entries already in Zoho under the old reference will no longer be recognised, so only change this before posting.', s.reference);
+        if (v === null) return;
+        const nv = v.trim();
+        if (!nv){ toast('Reference cannot be empty.'); return; }
+        s.reference = nv.slice(0, 100); markDirty(); renderSubscriptions(); renderHome();
+      });
+      actions.appendChild(refBtn);
+      if (st.entriesKnown && !st.numbersInOrder){
+        const warn = document.createElement('div'); warn.className = 'hint'; warn.style.marginTop = '6px';
+        warn.textContent = 'Heads up: some of these journals have numbers out of date order in Zoho. Zoho numbers entries itself in the order they are created and can\'t be renumbered from here.';
+        card.appendChild(warn);
       }
       card.querySelector('.snap-del').addEventListener('click', function(){
         if (!confirm('Remove "' + (s.vendor || 'this subscription') + '" from this list?\n\nThis only deletes the Hub\'s schedule. Anything already in Zoho stays there.')) return;
@@ -15068,23 +15138,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const totalAmount = parseFloat(document.getElementById('subTotal').value);
     const coverageStart = document.getElementById('subCoverageStart').value;
     const months = parseInt(document.getElementById('subMonths').value, 10) || 12;
-    const notes = document.getElementById('subNotes').value.trim();
+    const reference = document.getElementById('subReference').value.trim();
+    const dateMode = document.getElementById('subDateMode').value || 'monthend';
     const paidDate = document.getElementById('subPaidDate').value;
     const initInZoho = document.getElementById('subInitInZoho').checked;
     if (!vendor){ toast('Vendor is required.'); return; }
+    if (!reference){ toast('Reference is required (it is what Zoho will show).'); return; }
     if (months < 1 || months > 120){ toast('Months covered must be between 1 and 120.'); return; }
     if (!totalAmount || totalAmount <= 0){ toast('Total amount must be more than £0.'); return; }
     if (!coverageStart){ toast('Coverage start date is required.'); return; }
+    // Same reference on the same day as another tracked subscription would look like one entry in Zoho.
+    const candidate = { totalAmount: totalAmount, coverageStart: coverageStart, months: months, dateMode: dateMode, reference: reference };
+    const candDates = {};
+    computeSubscriptionSchedule(candidate).forEach(function(l){ candDates[l.dateIso] = true; });
+    const clash = data.subscriptions.find(function(o){
+      if (o.reference !== reference) return false;
+      return computeSubscriptionSchedule(o).some(function(l){ return candDates[l.dateIso]; });
+    });
+    if (clash){ toast('"' + reference + '" would land on the same day as ' + (clash.vendor || 'another subscription') + ' under the same reference. Make the reference different.'); return; }
     data.subscriptions.push({
       id: randomId(), vendor: vendor, category: category, totalAmount: totalAmount,
-      coverageStart: coverageStart, months: months, notes: notes, paidDate: paidDate, initInZoho: initInZoho, createdAt: todayIso_()
+      coverageStart: coverageStart, months: months, notes: '', reference: reference.slice(0, 100), dateMode: dateMode, paidDate: paidDate, initInZoho: initInZoho, createdAt: todayIso_()
     });
     markDirty();
     document.getElementById('subVendor').value = '';
     document.getElementById('subTotal').value = '';
     document.getElementById('subCoverageStart').value = '';
     document.getElementById('subMonths').value = '12';
-    document.getElementById('subNotes').value = '';
+    document.getElementById('subReference').value = '';
     document.getElementById('subPaidDate').value = '';
     document.getElementById('subInitInZoho').checked = false;
     renderSubscriptions();
