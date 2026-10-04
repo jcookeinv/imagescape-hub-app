@@ -426,7 +426,7 @@
   .doc-expiry.soon{color:var(--soon);font-weight:700;}
   .doc-expiry.overdue{color:var(--warn);font-weight:700;}
 
-  /* --- Finance & Tax --- */
+  /* --- Finance & Tax (Tax details and deadlines now sit in the Tax tab) --- */
   .finance-form{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:14px;}
   .finance-form-col input,.finance-form-col textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
     border-radius:8px;font-size:15.5px;font-family:inherit;margin-bottom:6px;}
@@ -954,8 +954,9 @@
   <nav class="tabs tabs-sub ro-allow" id="subNavAdmin" style="display:none;">
     <button data-panel="tasks">Tasks</button>
     <button data-panel="meetings">Meeting Notes</button>
-    <button data-panel="finance">Finance &amp; Tax</button>
+    <button data-panel="finance">Finance</button>
     <button data-panel="emails">Email Templates</button>
+    <button data-panel="tax">Tax</button>
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavWebsite" style="display:none;">
     <button data-panel="blog">Blog</button>
@@ -1396,7 +1397,7 @@ function doPost(e) {
       </div>
     </div>
 
-    <div class="panel" id="panel-finance">
+    <div class="panel" id="panel-tax">
       <div class="card">
         <h2>Business &amp; personal tax details</h2>
         <div class="sub">Reference details used to work out filing deadlines below, and to label financial snapshots. Nothing here is sent anywhere — it's just encrypted data in the vault, same as everything else.</div>
@@ -1431,7 +1432,9 @@ function doPost(e) {
         <div class="sub">Worked out from the financial year end and confirmation statement date above, plus the fixed UK Self Assessment dates. This is a reminder tracker, not a filing service — each deadline still needs filing directly with HMRC or Companies House (or via your accountant).</div>
         <div id="finDeadlineList"></div>
       </div>
+    </div>
 
+    <div class="panel" id="panel-finance">
       <div class="card">
         <h2>Financial snapshots</h2>
         <div class="sub">Period profit-and-loss figures aren't part of the live Zoho connection on the Dashboard (that covers contacts, invoices and payments), so these snapshots are imported: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
@@ -1683,7 +1686,7 @@ function doPost(e) {
     <div class="panel" id="panel-quotes">
       <div class="card">
         <h2>Quotes</h2>
-        <div class="sub">Build a quote from your rate presets below — pick a client (optional), add line items, get a total (VAT added automatically if you're VAT registered, per Finance &amp; Tax).</div>
+        <div class="sub">Build a quote from your rate presets below — pick a client (optional), add line items, get a total (VAT added automatically if you're VAT registered, per the Tax tab).</div>
         <button class="btn btn-primary" id="quoteNewBtn" style="width:auto;margin-bottom:14px;">+ New quote</button>
         <div class="link-grid" id="quoteGrid"></div>
       </div>
@@ -7023,7 +7026,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
     clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client', retention: 'Client',
-    tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin',
+    tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', tax: 'Admin',
     blog: 'Website', links: 'Website', webdev: 'Website', social: 'Website'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
