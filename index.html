@@ -1451,7 +1451,9 @@ function doPost(e) {
             <input type="number" id="subTotal" placeholder="Total amount paid (£)" step="0.01" min="0">
             <input type="date" id="subCoverageStart" title="Coverage start date">
             <div class="hint">Coverage start date (first day of the first covered month)</div>
-            <input type="number" id="subMonths" placeholder="Months covered" value="12" min="1" step="1">
+            <input type="number" id="subMonths" placeholder="Months covered" value="12" min="1" max="120" step="1" list="subMonthsList">
+            <datalist id="subMonthsList"><option value="12"><option value="24"><option value="36"><option value="48"><option value="60"></datalist>
+            <div class="hint">Type any number of months, up to 120. For example 24 = 2 years, 36 = 3 years.</div>
             <input type="date" id="subPaidDate" title="Date paid">
             <div class="hint">Date paid (optional, defaults to the coverage start date)</div>
             <label style="display:flex;gap:8px;align-items:center;font-size:13px;"><input type="checkbox" id="subInitInZoho"> Initial payment is already in Zoho (e.g. from the bank feed), only post the monthly journals</label>
@@ -14854,16 +14856,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const SUB_PREPAID_ACCOUNT_ID = '942152000000059020'; // Prepaid Expenses
   const SUB_BANK_ACCOUNT_ID = '942152000000070016';    // SKYSIGHT LTD bank
   const SUBSCRIPTION_CATEGORIES = [
-    { key: 'software', label: 'Software / SaaS / licences', accountName: 'Computer software', accountId: '942152000000070450' },
-    { key: 'insurance', label: 'Insurance', accountName: 'Insurance Expense', accountId: '942152000000083007' },
-    { key: 'hosting', label: 'IT / hosting / domains / internet', accountName: 'IT and Internet Expenses', accountId: '942152000000000415' },
-    { key: 'professional', label: 'Accountancy / legal / consulting', accountName: 'Professional services', accountId: '942152000000000442' },
-    { key: 'phone', label: 'Phone / mobile', accountName: 'Telephone Expense', accountId: '942152000000000409' },
-    { key: 'marketing', label: 'Marketing / ads', accountName: 'Marketing and Advertising', accountId: '942152000000000391' },
-    { key: 'rental', label: 'Equipment rental', accountName: 'Rental of equipment', accountId: '942152000000070408' },
-    { key: 'licences', label: 'Operational licences / certificates', accountName: 'Operational licenses, certificates and registration', accountId: '942152000000070374' },
-    { key: 'other', label: 'Other', accountName: 'Other Expenses', accountId: '942152000000000448' }
+    { key: 'software', label: 'Software / SaaS / licences', accountName: 'Computer software', accountId: '942152000000070450', code: 'COMPSW' },
+    { key: 'insurance', label: 'Insurance', accountName: 'Insurance Expense', accountId: '942152000000083007', code: 'INS' },
+    { key: 'hosting', label: 'IT / hosting / domains / internet', accountName: 'IT and Internet Expenses', accountId: '942152000000000415', code: '' },
+    { key: 'professional', label: 'Accountancy / legal / consulting', accountName: 'Professional services', accountId: '942152000000000442', code: 'PROF' },
+    { key: 'phone', label: 'Phone / mobile', accountName: 'Telephone Expense', accountId: '942152000000000409', code: '' },
+    { key: 'marketing', label: 'Marketing / ads', accountName: 'Marketing and Advertising', accountId: '942152000000000391', code: 'MKTG' },
+    { key: 'rental', label: 'Equipment rental', accountName: 'Rental of equipment', accountId: '942152000000070408', code: 'RENT' },
+    { key: 'licences', label: 'Operational licences / certificates', accountName: 'Operational licenses, certificates and registration', accountId: '942152000000070374', code: 'LICENSES' },
+    { key: 'other', label: 'Other', accountName: 'Other Expenses', accountId: '942152000000000448', code: '' }
   ];
+  // Matches how Zoho shows the account: its short code in brackets, then the name. The
+  // codes are copied from the Zoho chart of accounts; three accounts have no code there.
+  function subscriptionAccountLabel(cat){
+    return (cat.code ? ('[' + cat.code + '] ') : '') + cat.accountName;
+  }
   function subscriptionCategoryInfo(key){
     return SUBSCRIPTION_CATEGORIES.find(function(c){ return c.key === key; }) || SUBSCRIPTION_CATEGORIES[SUBSCRIPTION_CATEGORIES.length - 1];
   }
@@ -14973,7 +14980,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (sel && !sel.options.length){
       SUBSCRIPTION_CATEGORIES.forEach(function(c){
         const opt = document.createElement('option');
-        opt.value = c.key; opt.textContent = c.label;
+        opt.value = c.key; opt.textContent = subscriptionAccountLabel(c); opt.title = c.label;
         sel.appendChild(opt);
       });
     }
@@ -14998,22 +15005,35 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const t = SUB_STATE_TEXT[initState];
         rows += '<tr><td>Initial payment (' + escapeHtml(s.paidDate || s.coverageStart) + ')</td><td>' + fmtGBP(s.totalAmount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || initState === 'sending' ? t[0] : 'Zoho state unknown') + '</td></tr>';
       }
-      st.lines.forEach(function(line){
+      // Long prepayments (2-3 years) would make a 24-36 row table, so everything up to and
+      // including the next 3 upcoming months shows, and the rest folds into a details block.
+      const lineRow = function(line){
         const t = SUB_STATE_TEXT[line.state];
-        rows += '<tr><td>' + escapeHtml(line.dateIso) + '</td><td>' + fmtGBP(line.amount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || line.state === 'sending' ? t[0] : 'Zoho state unknown') + '</td></tr>';
+        return '<tr><td>' + escapeHtml(line.dateIso) + '</td><td>' + fmtGBP(line.amount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || line.state === 'sending' ? t[0] : 'Zoho state unknown') + '</td></tr>';
+      };
+      let shownUpcoming = 0, foldedRows = '', foldedCount = 0;
+      st.lines.forEach(function(line){
+        if (line.state === 'upcoming'){
+          shownUpcoming++;
+          if (shownUpcoming > 3){ foldedRows += lineRow(line); foldedCount++; return; }
+        }
+        rows += lineRow(line);
       });
+      const inZohoCount = st.lines.filter(function(l){ return l.state === 'in_zoho'; }).length;
       card.innerHTML =
         '<div class="snap-head"><span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Remove from this list (does not touch Zoho)">✕</button></div>' +
         '<div class="snap-period"></div>' +
         '<div class="hint sub-account"></div>' +
         '<div class="hint sub-status" style="margin-top:6px;"></div>' +
         (s.notes ? ('<div class="snap-notes">' + escapeHtml(s.notes) + '</div>') : '') +
+        '<div class="hint" style="margin-top:6px;">' + (st.entriesKnown ? (inZohoCount + ' of ' + st.lines.length + ' monthly journals in Zoho') : (st.lines.length + ' monthly journals planned')) + '</div>' +
         '<table style="margin-top:8px;">' + rows + '</table>' +
+        (foldedCount ? ('<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;color:var(--muted);">' + foldedCount + ' further upcoming month' + (foldedCount === 1 ? '' : 's') + ' (to ' + escapeHtml(st.lines[st.lines.length - 1].dateIso) + ')</summary><table style="margin-top:6px;">' + foldedRows + '</table></details>') : '') +
         '<div class="snap-actions" style="margin-top:8px;"></div>';
       card.querySelector('.snap-title').textContent = s.vendor || 'Untitled subscription';
       card.querySelector('.snap-pulled').textContent = fmtGBP(s.totalAmount) + ' over ' + s.months + ' mo';
       card.querySelector('.snap-period').textContent = 'Coverage: ' + (s.coverageStart || '?') + ' → ' + subscriptionCoverageEndIso(s);
-      card.querySelector('.sub-account').textContent = cat.label + ' → ' + cat.accountName + ' (debit on recognition; credit Prepaid Expenses)';
+      card.querySelector('.sub-account').textContent = 'Zoho account ' + subscriptionAccountLabel(cat) + ' (debit on recognition; credit Prepaid Expenses)';
       const statusEl = card.querySelector('.sub-status');
       if (!st.connected) statusEl.textContent = 'Zoho is not connected. Set it up on the Clients tab to post from here.';
       else if (!st.snapshotLoaded) statusEl.textContent = 'Waiting for the first Zoho sync.';
@@ -15052,6 +15072,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const paidDate = document.getElementById('subPaidDate').value;
     const initInZoho = document.getElementById('subInitInZoho').checked;
     if (!vendor){ toast('Vendor is required.'); return; }
+    if (months < 1 || months > 120){ toast('Months covered must be between 1 and 120.'); return; }
     if (!totalAmount || totalAmount <= 0){ toast('Total amount must be more than £0.'); return; }
     if (!coverageStart){ toast('Coverage start date is required.'); return; }
     data.subscriptions.push({
