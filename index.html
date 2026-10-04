@@ -1430,7 +1430,7 @@ function doPost(e) {
 
       <div class="card">
         <h2>Financial snapshots</h2>
-        <div class="sub">Zoho Books can't be reached directly from this page (it doesn't support cross-origin browser calls the way WordPress does), so snapshots are imported instead: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
+        <div class="sub">Period profit-and-loss figures aren't part of the live Zoho connection on the Clients tab (that covers contacts, invoices and payments), so these snapshots are imported: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
         <div class="finance-import">
           <input type="file" id="finImportFile" accept=".json,application/json">
           <textarea id="finImportText" placeholder="…or paste the snapshot JSON here"></textarea>
@@ -1438,6 +1438,28 @@ function doPost(e) {
           <span id="finImportMsg" class="hint"></span>
         </div>
         <div id="finSnapshotList"></div>
+      </div>
+
+      <div class="card">
+        <h2>Subscriptions &amp; prepayments</h2>
+        <div class="sub">Posts the initial prepayment (bank to Prepaid Expenses) and each month's recognition journal (expense account, credit Prepaid Expenses) to Zoho through your Apps Script bridge. Monthly amount is total ÷ months, rounded to the penny, remainder on the final month, one journal per month dated its last day. The Hub keeps no status of its own: each line below is read back from Zoho (entries tagged MH-SUB-...), so what you see is what Zoho holds.</div>
+        <div class="finance-form">
+          <div class="finance-form-col">
+            <div class="finance-form-label">Add a subscription</div>
+            <input type="text" id="subVendor" placeholder="Vendor (e.g. Midjourney)">
+            <select id="subCategory"></select>
+            <input type="number" id="subTotal" placeholder="Total amount paid (£)" step="0.01" min="0">
+            <input type="date" id="subCoverageStart" title="Coverage start date">
+            <div class="hint">Coverage start date (first day of the first covered month)</div>
+            <input type="number" id="subMonths" placeholder="Months covered" value="12" min="1" step="1">
+            <input type="date" id="subPaidDate" title="Date paid">
+            <div class="hint">Date paid (optional, defaults to the coverage start date)</div>
+            <label style="display:flex;gap:8px;align-items:center;font-size:13px;"><input type="checkbox" id="subInitInZoho"> Initial payment is already in Zoho (e.g. from the bank feed), only post the monthly journals</label>
+            <textarea id="subNotes" placeholder="Notes (optional)"></textarea>
+            <button class="btn btn-primary" id="subAddBtn" style="width:auto;">Add subscription</button>
+          </div>
+        </div>
+        <div id="subList" style="margin-top:14px;"></div>
       </div>
 
       <div class="card">
@@ -1570,6 +1592,14 @@ function doPost(e) {
         <div id="invLedgerStatusMsg" class="hint" style="margin-top:6px;"></div>
         <div id="invStatus" class="hint" style="margin-top:10px;"></div>
         <div id="invResult" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;" id="invPaidCard">
+        <h2>Mark an invoice paid</h2>
+        <div class="sub">Pulls every invoice from the Invoices tab that isn't already marked PAID, so a payment date can be confirmed without opening the spreadsheet by hand. Updates only that row's Status and Date Paid columns — nothing else on the tab is touched.</div>
+        <div class="row"><button class="btn btn-ghost" id="invPaidRefreshBtn" style="width:auto;">Load unpaid invoices</button></div>
+        <div id="invPaidMsg"></div>
+        <div id="invPaidList" style="margin-top:10px;"></div>
       </div>
 
       <div class="card" style="margin-top:16px;display:none;" id="invEmailCard">
@@ -2641,6 +2671,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // Dashboard reminder (see accessReminderItems) before it lapses and backups go quiet.
       d.githubBackup.tokenExpiresAt = d.githubBackup.tokenExpiresAt || '';
     }
+    // Subscription / prepayment tracking for ImageScape Studios Ltd. Posts the initial
+    // prepaid expense and the monthly recognition journals to Zoho through the existing
+    // Apps Script bridge, and keeps NO posted status of its own: what's in Zoho is read
+    // back from the snapshot (entries tagged with an "MH-SUB-" reference) and compared
+    // against the schedule computed here, so the Hub and Zoho can't drift apart.
+    // paidDate and initInZoho are inputs to what gets posted, not a record of what has been.
+    d.subscriptions = d.subscriptions || [];
+    d.subscriptions.forEach(function(s){
+      s.id = s.id || randomId();
+      s.vendor = s.vendor || '';
+      s.category = s.category || 'other';
+      s.totalAmount = Number(s.totalAmount) || 0;
+      s.coverageStart = s.coverageStart || '';
+      s.months = Number(s.months) || 12;
+      s.notes = s.notes || '';
+      s.paidDate = s.paidDate || '';
+      s.initInZoho = !!s.initInZoho;
+      s.createdAt = s.createdAt || todayIso_();
+    });
     d.paperwork = d.paperwork || [];
     d.paperwork.forEach(function(p){
       p.clientId = p.clientId || '';
@@ -4377,6 +4426,116 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const blob = await odsSaveContentXml(dl.zip, xmlDoc);
     await saveTaxSpreadsheetAsNewVersion(blob);
   }
+
+  // ---------------------------------------------------------------- Invoices tab: mark paid
+  // Added at Jon's request: every invoice is logged with Status PENDING/RAISED and a blank
+  // Date Paid (see the "Generate invoice & log it" flow above) - this is the other half,
+  // confirming a real payment date later and flipping Status to PAID, without opening the
+  // spreadsheet by hand. Read-only listing first, then a targeted in-place cell update
+  // (never inserts/removes a row, unlike odsInsertInvoiceLedgerRow above).
+  async function listInvoiceLedgerRows(){
+    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId) return [];
+    const { zip } = await downloadTaxSpreadsheetZip();
+    const xmlDoc = await odsLoadContentXml(zip);
+    const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+    if (!invoicesTable) return [];
+    const header = odsFindInvoicesLedgerHeader(invoicesTable);
+    if (!header) return [];
+    const rows = header.rows;
+    const out = [];
+    for (let r = header.rowIndex + 1; r < rows.length; r++){
+      const id = odsPeekCellText(rows[r], 0);
+      if (!id) continue; // blank/spacer row
+      out.push({
+        id: id,
+        client: odsPeekCellText(rows[r], 1),
+        amount: odsPeekCellNumber_(rows[r], 2),
+        status: odsPeekCellText(rows[r], 3),
+        invDateIso: odsPeekCellDateValue(rows[r], 4),
+        dueDateIso: odsPeekCellDateValue(rows[r], 5),
+        datePaidIso: odsPeekCellDateValue(rows[r], 6)
+      });
+    }
+    return out;
+  }
+
+  async function markInvoiceLedgerRowPaid(id, datePaidIso){
+    const dl = await downloadTaxSpreadsheetZip();
+    const xmlDoc = await odsLoadContentXml(dl.zip);
+    const invoicesTable = odsFindTableByName(xmlDoc, 'Invoices');
+    if (!invoicesTable) throw new Error('Could not find an "Invoices" tab in your tax spreadsheet.');
+    const header = odsFindInvoicesLedgerHeader(invoicesTable);
+    if (!header) throw new Error('Could not find the Invoices tab’s ledger header row (Id / Client / Amount (£) / ...).');
+    const rows = header.rows;
+    const want = String(id || '').trim().toLowerCase();
+    let targetRow = null;
+    for (let r = header.rowIndex + 1; r < rows.length; r++){
+      if (odsPeekCellText(rows[r], 0).trim().toLowerCase() === want){ targetRow = rows[r]; break; }
+    }
+    if (!targetRow) throw new Error('Could not find invoice ' + id + ' on the Invoices tab anymore — it may have changed on the sheet itself since this list was loaded.');
+    odsSetCellText(xmlDoc, odsGetCellAt(targetRow, 3), 'PAID');
+    odsSetCellDate(xmlDoc, odsGetCellAt(targetRow, 6), datePaidIso, ddmmyy(datePaidIso));
+    const blob = await odsSaveContentXml(dl.zip, xmlDoc);
+    await saveTaxSpreadsheetAsNewVersion(blob);
+  }
+
+  async function renderInvoicePaidList(){
+    const listWrap = document.getElementById('invPaidList');
+    const msg = document.getElementById('invPaidMsg');
+    if (!listWrap) return;
+    listWrap.innerHTML = '';
+    msg.innerHTML = '';
+    if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
+      listWrap.innerHTML = '<div class="empty-note">Link your tax spreadsheet on the Tax spreadsheet tab first.</div>';
+      return;
+    }
+    let rows;
+    try { rows = await listInvoiceLedgerRows(); }
+    catch (e){ msg.innerHTML = '<div class="msg error">' + escapeHtml(e.message || 'Could not read the Invoices tab.') + '</div>'; return; }
+    const unpaid = rows.filter(function(r){ return (r.status || '').trim().toUpperCase() !== 'PAID'; });
+    if (!unpaid.length){
+      listWrap.innerHTML = '<div class="empty-note">Nothing unpaid on the Invoices tab.</div>';
+      return;
+    }
+    unpaid.forEach(function(r){
+      const row = document.createElement('div');
+      row.className = 'zoho-row';
+      row.style.cssText = 'align-items:center;flex-wrap:wrap;gap:8px;';
+      const left = document.createElement('span');
+      left.textContent = r.id + ' — ' + (r.client || '(no client)') + ' (' + (r.amount != null ? fmtGBP(r.amount) : '?') + ') · ' +
+        (r.status || '?') + (r.dueDateIso ? (' · due ' + r.dueDateIso) : '');
+      row.appendChild(left);
+      const dateInput = document.createElement('input');
+      dateInput.type = 'date';
+      dateInput.value = todayIso_();
+      dateInput.style.cssText = 'width:auto;flex-shrink:0;';
+      row.appendChild(dateInput);
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-primary';
+      btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
+      btn.textContent = 'Mark paid';
+      btn.addEventListener('click', async function(){
+        const datePaidIso = dateInput.value;
+        if (!datePaidIso){ msg.innerHTML = '<div class="msg error">Pick a payment date first.</div>'; return; }
+        if (!confirm('Mark ' + r.id + ' (' + (r.client || '') + ', ' + (r.amount != null ? fmtGBP(r.amount) : '?') + ') as PAID on ' + datePaidIso + '? This writes straight to the Invoices tab.')) return;
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try {
+          await markInvoiceLedgerRowPaid(r.id, datePaidIso);
+          toast(r.id + ' marked paid.');
+          renderInvoicePaidList();
+        } catch (e){
+          msg.innerHTML = '<div class="msg error">' + escapeHtml(e.message || 'Could not update that row.') + '</div>';
+          btn.disabled = false; btn.textContent = 'Mark paid';
+        }
+      });
+      row.appendChild(btn);
+      listWrap.appendChild(row);
+    });
+  }
+  (function(){
+    const btn = document.getElementById('invPaidRefreshBtn');
+    if (btn) btn.addEventListener('click', renderInvoicePaidList);
+  })();
 
   function randomBoundary(){ return 'ohbnd' + randomId().replace(/-/g, ''); }
 
@@ -9546,6 +9705,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
       }
     }
+    (function(){
+      // Derived entirely from the Zoho snapshot (see subscriptionZohoState): lists only
+      // subscriptions with something actionable, or whose Zoho state can't be read.
+      const states = (data.subscriptions || []).map(function(s){ return { s: s, st: subscriptionZohoState(s) }; });
+      const unknown = states.filter(function(x){ return !x.st.entriesKnown; });
+      const actionable = states.filter(function(x){ return x.st.needsInitial || x.st.dueLines.length; });
+      if (actionable.length){
+        items.push({
+          level: 'soon',
+          title: actionable.length + ' subscription' + (actionable.length === 1 ? '' : 's') + ' to post in Zoho',
+          sub: actionable.map(function(x){
+            const bits = [];
+            if (x.st.needsInitial) bits.push('initial payment');
+            if (x.st.dueLines.length) bits.push(x.st.dueLines.length + ' journal' + (x.st.dueLines.length === 1 ? '' : 's') + ' due');
+            return x.s.vendor + ' (' + bits.join(', ') + ')';
+          }).join(', '),
+          panel: 'finance', when: 'Finance'
+        });
+      } else if (unknown.length){
+        items.push({
+          level: 'soon',
+          title: unknown.length + ' subscription' + (unknown.length === 1 ? '' : 's') + ' tracked, Zoho state unknown',
+          sub: 'Needs a Zoho sync with the prepayments version of the Apps Script before it can show what is posted.',
+          panel: 'finance', when: 'Finance'
+        });
+      }
+    })();
     const fp = data.financeProfile || {};
     try { accessManualReminderItems().forEach(function(it){ items.push(it); }); } catch (e){ /* ignore */ }
     if (!fp.personalUtr){
@@ -11057,7 +11243,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     createContact: 'Create contact',
     createInvoiceFromQuote: 'Send invoice',
     recordPayment: 'Record payment',
-    markInvoiceSent: 'Mark invoice as sent'
+    markInvoiceSent: 'Mark invoice as sent',
+    createPrepaidExpense: 'Post prepayment',
+    createJournal: 'Post recognition journal'
   };
   function zohoActionLabel(p, r){
     const kindLabel = ZOHO_ACTION_KIND_LABEL[p.kind] || p.kind;
@@ -11075,6 +11263,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (p.kind === 'markInvoiceSent'){
       return kindLabel + (p.meta.invoiceId ? (' — ' + p.meta.invoiceId) : '');
+    }
+    if (p.kind === 'createPrepaidExpense' || p.kind === 'createJournal'){
+      return kindLabel + (p.meta.ref ? (' — ' + p.meta.ref) : '');
     }
     return kindLabel;
   }
@@ -11114,7 +11305,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zohoLogAction({ kind: p.kind, ok: true, label: zohoActionLabel(p, r), error: null });
     });
     data.zohoPending = stillPending;
-    if (applied || failed){ markDirty(); renderZohoActionLog(); renderInvoiceQueue(); }
+    if (applied || failed){ markDirty(); renderZohoActionLog(); renderInvoiceQueue(); renderSubscriptions(); renderHome(); }
     if (applied) return applied + ' Zoho update' + (applied === 1 ? '' : 's') + ' landed.';
     return null;
   }
@@ -11317,6 +11508,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       renderZohoStatus();
       renderZohoReviewBadge();
       renderUseTemplateQuoteAndInvoiceOptions();
+      renderSubscriptions();
+      if (data.subscriptions && data.subscriptions.length) renderHome();
       if (linked) toast('Linked ' + linked + ' client' + (linked === 1 ? '' : 's') + ' to an existing Zoho contact by email.');
       else if (summary) toast(summary);
       return zohoHandleNewlyPaidInvoices();
@@ -14651,10 +14844,238 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  // ---------------------------------------------------------------- subscriptions / prepayments
+  // Computes the amortisation schedule (total ÷ months, rounded to the penny, remainder
+  // on the final month, one line per covered month dated its last day) and posts the
+  // initial prepaid expense and the monthly recognition journals to Zoho through the
+  // Apps Script bridge. Nothing is recorded here as "posted": every line's state is read
+  // from the Zoho snapshot (entries tagged with an MH-SUB- reference), so this always
+  // shows what Zoho actually holds. Scripted creates are idempotent on that reference.
+  const SUB_PREPAID_ACCOUNT_ID = '942152000000059020'; // Prepaid Expenses
+  const SUB_BANK_ACCOUNT_ID = '942152000000070016';    // SKYSIGHT LTD bank
+  const SUBSCRIPTION_CATEGORIES = [
+    { key: 'software', label: 'Software / SaaS / licences', accountName: 'Computer software', accountId: '942152000000070450' },
+    { key: 'insurance', label: 'Insurance', accountName: 'Insurance Expense', accountId: '942152000000083007' },
+    { key: 'hosting', label: 'IT / hosting / domains / internet', accountName: 'IT and Internet Expenses', accountId: '942152000000000415' },
+    { key: 'professional', label: 'Accountancy / legal / consulting', accountName: 'Professional services', accountId: '942152000000000442' },
+    { key: 'phone', label: 'Phone / mobile', accountName: 'Telephone Expense', accountId: '942152000000000409' },
+    { key: 'marketing', label: 'Marketing / ads', accountName: 'Marketing and Advertising', accountId: '942152000000000391' },
+    { key: 'rental', label: 'Equipment rental', accountName: 'Rental of equipment', accountId: '942152000000070408' },
+    { key: 'licences', label: 'Operational licences / certificates', accountName: 'Operational licenses, certificates and registration', accountId: '942152000000070374' },
+    { key: 'other', label: 'Other', accountName: 'Other Expenses', accountId: '942152000000000448' }
+  ];
+  function subscriptionCategoryInfo(key){
+    return SUBSCRIPTION_CATEGORIES.find(function(c){ return c.key === key; }) || SUBSCRIPTION_CATEGORIES[SUBSCRIPTION_CATEGORIES.length - 1];
+  }
+  function computeSubscriptionSchedule(sub){
+    const months = Math.max(1, Math.round(sub.months) || 1);
+    const totalCents = Math.round((Number(sub.totalAmount) || 0) * 100);
+    const baseCents = Math.floor(totalCents / months);
+    const start = sub.coverageStart ? new Date(sub.coverageStart + 'T00:00:00') : new Date();
+    const lines = [];
+    let runningCents = 0;
+    for (let i = 0; i < months; i++){
+      const isLast = (i === months - 1);
+      const cents = isLast ? (totalCents - runningCents) : baseCents;
+      runningCents += cents;
+      const d = new Date(start.getFullYear(), start.getMonth() + i + 1, 0); // last day of covered month i
+      lines.push({ monthIndex: i, dateIso: isoDate(d.getFullYear(), d.getMonth(), d.getDate()), amount: cents / 100 });
+    }
+    return lines;
+  }
+  function subscriptionCoverageEndIso(sub){
+    const lines = computeSubscriptionSchedule(sub);
+    return lines.length ? lines[lines.length - 1].dateIso : '';
+  }
+
+  function subRef_(s, suffix){
+    return 'MH-SUB-' + String(s.id).replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() + '-' + suffix;
+  }
+  // Everything the card and the dashboard show comes from here: the computed schedule laid
+  // against what the Zoho snapshot says exists. entriesKnown is false until the snapshot
+  // carries a subscriptionEntries list (script not updated, scope not granted, or no sync yet).
+  function subscriptionZohoState(s){
+    const snap = zohoSnapshotCache;
+    const connected = !!(data.zohoConnection && data.zohoConnection.webAppUrl);
+    const entriesKnown = !!(snap && Array.isArray(snap.subscriptionEntries));
+    const byRef = {};
+    (entriesKnown ? snap.subscriptionEntries : []).forEach(function(e){ byRef[e.reference] = e; });
+    const pendingRefs = {};
+    (data.zohoPending || []).forEach(function(p){
+      if ((p.kind === 'createJournal' || p.kind === 'createPrepaidExpense') && p.meta && p.meta.ref) pendingRefs[p.meta.ref] = true;
+    });
+    const today = todayIso_();
+    const initRef = subRef_(s, 'INIT');
+    const init = { ref: initRef, entry: byRef[initRef] || null, pending: !!pendingRefs[initRef] };
+    const lines = computeSubscriptionSchedule(s).map(function(l, i){
+      const ref = subRef_(s, 'M' + String(i + 1).padStart(2, '0'));
+      const entry = byRef[ref] || null;
+      let state;
+      if (entry) state = (entry.kind === 'journal' && entry.status && entry.status !== 'published') ? 'draft' : 'in_zoho';
+      else if (pendingRefs[ref]) state = 'sending';
+      else if (l.dateIso <= today) state = 'due';
+      else state = 'upcoming';
+      return { monthIndex: l.monthIndex, dateIso: l.dateIso, amount: l.amount, ref: ref, entry: entry, state: state };
+    });
+    const needsInitial = entriesKnown && !s.initInZoho && !init.entry && !init.pending;
+    const dueLines = lines.filter(function(l){ return l.state === 'due'; });
+    const complete = entriesKnown && (s.initInZoho || !!init.entry) && lines.every(function(l){ return l.state === 'in_zoho'; });
+    return { connected: connected, entriesKnown: entriesKnown, error: snap && snap.subscriptionEntriesError, snapshotLoaded: !!snap,
+             init: init, lines: lines, needsInitial: needsInitial, dueLines: dueLines, complete: complete };
+  }
+
+  function subscriptionJournalPayload_(s, line){
+    const cat = subscriptionCategoryInfo(s.category);
+    const n = s.months;
+    const desc = (s.vendor || 'Subscription') + ' prepayment recognition ' + line.dateIso.slice(0, 7) + ' (' + (line.monthIndex + 1) + '/' + n + ')';
+    return { reference: line.ref, date: line.dateIso, amount: line.amount, notes: desc, lineDescription: desc,
+             expenseAccountId: cat.accountId, prepaidAccountId: SUB_PREPAID_ACCOUNT_ID };
+  }
+
+  async function postSubscriptionInitial_(s){
+    const st = subscriptionZohoState(s);
+    if (!st.entriesKnown){ toast('Zoho state unknown, sync first.'); return; }
+    const date = s.paidDate || s.coverageStart;
+    if (!confirm('Post to Zoho now?\n\nExpense ' + fmtGBP(s.totalAmount) + ' dated ' + date + '\nFrom the SKYSIGHT LTD bank account to Prepaid Expenses\nReference ' + st.init.ref + '\n\nIf your bank feed has already recorded this payment, cancel and tick "already in Zoho" instead, or it will be counted twice.')) return;
+    await zohoFireWrite('createPrepaidExpense', {
+      reference: st.init.ref, date: date, amount: s.totalAmount,
+      description: (s.vendor || 'Subscription') + ' prepayment, covers ' + s.coverageStart + ' to ' + subscriptionCoverageEndIso(s),
+      prepaidAccountId: SUB_PREPAID_ACCOUNT_ID, bankAccountId: SUB_BANK_ACCOUNT_ID
+    }, { subId: s.id, ref: st.init.ref });
+    renderSubscriptions(); renderHome();
+  }
+
+  async function postSubscriptionDue_(s){
+    const st = subscriptionZohoState(s);
+    if (!st.entriesKnown){ toast('Zoho state unknown, sync first.'); return; }
+    const due = st.dueLines;
+    if (!due.length){ toast('Nothing due to post.'); return; }
+    const cat = subscriptionCategoryInfo(s.category);
+    const total = due.reduce(function(a, l){ return a + Math.round(l.amount * 100); }, 0) / 100;
+    if (!confirm('Post ' + due.length + ' journal' + (due.length === 1 ? '' : 's') + ' to Zoho now?\n\nDebit ' + cat.accountName + ', credit Prepaid Expenses\nTotal ' + fmtGBP(total) + ' across ' + due[0].dateIso + (due.length > 1 ? (' to ' + due[due.length - 1].dateIso) : '') + '\nEach is checked against Zoho by reference first, so nothing is posted twice.')) return;
+    for (let i = 0; i < due.length; i++){
+      await zohoFireWrite('createJournal', subscriptionJournalPayload_(s, due[i]), { subId: s.id, ref: due[i].ref });
+      renderSubscriptions();
+    }
+    renderHome();
+  }
+
+  const SUB_STATE_TEXT = {
+    in_zoho: ['✓ In Zoho', 'var(--good, #2e7d32)'],
+    draft: ['In Zoho as a draft, publish it there', '#b26a00'],
+    sending: ['Sending to Zoho...', 'var(--muted)'],
+    due: ['Due, not in Zoho yet', '#b3261e'],
+    upcoming: ['Upcoming', 'var(--muted)']
+  };
+
+  function renderSubscriptions(){
+    const sel = document.getElementById('subCategory');
+    if (sel && !sel.options.length){
+      SUBSCRIPTION_CATEGORIES.forEach(function(c){
+        const opt = document.createElement('option');
+        opt.value = c.key; opt.textContent = c.label;
+        sel.appendChild(opt);
+      });
+    }
+    const wrap = document.getElementById('subList');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const subs = data.subscriptions.slice().sort(function(a,b){ return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    if (!subs.length){
+      wrap.innerHTML = '<div class="empty-note">No subscriptions tracked yet.</div>';
+      return;
+    }
+    subs.forEach(function(s){
+      const cat = subscriptionCategoryInfo(s.category);
+      const st = subscriptionZohoState(s);
+      const card = document.createElement('div');
+      card.className = 'snapshot-card';
+      let rows = '';
+      if (s.initInZoho){
+        rows += '<tr><td>Initial payment</td><td>' + fmtGBP(s.totalAmount) + '</td><td style="color:var(--muted);">Already in Zoho (your say-so, bank feed)</td></tr>';
+      } else {
+        const initState = st.init.entry ? 'in_zoho' : (st.init.pending ? 'sending' : 'due');
+        const t = SUB_STATE_TEXT[initState];
+        rows += '<tr><td>Initial payment (' + escapeHtml(s.paidDate || s.coverageStart) + ')</td><td>' + fmtGBP(s.totalAmount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || initState === 'sending' ? t[0] : 'Zoho state unknown') + '</td></tr>';
+      }
+      st.lines.forEach(function(line){
+        const t = SUB_STATE_TEXT[line.state];
+        rows += '<tr><td>' + escapeHtml(line.dateIso) + '</td><td>' + fmtGBP(line.amount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || line.state === 'sending' ? t[0] : 'Zoho state unknown') + '</td></tr>';
+      });
+      card.innerHTML =
+        '<div class="snap-head"><span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Remove from this list (does not touch Zoho)">✕</button></div>' +
+        '<div class="snap-period"></div>' +
+        '<div class="hint sub-account"></div>' +
+        '<div class="hint sub-status" style="margin-top:6px;"></div>' +
+        (s.notes ? ('<div class="snap-notes">' + escapeHtml(s.notes) + '</div>') : '') +
+        '<table style="margin-top:8px;">' + rows + '</table>' +
+        '<div class="snap-actions" style="margin-top:8px;"></div>';
+      card.querySelector('.snap-title').textContent = s.vendor || 'Untitled subscription';
+      card.querySelector('.snap-pulled').textContent = fmtGBP(s.totalAmount) + ' over ' + s.months + ' mo';
+      card.querySelector('.snap-period').textContent = 'Coverage: ' + (s.coverageStart || '?') + ' → ' + subscriptionCoverageEndIso(s);
+      card.querySelector('.sub-account').textContent = cat.label + ' → ' + cat.accountName + ' (debit on recognition; credit Prepaid Expenses)';
+      const statusEl = card.querySelector('.sub-status');
+      if (!st.connected) statusEl.textContent = 'Zoho is not connected. Set it up on the Clients tab to post from here.';
+      else if (!st.snapshotLoaded) statusEl.textContent = 'Waiting for the first Zoho sync.';
+      else if (!st.entriesKnown) statusEl.textContent = st.error ? ('Zoho would not list prepayment entries: ' + st.error + ' (the new API permissions are probably not granted yet).') : 'The Apps Script has not been updated for prepayments yet, so Zoho state is unknown.';
+      else if (st.complete) statusEl.textContent = '✓ Fully matched in Zoho. Safe to remove from this list.';
+      else statusEl.textContent = 'Read back from Zoho at last sync' + (zohoSnapshotCache && zohoSnapshotCache.syncedAt ? (' (' + zohoSnapshotCache.syncedAt.slice(0, 16).replace('T', ' ') + ' UTC)') : '') + '.';
+      const actions = card.querySelector('.snap-actions');
+      if (st.needsInitial){
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'snap-csv-btn';
+        b.textContent = 'Post initial payment to Zoho';
+        b.addEventListener('click', function(){ postSubscriptionInitial_(s); });
+        actions.appendChild(b);
+      }
+      if (st.dueLines.length){
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'snap-csv-btn';
+        b.textContent = 'Post ' + st.dueLines.length + ' due journal' + (st.dueLines.length === 1 ? '' : 's') + ' to Zoho';
+        b.addEventListener('click', function(){ postSubscriptionDue_(s); });
+        actions.appendChild(b);
+      }
+      card.querySelector('.snap-del').addEventListener('click', function(){
+        if (!confirm('Remove "' + (s.vendor || 'this subscription') + '" from this list?\n\nThis only deletes the Hub\'s schedule. Anything already in Zoho stays there.')) return;
+        data.subscriptions = data.subscriptions.filter(function(x){ return x.id !== s.id; });
+        markDirty(); renderSubscriptions(); renderHome();
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  document.getElementById('subAddBtn').addEventListener('click', function(){
+    const vendor = document.getElementById('subVendor').value.trim();
+    const category = document.getElementById('subCategory').value || 'other';
+    const totalAmount = parseFloat(document.getElementById('subTotal').value);
+    const coverageStart = document.getElementById('subCoverageStart').value;
+    const months = parseInt(document.getElementById('subMonths').value, 10) || 12;
+    const notes = document.getElementById('subNotes').value.trim();
+    const paidDate = document.getElementById('subPaidDate').value;
+    const initInZoho = document.getElementById('subInitInZoho').checked;
+    if (!vendor){ toast('Vendor is required.'); return; }
+    if (!totalAmount || totalAmount <= 0){ toast('Total amount must be more than £0.'); return; }
+    if (!coverageStart){ toast('Coverage start date is required.'); return; }
+    data.subscriptions.push({
+      id: randomId(), vendor: vendor, category: category, totalAmount: totalAmount,
+      coverageStart: coverageStart, months: months, notes: notes, paidDate: paidDate, initInZoho: initInZoho, createdAt: todayIso_()
+    });
+    markDirty();
+    document.getElementById('subVendor').value = '';
+    document.getElementById('subTotal').value = '';
+    document.getElementById('subCoverageStart').value = '';
+    document.getElementById('subMonths').value = '12';
+    document.getElementById('subNotes').value = '';
+    document.getElementById('subPaidDate').value = '';
+    document.getElementById('subInitInZoho').checked = false;
+    renderSubscriptions();
+    renderHome();
+    toast('Subscription added. Post it to Zoho from the card when ready.');
+  });
+
   function renderFinance(){
     renderFinanceProfile();
     renderDeadlines();
     renderSnapshots();
+    renderSubscriptions();
     renderRemindersStatus();
   }
 
