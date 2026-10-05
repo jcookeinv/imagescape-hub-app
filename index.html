@@ -1760,6 +1760,12 @@ function doPost(e) {
         <div class="sub" id="invLedgerSub">Every ImageScape invoice Zoho knows about. <strong>Matches</strong> means Zoho's own invoice number equals the MH one; until Code.gs is updated to honour the number MH sends, expect <strong>differs</strong> here — the amounts and client are still correct, only the number label isn't 1:1 yet.</div>
         <div class="zoho-snapshot" id="invLedger"></div>
       </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>Bank feed (read from Zoho)</h2>
+        <div class="sub">Money that has arrived in your bank, as Zoho's bank feed sees it (most recent first). Read-only: the Hub never changes the feed. When a payment in matches an unpaid invoice for the same amount, you can record it against that invoice; the payment goes into the same bank account, and you then match the two in Zoho's Banking screen.</div>
+        <div class="zoho-snapshot" id="invBankFeed"></div>
+      </div>
     </div>
 
     <div class="panel" id="panel-emails">
@@ -9907,6 +9913,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           sub: 'Not yet allowed: ' + missing.join('; ') + '. Google asks for it once, the first time you use that part of the Hub' + (missing[0].indexOf('Calendar') === 0 ? ' (or press Connect calendar on the Calendar tab).' : '.'), panel: missing[0].indexOf('Calendar') === 0 ? 'secal' : 'emails', when: 'Access' });
       }
     }
+    try {
+      zohoBankState_().feeds.forEach(function(a){
+        if (a.consentRemainingDays === null || a.consentRemainingDays === undefined) return;
+        if (a.consentExpired || a.consentRemainingDays <= 7){
+          items.push({ level: (a.consentExpired || a.consentRemainingDays <= 2) ? 'overdue' : 'soon',
+            title: 'Bank feed permission ' + (a.consentExpired ? 'has expired' : 'runs out in ' + a.consentRemainingDays + ' day' + (a.consentRemainingDays === 1 ? '' : 's')),
+            sub: a.name + ': reconnect the bank in Zoho Banking or the feed stops updating.', url: ZOHO_BANKING_URL, when: 'Access' });
+        }
+      });
+    } catch (e){ /* bank info not available yet */ }
     if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
       items.push({ level: 'soon', title: 'Tax spreadsheet not linked', sub: 'Needed for invoice numbers, logging invoices and mileage, and the tax pack - Locate spreadsheet on the Tax spreadsheet tab.', panel: 'setax', when: 'Access' });
     }
@@ -11308,6 +11324,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // (so it's within its drive.file grant) — the script only ever updates its content.
   const ZOHO_SNAPSHOT_FILENAME = 'zoho-snapshot.json';
   const ZOHO_SCRIPT_VERSION_REQUIRED = 2; // Apps Script version that supports reference + date prepayment posting
+  const ZOHO_BANK_SCRIPT_VERSION = 3;     // Apps Script version that also reads bank accounts and feed transactions
+  const ZOHO_BANKING_URL = 'https://books.zoho.eu/app/20113072267#/banking';
 
   async function findZohoSnapshotFile(){
     const folderId = await ensureDriveFolder();
@@ -11389,10 +11407,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     rows.push(['Last sync', snap && snap.syncedAt ? ok(snap.syncedAt.slice(0, 16).replace('T', ' ') + ' UTC') : meh('Nothing synced yet, press Sync now')]);
     if (snap){
       const v = Number(snap.scriptVersion) || 1;
-      rows.push(['Apps Script version', v >= ZOHO_SCRIPT_VERSION_REQUIRED ? ok('Version ' + v + ' (current)') : bad('Older version, replace it with the latest Code.gs and deploy a new version')]);
+      rows.push(['Apps Script version', v >= ZOHO_BANK_SCRIPT_VERSION ? ok('Version ' + v + ' (current)') : (v >= ZOHO_SCRIPT_VERSION_REQUIRED ? meh('Version ' + v + ': prepayments work, bank feed needs version ' + ZOHO_BANK_SCRIPT_VERSION) : bad('Older version, replace it with the latest Code.gs and deploy a new version'))]);
       if (snap.subscriptionEntriesError) rows.push(['Prepayment entries', bad('Zoho refused the listing: ' + snap.subscriptionEntriesError)]);
       else if (Array.isArray(snap.subscriptionEntries)) rows.push(['Prepayment entries', ok('Readable (' + snap.subscriptionEntries.length + ' journals and referenced expenses seen)')]);
       else rows.push(['Prepayment entries', meh('Not reported by this Apps Script version')]);
+      const bank = zohoBankState_();
+      if (v < ZOHO_BANK_SCRIPT_VERSION) rows.push(['Bank feed', meh('Needs Apps Script version ' + ZOHO_BANK_SCRIPT_VERSION)]);
+      else if (bank.error) rows.push(['Bank feed', bad(/scope|permission|oauth|authori|invalid/i.test(bank.error) ? 'Zoho has not been given the banking permission yet (' + bank.error + ')' : 'Zoho refused the bank listing: ' + bank.error)]);
+      else if (bank.known){
+        rows.push(['Bank feed', ok('Readable (' + bank.feeds.length + ' bank account' + (bank.feeds.length === 1 ? '' : 's') + ', ' + bank.txns.length + ' recent transactions)')]);
+        bank.feeds.forEach(function(a){
+          if (a.consentRemainingDays === null || a.consentRemainingDays === undefined) return;
+          rows.push(['Bank connection consent', (a.consentExpired || a.consentRemainingDays <= 7) ? bad(a.name + ': ' + (a.consentExpired ? 'expired' : a.consentRemainingDays + ' day' + (a.consentRemainingDays === 1 ? '' : 's') + ' left') + ', reconnect in Zoho Banking') : ok(a.name + ': ' + a.consentRemainingDays + ' days left')]);
+        });
+      }
     }
     const pending = (data && data.zohoPending) ? data.zohoPending.length : 0;
     rows.push(['Actions waiting on Zoho', pending ? meh(pending + ' sent, not yet confirmed') : ok('None')]);
@@ -11524,7 +11552,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (p.kind === 'recordPayment'){
       const q = data.quotes.find(function(x){ return x.id === p.meta.quoteId; });
-      return kindLabel + (q ? (' — "' + q.title + '"') : '');
+      return kindLabel + (q ? (' — "' + q.title + '"') : (p.meta.label ? (' - ' + p.meta.label) : ''));
     }
     if (p.kind === 'markInvoiceSent'){
       return kindLabel + (p.meta.invoiceId ? (' — ' + p.meta.invoiceId) : '');
@@ -12563,7 +12591,119 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   //   3. Sent to Zoho - the actual ledger, flagging whether Zoho's own invoice number
   //      matches MH's (see sendQuoteToZohoAsInvoice's comment re: the Code.gs change
   //      this still needs before it says "Matches" for anything raised through here).
+  // ---------------------------------------------------------------- bank feed (read from Zoho)
+  // Everything here comes from the snapshot the Apps Script writes (version 3+, needs the
+  // ZohoBooks.banking.READ permission). The Hub keeps no bank data of its own.
+  function zohoBankState_(){
+    const snap = zohoSnapshotCache;
+    const out = { known: false, error: '', feeds: [], txns: [] };
+    if (!snap) return out;
+    if ((Number(snap.scriptVersion) || 1) < ZOHO_BANK_SCRIPT_VERSION) return out;
+    if (snap.bankError){ out.error = String(snap.bankError); return out; }
+    if (Array.isArray(snap.bankAccounts)){
+      out.known = true;
+      out.feeds = snap.bankAccounts.filter(function(a){ return a.type === 'bank'; });
+      out.txns = Array.isArray(snap.bankTransactions) ? snap.bankTransactions : [];
+    }
+    return out;
+  }
+
+  function bankTxnDone_(t){
+    const st = String(t.status || '').toLowerCase();
+    return /categori[sz]ed|matched|manually/.test(st) && !/uncategori[sz]ed/.test(st);
+  }
+
+  function renderBankFeed(){
+    const wrap = document.getElementById('invBankFeed');
+    if (!wrap || !data) return;
+    const snap = zohoSnapshotCache;
+    if (!data.zohoConnection){ wrap.innerHTML = '<div class="empty-note">Connect Zoho Books on the Dashboard first.</div>'; return; }
+    if (!snap){ wrap.innerHTML = '<div class="empty-note">Nothing synced yet. Press Sync now on the Zoho Books card at the bottom of the Dashboard.</div>'; return; }
+    const bank = zohoBankState_();
+    if ((Number(snap.scriptVersion) || 1) < ZOHO_BANK_SCRIPT_VERSION){
+      wrap.innerHTML = '<div class="empty-note">Needs the latest Apps Script (version ' + ZOHO_BANK_SCRIPT_VERSION + '). The Zoho Books card on the Dashboard shows what is installed.</div>';
+      return;
+    }
+    if (bank.error){
+      wrap.innerHTML = '';
+      const note = document.createElement('div');
+      note.className = 'empty-note';
+      note.textContent = 'Zoho would not show the bank feed: ' + bank.error + (/scope|permission|oauth|authori|invalid/i.test(bank.error) ? ' (the banking read permission still needs adding to the Zoho grant)' : '');
+      wrap.appendChild(note);
+      return;
+    }
+    wrap.innerHTML = '';
+    bank.feeds.forEach(function(a){
+      const row = document.createElement('div');
+      row.className = 'zoho-row';
+      row.style.cssText = 'flex-direction:column;align-items:flex-start;gap:2px;';
+      const bits = ['Zoho balance ' + fmtGBP(a.balance), 'bank balance ' + fmtGBP(a.bankBalance)];
+      bits.push(a.uncategorized + ' waiting to be matched in Zoho');
+      if (a.feedsLastRefresh) bits.push('feed refreshed ' + a.feedsLastRefresh);
+      if (a.consentRemainingDays !== null && a.consentRemainingDays !== undefined) bits.push(a.consentExpired ? 'bank consent expired' : ('bank consent ' + a.consentRemainingDays + ' days left'));
+      const t = document.createElement('strong'); t.textContent = a.name;
+      const d = document.createElement('span'); d.style.cssText = 'font-size:12.5px;color:var(--muted);'; d.textContent = bits.join(' · ');
+      row.appendChild(t); row.appendChild(d);
+      wrap.appendChild(row);
+    });
+    const unpaid = (snap.recentUnpaidInvoices || []).filter(function(i){ return Number(i.balance) > 0; });
+    // Zoho labels feed lines from the bank account's own ledger: money IN to the bank is a 'debit', money out a 'credit'.
+    const credits = bank.txns.filter(function(t){ return String(t.direction).toLowerCase() === 'debit'; }).slice(0, 30);
+    if (!credits.length){
+      const e = document.createElement('div'); e.className = 'empty-note'; e.textContent = 'No money in found in the recent feed.'; wrap.appendChild(e);
+      return;
+    }
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:700;font-size:13px;margin:12px 0 4px;';
+    head.textContent = 'Money in, newest first';
+    wrap.appendChild(head);
+    const firstWord = function(n){ return String(n || '').toLowerCase().split(' ')[0]; };
+    credits.forEach(function(t){
+      const amt = Number(t.amount) || 0;
+      const done = bankTxnDone_(t);
+      const cands = unpaid.filter(function(i){ return Math.abs(Number(i.balance) - amt) < 0.005; });
+      const text = (String(t.payee || '') + ' ' + String(t.description || '') + ' ' + String(t.reference || '')).toLowerCase();
+      const hit = function(i){ return !!firstWord(i.customerName) && text.indexOf(firstWord(i.customerName)) !== -1; };
+      cands.sort(function(a, b){ return (hit(a) ? 0 : 1) - (hit(b) ? 0 : 1); });
+      const pending = (data.zohoPending || []).some(function(p){ return p.kind === 'recordPayment' && p.meta && p.meta.txnId === t.id; });
+      const row = document.createElement('div');
+      row.className = 'zoho-row';
+      row.style.cssText = 'align-items:center;gap:10px;flex-wrap:wrap;';
+      const left = document.createElement('span');
+      left.style.cssText = 'flex:1;min-width:220px;';
+      left.textContent = t.date + '  ' + fmtGBP(amt) + '  ' + (t.payee || t.description || t.reference || 'Payment in') + (t.reference && t.reference !== t.payee ? ' (' + t.reference + ')' : '') + '  [' + (t.status || 'no status') + ']';
+      row.appendChild(left);
+      if (!done && cands.length){
+        const inv = cands[0];
+        const hint = document.createElement('span');
+        hint.style.cssText = 'font-size:12.5px;color:var(--muted);';
+        hint.textContent = 'Same amount as invoice ' + inv.number + ' (' + (inv.customerName || '') + ')' + (hit(inv) ? ', name matches too' : '') + (cands.length > 1 ? ', ' + (cands.length - 1) + ' other invoice(s) for this amount' : '');
+        row.appendChild(hint);
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
+        btn.textContent = pending ? 'Sending…' : 'Record payment on ' + inv.number;
+        btn.disabled = pending;
+        btn.addEventListener('click', function(){
+          if (!confirm('Record ' + fmtGBP(amt) + ' received on ' + t.date + ' against invoice ' + inv.number + ' (' + (inv.customerName || '') + ') in Zoho?\n\nThe payment goes into the bank account the money arrived in. You then match it to the bank line in Zoho Banking.')) return;
+          zohoFireWrite('recordPayment', { invoiceId: inv.invoiceId, amount: amt, date: t.date, paymentMode: 'banktransfer', accountId: t.accountId, referenceNumber: t.reference || '' },
+            { txnId: t.id, label: 'Invoice ' + inv.number + ' (' + fmtGBP(amt) + ')', date: t.date });
+          toast('Sending to Zoho. Check the action log on the Dashboard shortly.');
+          renderBankFeed();
+        });
+        row.appendChild(btn);
+      } else if (!done){
+        const hint = document.createElement('span');
+        hint.style.cssText = 'font-size:12.5px;color:var(--muted);';
+        hint.textContent = 'No unpaid invoice for exactly this amount';
+        row.appendChild(hint);
+      }
+      wrap.appendChild(row);
+    });
+  }
+
   function renderInvoiceQueue(){
+    try { renderBankFeed(); } catch (e){ /* never block the invoice lists */ }
     const readyWrap = document.getElementById('invQueueReady');
     const pendingWrap = document.getElementById('invQueuePending');
     const ledgerWrap = document.getElementById('invLedger');
