@@ -1136,6 +1136,29 @@
         <div id="taskList"></div>
       </div>
 
+      <div class="card" style="margin-top:16px;" id="opCard">
+        <h2>Opportunities</h2>
+        <div class="sub">Potential work, from first contact to won or lost. Each gets a reference (OP1, OP2 and so on) that is never reused, even if one is deleted. A follow-up date shows on the Dashboard when it is due.</div>
+        <div class="task-add">
+          <input type="text" id="opTitle" placeholder="New opportunity…">
+          <select id="opClient"><option value="">No client</option></select>
+          <input type="number" id="opValue" min="0" step="0.01" placeholder="Value £" style="width:110px;padding:9px 8px;border:1px solid var(--border);border-radius:8px;font-size:15px;">
+          <select id="opStage"></select>
+          <input type="date" id="opFollowUp" title="Follow up on">
+          <button class="btn btn-primary" id="opAddBtn" style="width:auto;">Add</button>
+        </div>
+        <div class="task-filter-row">
+          <div class="task-filter" id="opFilter">
+            <button data-op="open" class="active">Open</button>
+            <button data-op="won">Won</button>
+            <button data-op="lost">Lost</button>
+            <button data-op="all">All</button>
+          </div>
+          <div class="show-completed"><span class="hint-count" id="opSummary"></span></div>
+        </div>
+        <div id="opList"></div>
+      </div>
+
       <div class="card" style="margin-top:16px;">
         <h2>Checklist templates</h2>
         <div class="sub">Reusable, ordered lists of tasks for the jobs you do over and over. Apply one to a client from their client card to generate every step in one click, spaced out from a date you choose.</div>
@@ -2693,6 +2716,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // back from the snapshot (entries tagged with an "MH-SUB-" reference) and compared
     // against the schedule computed here, so the Hub and Zoho can't drift apart.
     // paidDate and initInZoho are inputs to what gets posted, not a record of what has been.
+    // Opportunities (5 Oct 2026): OP1, OP2... references from a counter that only ever goes up,
+    // so a deleted opportunity's number is never handed out again.
+    d.opportunities = d.opportunities || [];
+    d.opportunities.forEach(function(o){
+      o.id = o.id || randomId();
+      o.title = o.title || '';
+      o.clientId = o.clientId || '';
+      o.value = Number(o.value) || 0;
+      o.stage = o.stage || 'lead';
+      o.followUp = o.followUp || '';
+      o.notes = o.notes || '';
+      o.createdAt = o.createdAt || todayIso_();
+    });
+    d.opCounter = Math.max(Number(d.opCounter) || 0, d.opportunities.reduce(function(m, o){
+      const n = parseInt(String(o.ref || '').replace(/\D/g, ''), 10);
+      return n > m ? n : m;
+    }, 0));
     d.subscriptions = d.subscriptions || [];
     d.subscriptions.forEach(function(s){
       s.id = s.id || randomId();
@@ -7919,6 +7959,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
 
   function renderTasks(){
+    try { renderOpportunities(); } catch (e){ /* never block the task list */ }
     const list = document.getElementById('taskList');
     list.innerHTML = '';
     const clientIdx = buildClientIndex();
@@ -8273,6 +8314,160 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
   document.getElementById('taskText').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('taskAddBtn').click();
+  });
+
+  // ---------------------------------------------------------------- opportunities
+  // Added 5 Oct 2026. Lives on the Tasks tab. Closed (won or lost) opportunities never
+  // raise Dashboard reminders; open ones do when their follow-up date is overdue or close.
+  const OP_STAGES = { lead: 'New lead', contacted: 'Contacted', quoted: 'Quote sent', won: 'Won', lost: 'Lost' };
+  let opFilter = 'open';
+  function opIsClosed_(o){ return o.stage === 'won' || o.stage === 'lost'; }
+
+  (function fillOpStageSelect(){
+    const sel = document.getElementById('opStage');
+    Object.keys(OP_STAGES).filter(function(k){ return k !== 'won' && k !== 'lost'; }).forEach(function(k){
+      const opt = document.createElement('option'); opt.value = k; opt.textContent = OP_STAGES[k]; sel.appendChild(opt);
+    });
+  })();
+
+  function renderOpportunities(){
+    const list = document.getElementById('opList');
+    if (!list || !data) return;
+    list.innerHTML = '';
+    const all = data.opportunities || [];
+    const open = all.filter(function(o){ return !opIsClosed_(o); });
+    const openValue = open.reduce(function(sum, o){ return sum + (Number(o.value) || 0); }, 0);
+    document.getElementById('opSummary').textContent = open.length
+      ? (open.length + ' open' + (openValue ? ', ' + fmtGBP(openValue) + ' potential' : ''))
+      : '';
+    document.querySelectorAll('#opFilter button').forEach(function(b){ b.classList.toggle('active', b.dataset.op === opFilter); });
+    const shown = all.filter(function(o){
+      if (opFilter === 'open') return !opIsClosed_(o);
+      if (opFilter === 'all') return true;
+      return o.stage === opFilter;
+    }).slice().sort(function(a, b){
+      // Open ones: earliest follow-up first (undated last), then newest reference first.
+      if (opFilter === 'open'){
+        const fa = a.followUp || '9999-99-99', fb = b.followUp || '9999-99-99';
+        if (fa !== fb) return fa < fb ? -1 : 1;
+      }
+      return (parseInt(String(b.ref).replace(/\D/g, ''), 10) || 0) - (parseInt(String(a.ref).replace(/\D/g, ''), 10) || 0);
+    });
+    if (!shown.length){
+      list.innerHTML = '<div class="empty-note">' + (all.length ? 'Nothing in this view.' : 'No opportunities yet.') + '</div>';
+      return;
+    }
+    const clientIdx = buildClientIndex();
+    shown.forEach(function(o){
+      const row = document.createElement('div');
+      row.className = 'task-row' + (opIsClosed_(o) ? ' done' : '');
+      row.style.cursor = 'pointer';
+      const urgency = dateUrgency(o.followUp, opIsClosed_(o));
+      row.innerHTML =
+        '<div class="body"><div class="txt">' +
+          '<span class="cat-badge" style="font-weight:700;"></span>' +
+          '<span class="cat-badge stage-badge"></span>' +
+          (o.clientId ? '<span class="cat-badge client-badge"></span>' : '') +
+          (o.value ? '<span class="cat-badge"></span>' : '') +
+        '</div>' +
+        (o.followUp && !opIsClosed_(o) ? '<div class="due' + (urgency ? ' ' + urgency : '') + '"></div>' : '') +
+        '</div><button class="del" title="Delete">✕</button>';
+      const badges = row.querySelectorAll('.cat-badge');
+      badges[0].textContent = o.ref;
+      badges[1].textContent = OP_STAGES[o.stage] || o.stage;
+      let bi = 2;
+      if (o.clientId){ badges[bi++].textContent = clientNameIndexed(clientIdx, o.clientId); }
+      if (o.value){ badges[bi++].textContent = fmtGBP(o.value); }
+      row.querySelector('.txt').appendChild(document.createTextNode(o.title));
+      const dueEl = row.querySelector('.due');
+      if (dueEl) dueEl.textContent = (urgency === 'overdue' ? 'Follow up overdue, was ' : 'Follow up ') + o.followUp;
+      row.addEventListener('click', function(){ openOpportunityModal(o.id); });
+      row.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete ' + o.ref + ' "' + o.title + '"? The reference ' + o.ref + ' will not be used again.')) return;
+        data.opportunities = data.opportunities.filter(function(x){ return x.id !== o.id; });
+        markDirty(); renderOpportunities(); renderHome();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function openOpportunityModal(id){
+    const o = data.opportunities.find(function(x){ return x.id === id; });
+    if (!o) return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Opportunity <span id="opEditRef"></span></h3>' +
+        '<div class="field"><label>What is it?</label><input type="text" id="opEditTitle"></div>' +
+        '<div class="field"><label>Client</label><select id="opEditClient"><option value="">No client</option></select></div>' +
+        '<div class="field"><label>Value (£)</label><input type="number" id="opEditValue" min="0" step="0.01"></div>' +
+        '<div class="field"><label>Stage</label><select id="opEditStage">' +
+          Object.keys(OP_STAGES).map(function(k){ return '<option value="' + k + '">' + OP_STAGES[k] + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="field"><label>Follow up on</label><input type="date" id="opEditFollowUp"></div>' +
+        '<div class="field"><label>Notes</label><textarea id="opEditNotes" rows="4"></textarea></div>' +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn btn-ghost" id="opEditCancel">Close</button>' +
+          '<button class="btn btn-ghost" id="opEditDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-primary" id="opEditSave">Save</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#opEditRef').textContent = o.ref;
+    const clientSel = backdrop.querySelector('#opEditClient');
+    data.clients.slice().sort(function(a, b){ return a.name.localeCompare(b.name); }).forEach(function(c){
+      const opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.company ? (c.name + ' — ' + c.company) : c.name;
+      clientSel.appendChild(opt);
+    });
+    backdrop.querySelector('#opEditTitle').value = o.title;
+    clientSel.value = o.clientId || '';
+    backdrop.querySelector('#opEditValue').value = o.value || '';
+    backdrop.querySelector('#opEditStage').value = o.stage;
+    backdrop.querySelector('#opEditFollowUp').value = o.followUp || '';
+    backdrop.querySelector('#opEditNotes').value = o.notes || '';
+    backdrop.querySelector('#opEditCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#opEditDelete').addEventListener('click', function(){
+      if (!confirm('Delete ' + o.ref + ' "' + o.title + '"? The reference ' + o.ref + ' will not be used again.')) return;
+      data.opportunities = data.opportunities.filter(function(x){ return x.id !== o.id; });
+      markDirty(); backdrop.remove(); renderOpportunities(); renderHome();
+    });
+    backdrop.querySelector('#opEditSave').addEventListener('click', function(){
+      o.title = backdrop.querySelector('#opEditTitle').value.trim() || o.title;
+      o.clientId = clientSel.value || '';
+      o.value = Number(backdrop.querySelector('#opEditValue').value) || 0;
+      o.stage = backdrop.querySelector('#opEditStage').value || 'lead';
+      o.followUp = backdrop.querySelector('#opEditFollowUp').value || '';
+      o.notes = backdrop.querySelector('#opEditNotes').value;
+      markDirty(); backdrop.remove(); renderOpportunities(); renderHome();
+      toast('Opportunity updated.');
+    });
+  }
+
+  document.getElementById('opAddBtn').addEventListener('click', function(){
+    const titleEl = document.getElementById('opTitle');
+    const title = titleEl.value.trim();
+    if (!title) return;
+    data.opCounter = (Number(data.opCounter) || 0) + 1;
+    data.opportunities.push({
+      id: randomId(), ref: 'OP' + data.opCounter, title: title,
+      clientId: document.getElementById('opClient').value || '',
+      value: Number(document.getElementById('opValue').value) || 0,
+      stage: document.getElementById('opStage').value || 'lead',
+      followUp: document.getElementById('opFollowUp').value || '',
+      notes: '', createdAt: todayIso_()
+    });
+    titleEl.value = ''; document.getElementById('opClient').value = ''; document.getElementById('opValue').value = '';
+    document.getElementById('opFollowUp').value = '';
+    markDirty(); renderOpportunities(); renderHome();
+  });
+  document.getElementById('opTitle').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('opAddBtn').click();
+  });
+  document.querySelectorAll('#opFilter button').forEach(function(b){
+    b.addEventListener('click', function(){ opFilter = b.dataset.op; renderOpportunities(); });
   });
 
   // ---------------------------------------------------------------- meetings
@@ -9165,7 +9360,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const key = data.clients.map(function(c){ return c.id + '|' + c.name + '|' + c.company; }).join('~');
     if (key === clientSelectsCacheKey) return;
     clientSelectsCacheKey = key;
-    ['taskClient', 'docClient', 'mtgClient', 'pwClient', 'topicNewClient'].forEach(function(selId){
+    ['taskClient', 'opClient', 'docClient', 'mtgClient', 'pwClient', 'topicNewClient'].forEach(function(selId){
       const sel = document.getElementById(selId);
       if (!sel) return;
       const prev = sel.value;
@@ -9831,6 +10026,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     soonDocs.forEach(function(d){
       attnItems.push({ level: 'soon', date: d.expiryDate, title: (d.label || 'Untitled document') + ' — expiring', sub: d.clientId ? clientName(d.clientId) : 'No client', panel: 'documents' });
     });
+    // Opportunities with a follow-up that is overdue or within a week.
+    (data.opportunities || []).forEach(function(o){
+      const lvl = dateUrgency(o.followUp, opIsClosed_(o));
+      if (!lvl) return;
+      attnItems.push({ level: lvl, date: o.followUp, title: o.ref + ' follow-up: ' + o.title, sub: o.clientId ? clientName(o.clientId) : 'Opportunity', panel: 'tasks' });
+    });
+    // Business tax and filing deadlines (the Key deadlines on the Tax tab): anything already
+    // past, or due within the next 60 days. After filing, update the dates on the Tax tab and
+    // the next set rolls forward.
+    (function(){
+      let dls = [];
+      try { dls = computeDeadlines(); } catch (e){ dls = []; }
+      const horizon = addDaysIso(todayIso_(), 60);
+      dls.forEach(function(dl){
+        if (dl.date > horizon) return;
+        attnItems.push({ level: dl.date < todayIso_() ? 'overdue' : 'soon', date: dl.date, title: dl.label, sub: 'Tax and filing deadline', panel: 'tax' });
+      });
+    })();
     attnItems.sort(function(a, b){
       if (a.level !== b.level) return a.level === 'overdue' ? -1 : 1;
       return (a.date || '') < (b.date || '') ? -1 : 1;
