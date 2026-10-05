@@ -1458,6 +1458,12 @@ function doPost(e) {
     </div>
 
     <div class="panel" id="panel-finance">
+      <div class="card" id="finPnlCard">
+        <h2>Profit and loss (live from Zoho)</h2>
+        <div class="sub">Read straight from Zoho Books reports at each sync. The Hub keeps no figures of its own, so this always matches Zoho's Reports, Profit and Loss.</div>
+        <div id="finPnlTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"></div>
+        <div id="finPnl"></div>
+      </div>
       <div class="card">
         <h2>Financial snapshots</h2>
         <div class="sub">Period profit-and-loss figures aren't part of the live Zoho connection on the Dashboard (that covers contacts, invoices and payments), so these snapshots are imported: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
@@ -1759,6 +1765,20 @@ function doPost(e) {
         <h2>Sent to Zoho</h2>
         <div class="sub" id="invLedgerSub">Every ImageScape invoice Zoho knows about. <strong>Matches</strong> means Zoho's own invoice number equals the MH one; until Code.gs is updated to honour the number MH sends, expect <strong>differs</strong> here — the amounts and client are still correct, only the number label isn't 1:1 yet.</div>
         <div class="zoho-snapshot" id="invLedger"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;" id="retCard">
+        <h2>Retainers</h2>
+        <div class="sub">Standing monthly invoices (for example a retainer). Each month shows as due on its day; raise the invoice from here and it follows the normal invoice route into Zoho. Whether a month has been raised is read from the quotes and from Zoho itself, nothing is ticked off by hand.</div>
+        <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;">
+          <select id="retClient"><option value="">Client</option></select>
+          <input type="text" id="retDesc" placeholder="What it is for (e.g. Monthly retainer)" style="flex:1;min-width:200px;">
+          <input type="number" id="retAmount" placeholder="Amount (£)" min="0" step="0.01" style="width:120px;">
+          <input type="number" id="retDay" placeholder="Day of month" min="1" max="28" value="1" style="width:110px;">
+          <input type="date" id="retStart" title="First month">
+          <button class="btn btn-primary" id="retAddBtn" style="width:auto;">Add retainer</button>
+        </div>
+        <div id="retList" class="zoho-snapshot" style="margin-top:10px;"></div>
       </div>
 
       <div class="card" style="margin-top:16px;">
@@ -2739,6 +2759,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const n = parseInt(String(o.ref || '').replace(/\D/g, ''), 10);
       return n > m ? n : m;
     }, 0));
+    d.retainers = d.retainers || [];
+    d.retainers.forEach(function(r){
+      r.id = r.id || randomId();
+      r.clientId = r.clientId || '';
+      r.description = r.description || 'Monthly retainer';
+      r.amount = Number(r.amount) || 0;
+      r.dayOfMonth = Math.min(28, Math.max(1, Number(r.dayOfMonth) || 1));
+      r.startDate = r.startDate || todayIso_();
+      r.active = r.active !== false;
+    });
     d.subscriptions = d.subscriptions || [];
     d.subscriptions.forEach(function(s){
       s.id = s.id || randomId();
@@ -8417,6 +8447,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="row" style="margin-top:10px;">' +
           '<button class="btn btn-ghost" id="opEditCancel">Close</button>' +
           '<button class="btn btn-ghost" id="opEditDelete" style="color:var(--warn);">Delete</button>' +
+          '<button class="btn btn-ghost" id="opEditQuote">Make client and quote</button>' +
           '<button class="btn btn-primary" id="opEditSave">Save</button>' +
         '</div>' +
       '</div>';
@@ -8439,6 +8470,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!confirm('Delete ' + o.ref + ' "' + o.title + '"? The reference ' + o.ref + ' will not be used again.')) return;
       data.opportunities = data.opportunities.filter(function(x){ return x.id !== o.id; });
       markDirty(); backdrop.remove(); renderOpportunities(); renderHome();
+    });
+    backdrop.querySelector('#opEditQuote').addEventListener('click', function(){
+      o.title = backdrop.querySelector('#opEditTitle').value.trim() || o.title;
+      o.value = Number(backdrop.querySelector('#opEditValue').value) || 0;
+      let cid = clientSel.value || o.clientId || '';
+      if (!cid){
+        const nm = (prompt('This opportunity has no client yet. Name for the new client:', '') || '').trim();
+        if (!nm) return;
+        cid = randomId();
+        data.clients.push({ id: cid, name: nm, company: '', email: '', phone: '', status: 'active', notes: 'From ' + o.ref, zohoContactId: '', createdAt: todayIso_() });
+        clientSelectsCacheKey = ''; populateClientSelects(); renderClients();
+      }
+      o.clientId = cid;
+      o.stage = 'quoted';
+      const q = { id: randomId(), title: o.title, clientId: cid, status: 'draft', lineItems: [{ id: randomId(), label: o.title, qty: 1, rate: o.value, description: '' }], costs: [], discountPct: 0, notes: 'From opportunity ' + o.ref, createdAt: new Date().toISOString(), opportunityRef: o.ref };
+      data.quotes.push(q);
+      markDirty(); backdrop.remove(); renderOpportunities(); renderQuotes(); renderHome();
+      toast(o.ref + ' is now Quoted. Opening the quote.');
+      openQuoteEditor(q.id);
     });
     backdrop.querySelector('#opEditSave').addEventListener('click', function(){
       o.title = backdrop.querySelector('#opEditTitle').value.trim() || o.title;
@@ -9366,7 +9416,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const key = data.clients.map(function(c){ return c.id + '|' + c.name + '|' + c.company; }).join('~');
     if (key === clientSelectsCacheKey) return;
     clientSelectsCacheKey = key;
-    ['taskClient', 'opClient', 'docClient', 'mtgClient', 'pwClient', 'topicNewClient'].forEach(function(selId){
+    ['taskClient', 'opClient', 'retClient', 'docClient', 'mtgClient', 'pwClient', 'topicNewClient'].forEach(function(selId){
       const sel = document.getElementById(selId);
       if (!sel) return;
       const prev = sel.value;
@@ -10048,6 +10098,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!lvl) return;
       attnItems.push({ level: lvl, date: o.followUp, title: o.ref + ' follow-up: ' + o.title, sub: o.clientId ? clientName(o.clientId) : 'Opportunity', panel: 'tasks' });
     });
+    // Overpayments that were paid back, seen in the Zoho bank feed but not yet recorded there.
+    try {
+      const refundPairs = bankRefundPairs_(zohoBankState_().txns);
+      if (refundPairs.length){
+        attnItems.push({ level: 'soon', date: refundPairs[0].out.date,
+          title: refundPairs.length + ' overpayment refund' + (refundPairs.length === 1 ? '' : 's') + ' to record in Zoho',
+          sub: refundPairs.map(function(pr){ return fmtGBP(pr.out.amount) + ' (' + (pr.out.payee || pr.out.description || 'refund') + ')'; }).join(', '),
+          panel: 'invoices', when: 'Bank', url: ZOHO_BANKING_URL });
+      }
+    } catch (e){ /* bank info not available yet */ }
+    try {
+      const owed = retainersOutstanding_();
+      if (owed.length){
+        attnItems.push({ level: 'soon', date: owed[0].mo.due,
+          title: owed.length + ' retainer invoice' + (owed.length === 1 ? '' : 's') + ' to raise',
+          sub: owed.slice(0, 4).map(function(o){ const c = data.clients.find(function(x){ return x.id === o.r.clientId; }); return (c ? c.name : 'Retainer') + ' ' + o.mo.ym; }).join(', '),
+          panel: 'invoices', when: 'Retainer' });
+      }
+    } catch (e){ /* retainers optional */ }
     // Business tax and filing deadlines (the Key deadlines on the Tax tab): anything already
     // past, or due within the next 60 days. After filing, update the dates on the Tax tab and
     // the next set rolls forward.
@@ -11324,6 +11393,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // (so it's within its drive.file grant) — the script only ever updates its content.
   const ZOHO_SNAPSHOT_FILENAME = 'zoho-snapshot.json';
   const ZOHO_SCRIPT_VERSION_REQUIRED = 2; // Apps Script version that supports reference + date prepayment posting
+  const ZOHO_V4 = 4;                      // adds live reports, auto-matching, refund recording and the weekly backup
   const ZOHO_BANK_SCRIPT_VERSION = 3;     // Apps Script version that also reads bank accounts and feed transactions
   const ZOHO_BANKING_URL = 'https://books.zoho.eu/app/20113072267#/banking';
 
@@ -11422,11 +11492,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
       }
     }
+    if (snap && (Number(snap.scriptVersion) || 1) >= ZOHO_V4){
+      if (snap.reportsError) rows.push(['Live reports', bad('Zoho refused the reports: ' + snap.reportsError)]);
+      else if (Array.isArray(snap.reports)) rows.push(['Live reports', ok(snap.reports.length + ' period' + (snap.reports.length === 1 ? '' : 's') + ' read')]);
+      if (snap.backup){
+        rows.push(['Weekly backup', snap.backup.ok ? ok('Last ' + String(snap.backup.at || '').slice(0, 16).replace('T', ' ') + ' UTC') : bad(snap.backup.error || 'Failed')]);
+      } else rows.push(['Weekly backup', meh('Not set up yet (needs a GitHub token in the Apps Script)')]);
+    } else if (snap && (Number(snap.scriptVersion) || 1) >= ZOHO_BANK_SCRIPT_VERSION){
+      rows.push(['Live reports and backup', meh('Need Apps Script version ' + ZOHO_V4)]);
+    }
     const pending = (data && data.zohoPending) ? data.zohoPending.length : 0;
     rows.push(['Actions waiting on Zoho', pending ? meh(pending + ' sent, not yet confirmed') : ok('None')]);
     wrap.innerHTML = rows.map(function(r){
       return '<div class="zoho-row" style="display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:13px;"><span>' + escapeHtml(r[0]) + '</span><span style="text-align:right;">' + r[1] + '</span></div>';
     }).join('');
+    if (snap && (Number(snap.scriptVersion) || 1) >= ZOHO_V4 && conn && conn.webAppUrl){
+      const bb = document.createElement('button');
+      bb.type = 'button'; bb.className = 'btn btn-ghost'; bb.style.cssText = 'width:auto;margin-top:6px;padding:3px 10px;font-size:12px;';
+      bb.textContent = 'Back up Zoho now';
+      bb.addEventListener('click', async function(){
+        try {
+          await fetch(conn.webAppUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ secret: conn.sharedSecret, action: 'backupNow' }) });
+          toast('Backup requested. The weekly backup row above shows the result after the next sync.');
+          setTimeout(function(){ if (!offlineReadOnly) zohoReconcile(); }, 20000);
+        } catch (e){ toast('Backup request failed to send: ' + e.message); }
+      });
+      wrap.appendChild(bb);
+    }
   }
 
   document.getElementById('zohoEditBtn').addEventListener('click', function(){
@@ -11476,7 +11568,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ secret: conn.sharedSecret, action: 'requestSync' })
+        body: JSON.stringify({ secret: conn.sharedSecret, action: 'requestSync', fyEnd: ((data.financeProfile && /^\d{4}-\d{2}-\d{2}$/.test(data.financeProfile.companyFyEnd || '')) ? data.financeProfile.companyFyEnd : '') })
       });
       if (label){ label.textContent = 'Sync requested — check back in a minute (it also refreshes itself every 30 minutes on its own).'; }
       setTimeout(function(){ if (!offlineReadOnly) zohoReconcile(); }, 8000);
@@ -11538,7 +11630,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     recordPayment: 'Record payment',
     markInvoiceSent: 'Mark invoice as sent',
     createPrepaidExpense: 'Post prepayment',
-    createJournal: 'Post recognition journal'
+    createJournal: 'Post recognition journal',
+    refundOverpayment: 'Record overpayment and refund'
   };
   function zohoActionLabel(p, r){
     const kindLabel = ZOHO_ACTION_KIND_LABEL[p.kind] || p.kind;
@@ -11556,6 +11649,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (p.kind === 'markInvoiceSent'){
       return kindLabel + (p.meta.invoiceId ? (' — ' + p.meta.invoiceId) : '');
+    }
+    if (p.kind === 'refundOverpayment'){
+      return kindLabel + (p.meta.label ? (' - ' + p.meta.label) : '');
     }
     if (p.kind === 'createPrepaidExpense' || p.kind === 'createJournal'){
       return kindLabel + (p.meta.ref ? (' — ' + p.meta.ref) : '');
@@ -11592,6 +11688,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       if (r.result && r.result.publishError){
         needsOk.push('NEEDS ATTENTION - ' + zohoActionLabel(p, r) + '\n   Created in Zoho but could not be published (it is a draft): ' + r.result.publishError);
+      }
+      if (p.kind === 'recordPayment' && r.result && r.result.bankMatch && String(r.result.bankMatch).indexOf('not matched') === 0){
+        needsOk.push('PAYMENT RECORDED, BANK LINE NOT MATCHED - ' + zohoActionLabel(p, r) + '\n   ' + r.result.bankMatch + '\n   The payment is in Zoho. Match the bank line to it in Zoho Banking.');
+      }
+      if (p.kind === 'refundOverpayment' && r.result){
+        const rr = r.result;
+        const odd = (rr.refundError ? ['Refund not recorded: ' + rr.refundError] : []).concat(
+          [rr.depositMatch, rr.withdrawalMatch].filter(function(x){ return x && String(x).indexOf('not matched') === 0; }));
+        if (odd.length) needsOk.push('PARTLY DONE - ' + zohoActionLabel(p, r) + '\n   Steps: ' + (rr.steps || []).join('; ') + '\n   ' + odd.join('\n   ') + '\n   Finish what is left in Zoho Banking.');
       }
       applied++;
       if (p.kind === 'createContact'){
@@ -12613,6 +12718,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return /categori[sz]ed|matched|manually/.test(st) && !/uncategori[sz]ed/.test(st);
   }
 
+  // Spots a deposit and a later withdrawal of the same amount to the same name that are both still
+  // waiting to be recorded: usually an overpayment that was paid back. Pairs the withdrawal with the
+  // most recent matching deposit on or before it (the duplicate), leaving earlier deposits free to
+  // be matched to an invoice. Read-only: it only labels what Zoho's feed already shows.
+  function bankRefundPairs_(txns){
+    const stop = { payment: 1, reverse: 1, reversal: 1, reversed: 1, refund: 1, return: 1, returned: 1, retainer: 1, from: 1, transfer: 1, bank: 1, faster: 1, ltd: 1, limited: 1 };
+    const words = function(t){
+      return (String(t.payee || '') + ' ' + String(t.description || '') + ' ' + String(t.reference || '')).toLowerCase()
+        .replace(/[^a-z]+/g, ' ').split(' ').filter(function(w){ return w.length >= 4 && !stop[w]; });
+    };
+    const open = (txns || []).filter(function(t){ return !bankTxnDone_(t); });
+    const ins = open.filter(function(t){ return String(t.direction).toLowerCase() === 'debit'; })
+      .slice().sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    const outs = open.filter(function(t){ return String(t.direction).toLowerCase() === 'credit'; })
+      .slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    const used = {};
+    const pairs = [];
+    outs.forEach(function(o){
+      const ow = words(o);
+      const days = function(i){ return (new Date(o.date + 'T00:00:00') - new Date(i.date + 'T00:00:00')) / 86400000; };
+      const cand = ins.filter(function(i){
+        return !used[i.id] && Math.abs((Number(i.amount) || 0) - (Number(o.amount) || 0)) < 0.005 &&
+          i.date <= o.date && days(i) <= 21 && words(i).some(function(w){ return ow.indexOf(w) !== -1; });
+      });
+      if (cand.length){ used[cand[0].id] = true; pairs.push({ inn: cand[0], out: o }); }
+    });
+    return pairs;
+  }
+
+  // Best guess at which Zoho customer a deposit came from: the contact whose name shares a word with the payer.
+  function refundCustomerGuess_(t){
+    const snap = zohoSnapshotCache; if (!snap || !Array.isArray(snap.allContacts)) return '';
+    const stop = { limited: 1, ltd: 1, events: 1, the: 1, and: 1, studios: 1 };
+    const w = function(x){ return String(x || '').toLowerCase().replace(/[^a-z]+/g, ' ').split(' ').filter(function(k){ return k.length >= 3 && !stop[k]; }); };
+    const pw = w((t.payee || '') + ' ' + (t.description || ''));
+    let best = '', bestN = 0;
+    snap.allContacts.forEach(function(c){
+      const n = w(c.name + ' ' + (c.company || '')).filter(function(k){ return pw.indexOf(k) !== -1; }).length;
+      if (n > bestN){ bestN = n; best = c.contactId; }
+    });
+    return best;
+  }
+
   function renderBankFeed(){
     const wrap = document.getElementById('invBankFeed');
     if (!wrap || !data) return;
@@ -12658,6 +12806,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     head.textContent = 'Money in, newest first';
     wrap.appendChild(head);
     const firstWord = function(n){ return String(n || '').toLowerCase().split(' ')[0]; };
+    const pairs = bankRefundPairs_(bank.txns);
+    const pairedIn = {};
+    pairs.forEach(function(pr){ pairedIn[pr.inn.id] = pr; });
     credits.forEach(function(t){
       const amt = Number(t.amount) || 0;
       const done = bankTxnDone_(t);
@@ -12673,7 +12824,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       left.style.cssText = 'flex:1;min-width:220px;';
       left.textContent = t.date + '  ' + fmtGBP(amt) + '  ' + (t.payee || t.description || t.reference || 'Payment in') + (t.reference && t.reference !== t.payee ? ' (' + t.reference + ')' : '') + '  [' + (t.status || 'no status') + ']';
       row.appendChild(left);
-      if (!done && cands.length){
+      if (!done && pairedIn[t.id]){
+        const pr = pairedIn[t.id];
+        const hint = document.createElement('span');
+        hint.style.cssText = 'font-size:12.5px;color:var(--warn, #b3261e);font-weight:700;';
+        hint.textContent = 'Paid back on ' + pr.out.date + ' (' + fmtGBP(pr.out.amount) + ' out). Not an invoice payment.';
+        row.appendChild(hint);
+      } else if (!done && cands.length){
         const inv = cands[0];
         const hint = document.createElement('span');
         hint.style.cssText = 'font-size:12.5px;color:var(--muted);';
@@ -12685,8 +12842,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         btn.textContent = pending ? 'Sending…' : 'Record payment on ' + inv.number;
         btn.disabled = pending;
         btn.addEventListener('click', function(){
-          if (!confirm('Record ' + fmtGBP(amt) + ' received on ' + t.date + ' against invoice ' + inv.number + ' (' + (inv.customerName || '') + ') in Zoho?\n\nThe payment goes into the bank account the money arrived in. You then match it to the bank line in Zoho Banking.')) return;
-          zohoFireWrite('recordPayment', { invoiceId: inv.invoiceId, amount: amt, date: t.date, paymentMode: 'banktransfer', accountId: t.accountId, referenceNumber: t.reference || '' },
+          if (!confirm('Record ' + fmtGBP(amt) + ' received on ' + t.date + ' against invoice ' + inv.number + ' (' + (inv.customerName || '') + ') in Zoho?\n\nThe payment goes into the bank account the money arrived in.' + ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? ' The bank line is matched to it for you.' : ' You then match it to the bank line in Zoho Banking.'))) return;
+          zohoFireWrite('recordPayment', { invoiceId: inv.invoiceId, amount: amt, date: t.date, paymentMode: 'banktransfer', accountId: t.accountId, referenceNumber: t.reference || '', matchLineId: ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? t.id : '') },
             { txnId: t.id, label: 'Invoice ' + inv.number + ' (' + fmtGBP(amt) + ')', date: t.date });
           toast('Sending to Zoho. Check the action log on the Dashboard shortly.');
           renderBankFeed();
@@ -12700,10 +12857,199 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       wrap.appendChild(row);
     });
+    if (pairs.length){
+      const box = document.createElement('div');
+      box.style.cssText = 'margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2, rgba(0,0,0,0.03));font-size:13px;';
+      const h = document.createElement('div'); h.style.cssText = 'font-weight:700;margin-bottom:4px;'; h.textContent = 'Overpayments paid back (record these in Zoho)'; box.appendChild(h);
+      pairs.forEach(function(pr){
+        const d = document.createElement('div'); d.style.cssText = 'margin:4px 0;';
+        d.textContent = fmtGBP(pr.inn.amount) + ' in on ' + pr.inn.date + ' and ' + fmtGBP(pr.out.amount) + ' out on ' + pr.out.date + ' (' + (pr.inn.payee || pr.inn.description || 'same name') + '). Net nothing.';
+        box.appendChild(d);
+        if ((Number(snap.scriptVersion) || 1) >= ZOHO_V4){
+          const pairKey = pr.inn.id + '>' + pr.out.id;
+          const inFlight = (data.zohoPending || []).some(function(p){ return p.kind === 'refundOverpayment' && p.meta && p.meta.pairKey === pairKey; });
+          const guess = refundCustomerGuess_(pr.inn);
+          const rowEl = document.createElement('div'); rowEl.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 8px;';
+          const sel = document.createElement('select'); sel.style.cssText = 'max-width:260px;';
+          sel.innerHTML = '<option value="">Which Zoho customer paid?</option>';
+          (snap.allContacts || []).slice().sort(function(a, b){ return String(a.name).localeCompare(String(b.name)); }).forEach(function(c){
+            const o = document.createElement('option'); o.value = c.contactId; o.textContent = c.name; sel.appendChild(o);
+          });
+          if (guess) sel.value = guess;
+          const rb = document.createElement('button'); rb.className = 'btn btn-primary'; rb.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;';
+          rb.textContent = inFlight ? 'Sending…' : 'Record in Zoho for me'; rb.disabled = inFlight;
+          rb.addEventListener('click', function(){
+            if (!sel.value){ toast('Pick the Zoho customer first. If they are not in Zoho yet, add them as a client and link them first.'); return; }
+            const cn = sel.options[sel.selectedIndex].textContent;
+            if (!confirm('Record in Zoho: ' + fmtGBP(pr.inn.amount) + ' received from ' + cn + ' on ' + pr.inn.date + ', and refunded on ' + pr.out.date + '?\n\nZoho gets a customer payment (not applied to any invoice) and a refund of it, and both bank lines are matched. No income is recorded.')) return;
+            zohoFireWrite('refundOverpayment', { customerId: sel.value, bankAccountId: pr.inn.accountId, amount: pr.inn.amount, depositDate: pr.inn.date, refundDate: pr.out.date,
+              reference: pr.inn.reference || '', depositLineId: pr.inn.id, withdrawalLineId: pr.out.id }, { pairKey: pairKey, label: cn + ' ' + fmtGBP(pr.inn.amount) });
+            toast('Sending to Zoho. Check the action log shortly.');
+            renderBankFeed();
+          });
+          rowEl.appendChild(sel); rowEl.appendChild(rb); box.appendChild(rowEl);
+        }
+      });
+      const how = document.createElement('div'); how.style.cssText = 'color:var(--muted);margin-top:6px;';
+      how.textContent = 'In Zoho Banking: categorise the money in as a payment from that customer (it sits as a credit), then categorise the money out as a refund of that credit. The credit ends at nothing and no income is recorded. Do not record the deposit against an invoice.';
+      box.appendChild(how);
+      const a = document.createElement('a'); a.href = ZOHO_BANKING_URL; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open Zoho Banking'; a.style.cssText = 'display:inline-block;margin-top:6px;';
+      box.appendChild(a);
+      wrap.appendChild(box);
+    }
   }
+
+  // ---------------------------------------------------------------- live profit and loss (Zoho reports)
+  let pnlKey = 'month';
+  function renderPnl(){
+    const wrap = document.getElementById('finPnl'), tabs = document.getElementById('finPnlTabs');
+    if (!wrap || !tabs) return;
+    const snap = zohoSnapshotCache;
+    tabs.innerHTML = '';
+    if (!data || !data.zohoConnection){ wrap.innerHTML = '<div class="empty-note">Connect Zoho Books on the Dashboard to see this.</div>'; return; }
+    if (!snap){ wrap.innerHTML = '<div class="empty-note">Nothing synced yet. Press Sync now on the Zoho Books card at the bottom of the Dashboard.</div>'; return; }
+    if ((Number(snap.scriptVersion) || 1) < ZOHO_V4){ wrap.innerHTML = '<div class="empty-note">Needs Apps Script version ' + ZOHO_V4 + ' (the Zoho Books card on the Dashboard shows what is installed).</div>'; return; }
+    if (snap.reportsError){ wrap.innerHTML = ''; const e = document.createElement('div'); e.className = 'empty-note'; e.textContent = 'Zoho would not give the reports: ' + snap.reportsError; wrap.appendChild(e); return; }
+    const reps = Array.isArray(snap.reports) ? snap.reports : [];
+    if (!reps.length){ wrap.innerHTML = '<div class="empty-note">No report data yet. Press Sync now.</div>'; return; }
+    if (!reps.some(function(r){ return r.key === pnlKey; })) pnlKey = reps[0].key;
+    reps.forEach(function(r){
+      const b = document.createElement('button'); b.type = 'button';
+      b.className = 'btn ' + (r.key === pnlKey ? 'btn-primary' : 'btn-ghost'); b.style.cssText = 'width:auto;padding:4px 10px;font-size:12.5px;';
+      b.textContent = r.label; b.addEventListener('click', function(){ pnlKey = r.key; renderPnl(); });
+      tabs.appendChild(b);
+    });
+    const cur = reps.find(function(r){ return r.key === pnlKey; });
+    wrap.innerHTML = '';
+    const per = document.createElement('div'); per.className = 'hint'; per.textContent = cur.from + ' to ' + cur.to + (snap.syncedAt ? ' (as at ' + snap.syncedAt.slice(0, 16).replace('T', ' ') + ' UTC)' : '');
+    wrap.appendChild(per);
+    if (cur.error){ const e = document.createElement('div'); e.className = 'empty-note'; e.textContent = 'Zoho gave no usable figures for this period: ' + cur.error; wrap.appendChild(e); return; }
+    const net = cur.sections.find(function(x){ return /net\s*(profit|loss)/i.test(x.name); });
+    const rest = cur.sections.filter(function(x){ return x !== net; });
+    const box = document.createElement('div'); box.className = 'quote-totals'; box.style.cssText = 'border-top:none;padding-top:0;';
+    rest.forEach(function(sec){
+      const row = document.createElement('div'); row.className = 'qt-row';
+      row.innerHTML = '<span></span><span></span>'; row.children[0].textContent = sec.name; row.children[1].textContent = fmtGBP(sec.total);
+      box.appendChild(row);
+      sec.accounts.slice().sort(function(a, b){ return Math.abs(b.total) - Math.abs(a.total); }).slice(0, 8).forEach(function(a){
+        const r2 = document.createElement('div'); r2.className = 'qt-row'; r2.style.cssText = 'font-size:12.5px;color:var(--muted);padding-left:14px;';
+        r2.innerHTML = '<span></span><span></span>'; r2.children[0].textContent = a.name; r2.children[1].textContent = fmtGBP(a.total);
+        box.appendChild(r2);
+      });
+    });
+    if (net){
+      const row = document.createElement('div'); row.className = 'qt-row total';
+      row.innerHTML = '<span></span><span></span>'; row.children[0].textContent = net.name; row.children[1].textContent = fmtGBP(net.total);
+      box.appendChild(row);
+    }
+    wrap.appendChild(box);
+  }
+
+  // ---------------------------------------------------------------- retainers (standing monthly invoices)
+  // Nothing here records "raised": a month counts as raised when a quote carries this retainer and month with an
+  // invoice number, or when Zoho already shows an invoice for that client in that month for the same amount.
+  function retainerMonths_(r){
+    const today = todayIso_();
+    const out = [];
+    let ym = r.startDate.slice(0, 7);
+    const lastYm = today.slice(0, 7);
+    let guard = 0;
+    while (ym <= lastYm && guard++ < 240){
+      const day = String(r.dayOfMonth).padStart(2, '0');
+      out.push({ ym: ym, due: ym + '-' + day });
+      const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+      ym = m === 12 ? ((y + 1) + '-01') : (y + '-' + String(m + 1).padStart(2, '0'));
+    }
+    return out;
+  }
+  function retainerMonthState_(r, mo){
+    const q = data.quotes.find(function(x){ return x.retainerId === r.id && x.retainerMonth === mo.ym && x.imageScapeInvoiceRef; });
+    if (q) return { raised: true, how: 'Invoice ' + (q.zohoInvoiceNumber || q.imageScapeInvoiceRef), quote: q };
+    const c = data.clients.find(function(x){ return x.id === r.clientId; });
+    const sc = c && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
+    const hit = sc && (sc.invoices || []).find(function(i){ return String(i.date || '').slice(0, 7) === mo.ym && Math.abs(Number(i.total) - r.amount) < 0.005; });
+    if (hit) return { raised: true, how: 'Invoice ' + hit.number + ' in Zoho' };
+    return { raised: false };
+  }
+  function retainersOutstanding_(){
+    const today = todayIso_(), out = [];
+    (data.retainers || []).forEach(function(r){
+      if (!r.active) return;
+      retainerMonths_(r).forEach(function(mo){
+        if (mo.due <= today && !retainerMonthState_(r, mo).raised) out.push({ r: r, mo: mo });
+      });
+    });
+    return out;
+  }
+  function raiseRetainerInvoice_(r, mo){
+    const c = data.clients.find(function(x){ return x.id === r.clientId; });
+    if (!c){ toast('Pick a client on the retainer first.'); return; }
+    let q = data.quotes.find(function(x){ return x.retainerId === r.id && x.retainerMonth === mo.ym; });
+    if (!q){
+      q = { id: randomId(), title: r.description + ' ' + mo.ym, clientId: r.clientId, status: 'accepted', lineItems: [{ id: randomId(), label: r.description, qty: 1, rate: r.amount, description: '' }],
+        costs: [], discountPct: 0, notes: '', createdAt: new Date().toISOString(), retainerId: r.id, retainerMonth: mo.ym };
+      data.quotes.push(q); markDirty(); renderQuotes();
+    }
+    openGenerateImageScapeDocModal(q, 'invoice');
+    const dEl = document.querySelector('#gdDate'); if (dEl) dEl.value = mo.due;
+  }
+  function renderRetainers(){
+    const wrap = document.getElementById('retList');
+    if (!wrap || !data) return;
+    wrap.innerHTML = '';
+    if (!data.retainers.length){ wrap.innerHTML = '<div class="empty-note">No retainers yet.</div>'; return; }
+    data.retainers.forEach(function(r){
+      const c = data.clients.find(function(x){ return x.id === r.clientId; });
+      const card = document.createElement('div'); card.className = 'snapshot-card';
+      const head = document.createElement('div'); head.className = 'snap-head';
+      head.innerHTML = '<span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Remove this retainer (does not touch Zoho)">✕</button>';
+      head.querySelector('.snap-title').textContent = (c ? c.name : 'No client') + ': ' + r.description;
+      head.querySelector('.snap-pulled').textContent = fmtGBP(r.amount) + ' on day ' + r.dayOfMonth + ' of each month' + (r.active ? '' : ' (paused)');
+      head.querySelector('.snap-del').addEventListener('click', function(){
+        if (!confirm('Remove this retainer from the list? Invoices already raised stay as they are.')) return;
+        data.retainers = data.retainers.filter(function(x){ return x.id !== r.id; }); markDirty(); renderRetainers(); renderHome();
+      });
+      card.appendChild(head);
+      const months = retainerMonths_(r).slice(-4).reverse();
+      months.forEach(function(mo){
+        const st = retainerMonthState_(r, mo);
+        const row = document.createElement('div'); row.className = 'zoho-row'; row.style.cssText = 'align-items:center;gap:10px;flex-wrap:wrap;';
+        const l = document.createElement('span'); l.style.flex = '1';
+        l.textContent = mo.ym + ' (due ' + mo.due + '): ' + (st.raised ? st.how : 'not raised');
+        l.style.color = st.raised ? 'var(--good, #2e7d32)' : (mo.due < todayIso_() ? 'var(--warn)' : 'inherit');
+        row.appendChild(l);
+        if (!st.raised && r.active){
+          const b = document.createElement('button'); b.className = 'btn btn-primary'; b.style.cssText = 'width:auto;padding:4px 12px;font-size:12.5px;';
+          b.textContent = 'Raise invoice'; b.addEventListener('click', function(){ raiseRetainerInvoice_(r, mo); });
+          row.appendChild(b);
+        }
+        card.appendChild(row);
+      });
+      const act = document.createElement('div'); act.style.marginTop = '6px';
+      const tg = document.createElement('button'); tg.className = 'snap-csv-btn'; tg.textContent = r.active ? 'Pause' : 'Resume';
+      tg.addEventListener('click', function(){ r.active = !r.active; markDirty(); renderRetainers(); renderHome(); });
+      act.appendChild(tg); card.appendChild(act);
+      wrap.appendChild(card);
+    });
+  }
+  document.getElementById('retAddBtn').addEventListener('click', function(){
+    const clientId = document.getElementById('retClient').value;
+    const desc = document.getElementById('retDesc').value.trim() || 'Monthly retainer';
+    const amount = Number(document.getElementById('retAmount').value) || 0;
+    const day = Math.min(28, Math.max(1, parseInt(document.getElementById('retDay').value, 10) || 1));
+    const start = document.getElementById('retStart').value || (todayIso_().slice(0, 7) + '-01');
+    if (!clientId){ alert('Pick the client first.'); return; }
+    if (amount <= 0){ alert('Amount must be more than £0.'); return; }
+    data.retainers.push({ id: randomId(), clientId: clientId, description: desc, amount: amount, dayOfMonth: day, startDate: start, active: true });
+    document.getElementById('retDesc').value = ''; document.getElementById('retAmount').value = '';
+    markDirty(); renderRetainers(); renderHome();
+    toast('Retainer added.');
+  });
 
   function renderInvoiceQueue(){
     try { renderBankFeed(); } catch (e){ /* never block the invoice lists */ }
+    try { renderPnl(); } catch (e){ /* same */ }
+    try { renderRetainers(); } catch (e){ /* same */ }
     const readyWrap = document.getElementById('invQueueReady');
     const pendingWrap = document.getElementById('invQueuePending');
     const ledgerWrap = document.getElementById('invLedger');
@@ -15492,6 +15838,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         rows += lineRow(line);
       });
       const inZohoCount = st.lines.filter(function(l){ return l.state === 'in_zoho'; }).length;
+      let nonCurrentHint = '';
+      if (Number(s.months) > 12){
+        const todayI = todayIso_(), cutoff = addMonthsIso(todayI, 12);
+        const left = st.lines.filter(function(l){ return l.state !== 'in_zoho'; });
+        const remaining = left.reduce(function(n, l){ return n + (Number(l.amount) || 0); }, 0);
+        const later = left.filter(function(l){ return l.dateIso > cutoff; }).reduce(function(n, l){ return n + (Number(l.amount) || 0); }, 0);
+        if (later > 0.004) nonCurrentHint = 'Balance sheet view: ' + fmtGBP(remaining) + ' still to be recognised, of which ' + fmtGBP(later) + ' falls after ' + cutoff + ' (non-current). Display only: nothing is posted differently, and your accountant decides how it is shown.';
+      }
       card.innerHTML =
         '<div class="snap-head"><span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Remove from this list (does not touch Zoho)">✕</button></div>' +
         '<div class="snap-period"></div>' +
@@ -15502,6 +15856,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<table style="margin-top:8px;">' + rows + '</table>' +
         (foldedCount ? ('<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;color:var(--muted);">' + foldedCount + ' further upcoming month' + (foldedCount === 1 ? '' : 's') + ' (to ' + escapeHtml(st.lines[st.lines.length - 1].dateIso) + ')</summary><table style="margin-top:6px;">' + foldedRows + '</table></details>') : '') +
         '<div class="snap-actions" style="margin-top:8px;"></div>';
+      if (nonCurrentHint){ const nh = document.createElement('div'); nh.className = 'hint'; nh.style.marginTop = '6px'; nh.textContent = nonCurrentHint; const anchor = card.querySelector('table'); card.insertBefore(nh, anchor); }
       card.querySelector('.snap-title').textContent = s.vendor || 'Untitled subscription';
       card.querySelector('.snap-notes b').textContent = s.reference;
       card.querySelector('.snap-pulled').textContent = fmtGBP(s.totalAmount) + ' over ' + s.months + ' mo';
@@ -15586,6 +15941,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
 
   function renderFinance(){
+    try { renderPnl(); } catch (e){ /* live report is optional */ }
     renderFinanceProfile();
     renderDeadlines();
     renderSnapshots();
