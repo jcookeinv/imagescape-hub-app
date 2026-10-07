@@ -9965,7 +9965,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     try {
       zohoBankState_().feeds.forEach(function(a){
-        if (a.consentRemainingDays === null || a.consentRemainingDays === undefined) return;
+        if (typeof a.consentRemainingDays !== 'number') return;
         if (a.consentExpired || a.consentRemainingDays <= 7){
           items.push({ level: (a.consentExpired || a.consentRemainingDays <= 2) ? 'overdue' : 'soon',
             title: 'Bank feed permission ' + (a.consentExpired ? 'has expired' : 'runs out in ' + a.consentRemainingDays + ' day' + (a.consentRemainingDays === 1 ? '' : 's')),
@@ -11487,7 +11487,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       else if (bank.known){
         rows.push(['Bank feed', ok('Readable (' + bank.feeds.length + ' bank account' + (bank.feeds.length === 1 ? '' : 's') + ', ' + bank.txns.length + ' recent transactions)')]);
         bank.feeds.forEach(function(a){
-          if (a.consentRemainingDays === null || a.consentRemainingDays === undefined) return;
+          if (typeof a.consentRemainingDays !== 'number') return;
           rows.push(['Bank connection consent', (a.consentExpired || a.consentRemainingDays <= 7) ? bad(a.name + ': ' + (a.consentExpired ? 'expired' : a.consentRemainingDays + ' day' + (a.consentRemainingDays === 1 ? '' : 's') + ' left') + ', reconnect in Zoho Banking') : ok(a.name + ': ' + a.consentRemainingDays + ' days left')]);
         });
       }
@@ -12376,13 +12376,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } else if (pendingInvoice){
         html += '<div class="hint">Sending to Zoho as an invoice — check back shortly.</div>';
       } else {
+        const exI = zohoExistingInvoiceFor_(q, c);
         html += '<div class="hint">Linked to a Zoho contact.</div>' +
-          '<button class="btn btn-ghost" id="qZohoSendInvoiceBtn" style="width:auto;margin-top:6px;"' +
-          (q.lineItems.length ? '' : ' disabled title="Add at least one line item first"') + '>Send to Zoho as invoice</button>';
+          (exI ? ('<div class="hint" style="margin-top:6px;">Zoho already has invoice <b>' + escapeHtml(exI.inv.number || '') + '</b> (' + escapeHtml(exI.inv.status || '') + ', ' + fmtGBP(Number(exI.inv.total) || 0) + ')' + (exI.strong ? '' : ', same amount and date') + '. Link this quote to it rather than sending a second one.</div>' +
+            '<button class="btn btn-primary" id="qZohoLinkBtn" style="width:auto;margin-top:6px;">Link to Zoho invoice ' + escapeHtml(exI.inv.number || '') + '</button>') :
+          ('<button class="btn btn-ghost" id="qZohoSendInvoiceBtn" style="width:auto;margin-top:6px;"' +
+          (q.lineItems.length ? '' : ' disabled title="Add at least one line item first"') + '>Send to Zoho as invoice</button>'));
       }
       html += '</div>';
       wrap.innerHTML = html;
 
+      const linkBtn2 = wrap.querySelector('#qZohoLinkBtn');
+      if (linkBtn2) linkBtn2.addEventListener('click', function(){
+        const exI2 = zohoExistingInvoiceFor_(q, c);
+        if (!exI2) return;
+        linkQuoteToZohoInvoice_(q, exI2.inv);
+        toast('Linked to Zoho invoice ' + exI2.inv.number + '. Nothing was created or changed in Zoho.');
+        renderZohoQuoteBlock();
+      });
       const sendBtn = wrap.querySelector('#qZohoSendInvoiceBtn');
       if (sendBtn) sendBtn.addEventListener('click', function(){
         const client = data.clients.find(function(x){ return x.id === q.clientId; });
@@ -12500,7 +12511,39 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // is made there, Code.gs will keep auto-numbering and the two numbers just won't match
   // (see the "Sent to Zoho" ledger on the Invoices tab, which flags this). referenceNumber
   // is still sent alongside for backward compatibility with the Code.gs deployed today.
+  // Finds an invoice Zoho already holds for this quote's client: the same invoice number (strong match),
+  // or failing that the same total on the same date (weak match, only offered as a button). Used so a
+  // pre-MH invoice, or one already sent, is linked rather than created a second time in Zoho.
+  function zohoExistingInvoiceFor_(q, client){
+    const c = client || data.clients.find(function(x){ return x.id === q.clientId; });
+    const sc = c && c.zohoContactId && zohoSnapshotCache && zohoSnapshotCache.contacts && zohoSnapshotCache.contacts[c.zohoContactId];
+    if (!sc) return null;
+    const ref = String(q.imageScapeInvoiceRef || '').trim().toLowerCase();
+    const list = (sc.invoices || []).filter(function(i){ return i.status !== 'void'; });
+    const taken = {};
+    data.quotes.forEach(function(o){ if (o.id !== q.id && o.zohoInvoiceId) taken[o.zohoInvoiceId] = true; });
+    const free = list.filter(function(i){ return !taken[i.invoiceId]; });
+    const byNum = ref && free.find(function(i){ return String(i.number || '').trim().toLowerCase() === ref; });
+    if (byNum) return { inv: byNum, strong: true };
+    const tot = computeQuoteTotals(q).total;
+    const day = q.imageScapeInvoiceDate || '';
+    const weak = day && free.find(function(i){ return Math.abs(Number(i.total) - tot) < 0.005 && i.date === day; });
+    return weak ? { inv: weak, strong: false } : null;
+  }
+  function linkQuoteToZohoInvoice_(q, inv){
+    q.zohoInvoiceId = inv.invoiceId;
+    q.zohoInvoiceNumber = inv.number || '';
+    markDirty();
+    renderInvoiceQueue();
+  }
+
   function sendQuoteToZohoAsInvoice(q, client){
+    const ex = zohoExistingInvoiceFor_(q, client);
+    if (ex && ex.strong){
+      linkQuoteToZohoInvoice_(q, ex.inv);
+      toast('Zoho already has invoice ' + ex.inv.number + ' (' + (ex.inv.status || '') + '), so this quote is now linked to it instead of creating a second one.');
+      return;
+    }
     zohoFireWrite('createInvoiceFromQuote', {
       contactId: client.zohoContactId,
       invoiceNumber: q.imageScapeInvoiceRef || undefined,
@@ -12788,7 +12831,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const bits = ['Zoho balance ' + fmtGBP(a.balance), 'bank balance ' + fmtGBP(a.bankBalance)];
       bits.push(a.uncategorized + ' waiting to be matched in Zoho');
       if (a.feedsLastRefresh) bits.push('feed refreshed ' + a.feedsLastRefresh);
-      if (a.consentRemainingDays !== null && a.consentRemainingDays !== undefined) bits.push(a.consentExpired ? 'bank consent expired' : ('bank consent ' + a.consentRemainingDays + ' days left'));
+      if (typeof a.consentRemainingDays === 'number') bits.push(a.consentExpired ? 'bank consent expired' : ('bank consent ' + a.consentRemainingDays + ' days left'));
       const t = document.createElement('strong'); t.textContent = a.name;
       const d = document.createElement('span'); d.style.cssText = 'font-size:12.5px;color:var(--muted);'; d.textContent = bits.join(' · ');
       row.appendChild(t); row.appendChild(d);
@@ -13097,7 +13140,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const left = document.createElement('span');
         left.textContent = q.imageScapeInvoiceRef + ' — ' + (clientName(q.clientId) || 'Client removed') + ' (' + fmtGBP(totals.total) + ')';
         row.appendChild(left);
-        if (client && client.zohoContactId){
+        const exInv = (client && client.zohoContactId) ? zohoExistingInvoiceFor_(q, client) : null;
+        if (exInv){
+          const note = document.createElement('span');
+          note.className = 'hint'; note.style.cssText = 'flex:1;margin-left:8px;';
+          note.textContent = 'Zoho already has invoice ' + exInv.inv.number + ' (' + (exInv.inv.status || '') + ', ' + fmtGBP(Number(exInv.inv.total) || 0) + ')' + (exInv.strong ? '' : ', same amount and date');
+          row.appendChild(note);
+          const lb = document.createElement('button');
+          lb.className = 'btn btn-primary';
+          lb.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
+          lb.textContent = 'Link to it';
+          lb.addEventListener('click', function(){ linkQuoteToZohoInvoice_(q, exInv.inv); toast('Linked ' + q.imageScapeInvoiceRef + ' to Zoho invoice ' + exInv.inv.number + '. Nothing was created or changed in Zoho.'); });
+          row.appendChild(lb);
+        } else if (client && client.zohoContactId){
           const btn = document.createElement('button');
           btn.className = 'btn btn-ghost';
           btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
