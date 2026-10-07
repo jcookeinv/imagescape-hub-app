@@ -12537,6 +12537,48 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderInvoiceQueue();
   }
 
+  // For an invoice that was already made and sent outside MH (or before MH existed): records its number and
+  // date on the quote without generating any document, then links it to the matching invoice Zoho already holds.
+  function openInvoiceAlreadySentModal_(q){
+    const client = q.clientId ? data.clients.find(function(x){ return x.id === q.clientId; }) : null;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:480px;">' +
+        '<h3>Invoice already sent</h3>' +
+        '<div class="sub" style="margin:-4px 0 10px;">Use this when the invoice for "' + escapeHtml(q.title || 'this quote') + '" was already made and sent outside MH. Nothing is generated and nothing is created in Zoho. If Zoho already holds an invoice with this number it is linked to this quote.</div>' +
+        '<div class="field"><label>Invoice number exactly as on the invoice</label><input type="text" id="asNumber" placeholder="26001"></div>' +
+        '<div class="field"><label>Invoice date</label><input type="date" id="asDate"></div>' +
+        '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="asCancel">Cancel</button><button class="btn btn-primary" id="asGo">Record it</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#asDate').value = todayIso_();
+    backdrop.querySelector('#asCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#asGo').addEventListener('click', function(){
+      const number = backdrop.querySelector('#asNumber').value.trim();
+      const dateIso = backdrop.querySelector('#asDate').value;
+      if (!number){ toast('Type the invoice number.'); return; }
+      if (!dateIso){ toast('Pick the invoice date.'); return; }
+      const numLc = number.toLowerCase();
+      const clash = data.quotes.find(function(o){
+        return o.id !== q.id && [o.imageScapeRef, o.imageScapeInvoiceRef].some(function(r){ return r && String(r).trim().toLowerCase() === numLc; });
+      });
+      if (clash){ toast(number + ' is already used on "' + (clash.title || 'another quote') + '".'); return; }
+      q.imageScapeInvoiceRef = number;
+      q.imageScapeInvoiceDate = dateIso;
+      markDirty();
+      backdrop.remove();
+      const ex = (client && client.zohoContactId) ? zohoExistingInvoiceFor_(q, client) : null;
+      if (ex && ex.strong){
+        linkQuoteToZohoInvoice_(q, ex.inv);
+        toast('Recorded ' + number + ' and linked it to Zoho invoice ' + ex.inv.number + ' (' + (ex.inv.status || '') + '). Nothing was created or changed in Zoho.');
+      } else {
+        renderInvoiceQueue();
+        toast('Recorded ' + number + '. Zoho does not show an invoice with that number yet, so it is listed under generated invoices. Sync Zoho first if you expected one.');
+      }
+    });
+  }
+
   function sendQuoteToZohoAsInvoice(q, client){
     const ex = zohoExistingInvoiceFor_(q, client);
     if (ex && ex.strong){
@@ -13122,6 +13164,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
         btn.textContent = 'Raise invoice';
         btn.addEventListener('click', function(){ openGenerateImageScapeDocModal(q, 'invoice'); });
+        const sentBtn = document.createElement('button');
+        sentBtn.className = 'btn btn-ghost';
+        sentBtn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;margin-left:auto;margin-right:6px;';
+        sentBtn.textContent = 'Already sent';
+        sentBtn.title = 'The invoice was made and sent outside MH';
+        sentBtn.addEventListener('click', function(){ openInvoiceAlreadySentModal_(q); });
+        row.appendChild(sentBtn);
         row.appendChild(btn);
         readyWrap.appendChild(row);
       });
