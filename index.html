@@ -3265,6 +3265,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           '<h3>Choose a Drive folder</h3>' +
           '<div style="display:flex;gap:6px;margin-bottom:6px;"><input type="text" id="fcSearch" placeholder="Search all folders by name" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;"><button class="btn btn-ghost" id="fcSearchBtn" style="width:auto;">Search</button></div>' +
           '<div style="display:flex;gap:6px;margin-bottom:6px;"><button class="btn btn-ghost" id="fcMy" style="width:auto;">My Drive</button><button class="btn btn-ghost" id="fcShared" style="width:auto;">Shared with me</button></div>' +
+          '<div style="display:flex;gap:6px;margin-bottom:6px;"><input type="text" id="fcLink" placeholder="Or paste a Drive folder link" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;"><button class="btn btn-ghost" id="fcLinkBtn" style="width:auto;">Use link</button></div>' +
+          '<div class="hint" id="fcWho" style="margin:0 0 4px;"></div>' +
           '<div class="sub" id="fcPath" style="margin:0 0 6px;"></div>' +
           '<div id="fcList" style="flex:1 1 auto;overflow-y:scroll;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:8px;min-height:160px;max-height:44vh;"></div>' +
           '<div style="display:flex;gap:6px;margin-top:8px;"><input type="text" id="fcNewName" placeholder="New folder name" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;"><button class="btn btn-ghost" id="fcNew" style="width:auto;">Create here</button></div>' +
@@ -3346,6 +3348,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       backdrop.querySelector('#fcSearchBtn').addEventListener('click', doSearch);
       backdrop.querySelector('#fcSearch').addEventListener('keydown', function(e){ if (e.key === 'Enter') doSearch(); });
       backdrop.querySelector('#fcChoose').addEventListener('click', function(){ finish({ id: cur().id, name: cur().name }); });
+      // Any folder this Google account can open, including one shared from another account, can be used by pasting its link.
+      async function useLink(){
+        const raw = backdrop.querySelector('#fcLink').value.trim();
+        if (!raw){ toast('Paste the folder link first.'); return; }
+        const m = /\/folders\/([A-Za-z0-9_-]+)/.exec(raw) || /[?&]id=([A-Za-z0-9_-]+)/.exec(raw) || /^([A-Za-z0-9_-]{15,})$/.exec(raw);
+        if (!m){ toast('That does not look like a Drive folder link.'); return; }
+        try {
+          const res = await driveApiFetch('/files/' + encodeURIComponent(m[1]) + '?fields=id,name,mimeType,capabilities(canAddChildren)&supportsAllDrives=true');
+          if (res.status === 404){ toast('This Google account cannot see that folder. Share it with ' + (backdrop.querySelector('#fcWho').dataset.email || 'the account the Hub is signed in with') + ' as Editor, then try again.'); return; }
+          if (!res.ok){ toast('Drive said status ' + res.status + ' for that link.'); return; }
+          const f = await res.json();
+          if (f.mimeType !== 'application/vnd.google-apps.folder'){ toast('That link is a file, not a folder.'); return; }
+          if (f.capabilities && f.capabilities.canAddChildren === false){ toast('You only have view access to "' + f.name + '". It needs Editor access so invoices can be saved into it.'); return; }
+          finish({ id: f.id, name: f.name });
+        } catch (e){ toast('Could not check that folder: ' + (e && e.message ? e.message : e)); }
+      }
+      backdrop.querySelector('#fcLinkBtn').addEventListener('click', useLink);
+      backdrop.querySelector('#fcLink').addEventListener('keydown', function(e){ if (e.key === 'Enter') useLink(); });
+      (async function(){
+        try {
+          const r = await driveApiFetch('/about?fields=user(emailAddress)');
+          if (!r.ok) return;
+          const em = ((await r.json()).user || {}).emailAddress;
+          if (em && !done){ const w = backdrop.querySelector('#fcWho'); w.dataset.email = em; w.textContent = 'Showing the Drive of ' + em + '. A folder shared from another account only appears here if it was shared with this one.'; }
+        } catch (e) { /* the note is optional */ }
+      })();
       backdrop.querySelector('#fcNew').addEventListener('click', async function(){
         const nm = backdrop.querySelector('#fcNewName').value.trim();
         if (!nm){ toast('Type a name for the new folder.'); return; }
