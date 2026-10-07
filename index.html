@@ -2768,6 +2768,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       r.dayOfMonth = Math.min(28, Math.max(1, Number(r.dayOfMonth) || 1));
       r.startDate = r.startDate || todayIso_();
       r.active = r.active !== false;
+      r.endYm = /^\d{4}-\d{2}$/.test(r.endYm || '') ? r.endYm : '';
     });
     d.subscriptions = d.subscriptions || [];
     d.subscriptions.forEach(function(s){
@@ -8484,7 +8485,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       o.clientId = cid;
       o.stage = 'quoted';
-      const q = { id: randomId(), title: o.title, clientId: cid, status: 'draft', lineItems: [{ id: randomId(), label: o.title, qty: 1, rate: o.value, description: '' }], costs: [], discountPct: 0, notes: 'From opportunity ' + o.ref, createdAt: new Date().toISOString(), opportunityRef: o.ref };
+      const q = { id: randomId(), title: nextQuoteRef_() + ' ' + o.title, clientId: cid, status: 'draft', lineItems: [{ id: randomId(), label: o.title, qty: 1, rate: o.value, description: '' }], costs: [], discountPct: 0, notes: 'From opportunity ' + o.ref, createdAt: new Date().toISOString(), opportunityRef: o.ref };
       data.quotes.push(q);
       markDirty(); backdrop.remove(); renderOpportunities(); renderQuotes(); renderHome();
       toast(o.ref + ' is now Quoted. Opening the quote.');
@@ -12116,7 +12117,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '</div>' +
         '<div class="quote-profit-line" style="font-size:11.5px;margin-top:4px;"></div>';
       card.querySelector('.name').textContent = q.title;
-      card.querySelector('.company').textContent = q.clientId ? (clientName(q.clientId) || 'Client removed') : 'No client';
+      card.querySelector('.company').textContent = (q.clientId ? (clientName(q.clientId) || 'Client removed') : 'No client') + ((q.quoteDate || q.imageScapeQuoteDate) ? ' \u00b7 ' + (q.quoteDate || q.imageScapeQuoteDate) : '');
       card.querySelector('.client-status-badge').textContent = QUOTE_STATUS_LABELS[q.status] || q.status;
       card.querySelector('.meta-row span:last-child').textContent = fmtGBP(totals.total);
       if ((q.costs || []).length){
@@ -12162,7 +12163,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById('quoteNewBtn').addEventListener('click', function(){
-    const q = { id: randomId(), title: 'New quote', clientId: '', status: 'draft', lineItems: [], costs: [], discountPct: 0, notes: '', createdAt: new Date().toISOString() };
+    const q = { id: randomId(), title: nextQuoteRef_(), clientId: '', status: 'draft', lineItems: [], costs: [], discountPct: 0, notes: '', createdAt: new Date().toISOString(), quoteDate: todayIso_() };
     data.quotes.push(q);
     markDirty(); renderQuotes();
     openQuoteEditor(q.id);
@@ -12176,7 +12177,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.innerHTML =
       '<div class="modal" style="max-width:620px;max-height:88vh;overflow:auto;">' +
         '<h3>Quote</h3>' +
-        '<div class="field"><label>Title</label><input type="text" id="qTitle"></div>' +
+        '<div class="field"><label>Title (starts with the quote number, for example Q26002)</label><input type="text" id="qTitle"></div>' +
+        '<div class="field" style="max-width:220px;"><label>Quote date (change it to backdate)</label><input type="date" id="qDate"></div>' +
         '<div class="field"><label>Client</label><select id="qClient"><option value="">No client</option></select></div>' +
         '<div class="field"><label>Status</label><select id="qStatus">' +
           Object.keys(QUOTE_STATUS_LABELS).map(function(k){ return '<option value="' + k + '">' + QUOTE_STATUS_LABELS[k] + '</option>'; }).join('') +
@@ -12214,6 +12216,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       clientSel.appendChild(opt);
     });
     backdrop.querySelector('#qTitle').value = q.title;
+    backdrop.querySelector('#qDate').value = q.quoteDate || (q.imageScapeQuoteDate || (q.createdAt || '').slice(0, 10) || todayIso_());
     clientSel.value = q.clientId || '';
     backdrop.querySelector('#qStatus').value = q.status;
     backdrop.querySelector('#qDiscount').value = q.discountPct;
@@ -12451,6 +12454,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
 
     backdrop.querySelector('#qTitle').addEventListener('input', function(e){ q.title = e.target.value; markDirty(); });
+    backdrop.querySelector('#qDate').addEventListener('change', function(e){ q.quoteDate = e.target.value; markDirty(); renderQuotes(); });
     clientSel.addEventListener('change', function(e){ q.clientId = e.target.value; markDirty(); renderQuotes(); renderZohoQuoteBlock(); });
     backdrop.querySelector('#qStatus').addEventListener('change', function(e){ q.status = e.target.value; markDirty(); renderQuotes(); });
     backdrop.querySelector('#qDiscount').addEventListener('input', function(e){ q.discountPct = e.target.value; markDirty(); renderTotals(); renderProfit(); });
@@ -12458,6 +12462,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     backdrop.querySelector('#qClose').addEventListener('click', function(){
       q.title = q.title || 'Untitled quote';
+      if (ensureQuoteRefInTitle_(q)){ markDirty(); toast('Quote number added to the title: ' + q.title); }
       renderQuotes();
       backdrop.remove();
     });
@@ -12483,15 +12488,49 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // the "26001" style seen in ImageScape's real templates (year prefix + running
   // count) - shown as an editable default, never generated and used silently, since
   // this must never collide with or skip ahead of Jon's actual Zoho invoice sequence.
-  function suggestImageScapeDocNumber(kind){
+  // Quote references are Q + two-digit year + three-digit running number (Q26002, then Q26003 ...; a new year restarts
+  // at Q27001). Q26001 was the Hickman & Smith quote made before MH existed, so 2026 counting starts after it.
+  function quoteRefToken_(text){
+    const m = /^(Q\d{5})(?!\d)/i.exec(String(text || '').trim());
+    return m ? m[1].toUpperCase() : '';
+  }
+  function nextQuoteRef_(){
+    const yy = String(new Date().getFullYear()).slice(2);
+    let maxSeq = yy === '26' ? 1 : 0;
+    data.quotes.forEach(function(q){
+      [q.title, q.imageScapeRef].forEach(function(t){
+        const tok = quoteRefToken_(t);
+        if (tok && tok.slice(1, 3) === yy) maxSeq = Math.max(maxSeq, parseInt(tok.slice(3), 10));
+      });
+    });
+    return 'Q' + yy + String(maxSeq + 1).padStart(3, '0');
+  }
+  // A quote that has no Q reference in its title gets the next one in front of whatever it was called.
+  function ensureQuoteRefInTitle_(q){
+    if (q.retainerId || q.imageScapeRef || quoteRefToken_(q.title)) return false;
+    const t = (q.title || '').trim();
+    q.title = nextQuoteRef_() + (t && t !== 'New quote' && t !== 'Untitled quote' ? ' ' + t : '');
+    return true;
+  }
+  function suggestImageScapeDocNumber(kind, q){
+    if (q){
+      const tok = quoteRefToken_(q.imageScapeRef) || quoteRefToken_(q.title);
+      if (tok){
+        const want = kind === 'quote' ? tok : tok.slice(1);
+        const used = data.quotes.some(function(o){
+          return o.id !== q.id && String(kind === 'quote' ? o.imageScapeRef : o.imageScapeInvoiceRef || '').trim().toLowerCase() === want.toLowerCase();
+        });
+        if (!used) return want;
+      }
+    }
     const yy = String(new Date().getFullYear()).slice(2);
     const existing = kind === 'quote'
       ? data.quotes.map(function(q){ return q.imageScapeRef; }).filter(Boolean)
       : data.quotes.map(function(q){ return q.imageScapeInvoiceRef; }).filter(Boolean);
     let maxSeq = 0;
     existing.forEach(function(ref){
-      const m = /^[A-Za-z]*(\d+)$/.exec(ref || '');
-      if (m) maxSeq = Math.max(maxSeq, parseInt(m[1], 10) % 1000);
+      const m = /^[A-Za-z]*(\d{5})$/.exec(ref || '');
+      if (m && m[1].slice(0, 2) === yy) maxSeq = Math.max(maxSeq, parseInt(m[1].slice(2), 10));
     });
     const seq = String(maxSeq + 1).padStart(3, '0');
     return (kind === 'quote' ? 'Q' : '') + yy + seq;
@@ -12626,9 +12665,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.body.appendChild(backdrop);
 
     backdrop.querySelector('#gdAddress').value = client.address || '';
-    backdrop.querySelector('#gdNumber').value = suggestImageScapeDocNumber(kind);
+    backdrop.querySelector('#gdNumber').value = suggestImageScapeDocNumber(kind, q);
     if (kind === 'invoice') backdrop.querySelector('#gdQuoteRef').value = q.imageScapeRef || '';
-    backdrop.querySelector('#gdDate').value = todayIso_();
+    backdrop.querySelector('#gdDate').value = (kind === 'quote' && q.quoteDate) ? q.quoteDate : todayIso_();
 
     function renderFolderRow(){
       const row = backdrop.querySelector('#gdFolderRow');
@@ -12721,7 +12760,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           client: { name: client.company || client.name, address: address },
           items: items, folderId: folderId
         });
-        if (kind === 'quote'){ q.imageScapeRef = number; q.imageScapeQuoteDate = dateIso; }
+        if (kind === 'quote'){ q.imageScapeRef = number; q.imageScapeQuoteDate = dateIso; q.quoteDate = dateIso; }
         else { q.imageScapeInvoiceRef = number; q.imageScapeInvoiceDate = dateIso; }
         markDirty();
         // Added 24 Sep 2026: raising an ImageScape invoice from the new Invoices tab is
@@ -13037,7 +13076,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const today = todayIso_();
     const out = [];
     let ym = r.startDate.slice(0, 7);
-    const lastYm = today.slice(0, 7);
+    let lastYm = today.slice(0, 7);
+    if (r.endYm && r.endYm < lastYm) lastYm = r.endYm;
     let guard = 0;
     while (ym <= lastYm && guard++ < 240){
       const day = String(r.dayOfMonth).padStart(2, '0');
@@ -13083,13 +13123,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!wrap || !data) return;
     wrap.innerHTML = '';
     if (!data.retainers.length){ wrap.innerHTML = '<div class="empty-note">No retainers yet.</div>'; return; }
+    const cnt = document.createElement('div'); cnt.className = 'hint'; cnt.textContent = data.retainers.length + ' retainer' + (data.retainers.length === 1 ? '' : 's') + ' on file. Each has Pause, End retainer and Remove below its months.'; wrap.appendChild(cnt);
     data.retainers.forEach(function(r){
       const c = data.clients.find(function(x){ return x.id === r.clientId; });
       const card = document.createElement('div'); card.className = 'snapshot-card';
       const head = document.createElement('div'); head.className = 'snap-head';
       head.innerHTML = '<span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Remove this retainer (does not touch Zoho)">✕</button>';
       head.querySelector('.snap-title').textContent = (c ? c.name : 'No client') + ': ' + r.description;
-      head.querySelector('.snap-pulled').textContent = fmtGBP(r.amount) + ' on day ' + r.dayOfMonth + ' of each month' + (r.active ? '' : ' (paused)');
+      head.querySelector('.snap-pulled').textContent = fmtGBP(r.amount) + ' on day ' + r.dayOfMonth + ' of each month' + (r.endYm ? (r.endYm < todayIso_().slice(0, 7) ? ' (ended after ' + r.endYm + ')' : ' (last month to bill: ' + r.endYm + ')') : '') + (r.active ? '' : ' (paused)');
       head.querySelector('.snap-del').addEventListener('click', function(){
         if (!confirm('Remove this retainer from the list? Invoices already raised stay as they are.')) return;
         data.retainers = data.retainers.filter(function(x){ return x.id !== r.id; }); markDirty(); renderRetainers(); renderHome();
@@ -13113,7 +13154,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const act = document.createElement('div'); act.style.marginTop = '6px';
       const tg = document.createElement('button'); tg.className = 'snap-csv-btn'; tg.textContent = r.active ? 'Pause' : 'Resume';
       tg.addEventListener('click', function(){ r.active = !r.active; markDirty(); renderRetainers(); renderHome(); });
-      act.appendChild(tg); card.appendChild(act);
+      act.appendChild(tg);
+      const en = document.createElement('button'); en.className = 'snap-csv-btn'; en.style.marginLeft = '8px';
+      en.textContent = r.endYm ? 'Change end month' : 'End retainer';
+      en.title = 'Stops billing after a chosen month and keeps the history. Does not touch Zoho.';
+      en.addEventListener('click', function(){
+        const v = prompt('Last month to bill, as YYYY-MM (for example ' + todayIso_().slice(0, 7) + '). Leave blank to keep billing with no end.', r.endYm || todayIso_().slice(0, 7));
+        if (v === null) return;
+        const t = v.trim();
+        if (t && !/^\d{4}-(0[1-9]|1[0-2])$/.test(t)){ toast('Use the format YYYY-MM, for example 2026-12.'); return; }
+        r.endYm = t; markDirty(); renderRetainers(); renderHome();
+      });
+      act.appendChild(en);
+      const rm = document.createElement('button'); rm.className = 'snap-csv-btn'; rm.style.marginLeft = '8px'; rm.textContent = 'Remove';
+      rm.title = 'Delete this retainer from the list. Invoices already raised stay as they are.';
+      rm.addEventListener('click', function(){ head.querySelector('.snap-del').click(); });
+      act.appendChild(rm);
+      card.appendChild(act);
       wrap.appendChild(card);
     });
   }
