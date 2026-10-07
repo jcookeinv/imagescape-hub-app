@@ -3252,35 +3252,69 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // generator below asks Jon to pick (and remembers the choice - see
   // data.imageScapeDocsFolder) rather than guessing one.
   async function showDriveFolderPicker(){
-    await ensureGapi();
-    await new Promise(function(resolve){ gapi.load('picker', resolve); });
+    // Built-in folder chooser that reads Drive directly. Google's own picker never opened reliably for folders
+    // here (it crashed, then froze the page), so this lists your folders itself, one level at a time.
+    await getAccessToken(true);
     return new Promise(function(resolve){
-      // DocsView is the picker view that can offer folders for selection; the plain View has no folder-select
-      // method (calling it threw "setSelectFolderEnabled is not a function"). Each call is guarded so a change
-      // in Google's picker library can never stop the folder chooser opening.
-      let view;
-      if (google.picker.DocsView){
-        view = new google.picker.DocsView(google.picker.ViewId.FOLDERS);
-        if (typeof view.setIncludeFolders === 'function') view.setIncludeFolders(true);
-        if (typeof view.setSelectFolderEnabled === 'function') view.setSelectFolderEnabled(true);
-        if (typeof view.setMimeTypes === 'function') view.setMimeTypes('application/vnd.google-apps.folder');
-      } else {
-        view = new google.picker.View(google.picker.ViewId.FOLDERS);
-        if (typeof view.setSelectFolderEnabled === 'function') view.setSelectFolderEnabled(true);
+      const backdrop = document.createElement('div');
+      backdrop.className = 'folder-chooser-backdrop';
+      backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(20,22,30,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:80;';
+      backdrop.innerHTML =
+        '<div class="modal" style="max-width:520px;width:100%;max-height:82vh;display:flex;flex-direction:column;">' +
+          '<h3>Choose a Drive folder</h3>' +
+          '<div class="sub" id="fcPath" style="margin:-4px 0 6px;"></div>' +
+          '<div id="fcList" style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:8px;min-height:180px;max-height:46vh;"></div>' +
+          '<div style="display:flex;gap:6px;margin-top:8px;"><input type="text" id="fcNewName" placeholder="New folder name" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;"><button class="btn btn-ghost" id="fcNew" style="width:auto;">Create here</button></div>' +
+          '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="fcCancel">Cancel</button><button class="btn btn-ghost" id="fcUp">Up one level</button><button class="btn btn-primary" id="fcChoose">Use this folder</button></div>' +
+        '</div>';
+      document.body.appendChild(backdrop);
+      const stack = [{ id: 'root', name: 'My Drive' }];
+      const listEl = backdrop.querySelector('#fcList');
+      let done = false;
+      function finish(v){ if (done) return; done = true; document.removeEventListener('keydown', onKey, true); backdrop.remove(); resolve(v); }
+      function onKey(e){ if (e.key === 'Escape'){ e.stopPropagation(); finish(null); } }
+      document.addEventListener('keydown', onKey, true);
+      function cur(){ return stack[stack.length - 1]; }
+      function note(text){ listEl.innerHTML = ''; const d = document.createElement('div'); d.className = 'empty-note'; d.style.padding = '12px'; d.textContent = text; listEl.appendChild(d); }
+      async function load(){
+        backdrop.querySelector('#fcPath').textContent = stack.map(function(f){ return f.name; }).join(' / ');
+        backdrop.querySelector('#fcUp').disabled = stack.length < 2;
+        note('Loading...');
+        try {
+          const q = "'" + cur().id + "' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+          const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&orderBy=name&pageSize=200&spaces=drive');
+          if (!res.ok){ note('Could not list this folder (status ' + res.status + ').'); return; }
+          const body = await res.json();
+          const files = body.files || [];
+          if (!files.length){ note('No folders in here. Use "Use this folder" to pick this one, or create a new one below.'); return; }
+          listEl.innerHTML = '';
+          files.forEach(function(f){
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.style.cssText = 'display:block;width:100%;text-align:left;padding:9px 12px;border:none;border-bottom:1px solid var(--border);background:transparent;font:inherit;cursor:pointer;';
+            row.textContent = f.name;
+            row.addEventListener('click', function(){ stack.push({ id: f.id, name: f.name }); load(); });
+            listEl.appendChild(row);
+          });
+        } catch (e){ note('Could not read Drive: ' + (e && e.message ? e.message : e)); }
       }
-      const picker = new google.picker.PickerBuilder()
-        .setOAuthToken(accessToken)
-        .setDeveloperKey(GOOGLE_API_KEY)
-        .addView(view)
-        .setCallback(function(pickerData){
-          if (pickerData.action === google.picker.Action.PICKED){
-            resolve({ id: pickerData.docs[0].id, name: pickerData.docs[0].name });
-          } else if (pickerData.action === google.picker.Action.CANCEL){
-            resolve(null);
-          }
-        })
-        .build();
-      picker.setVisible(true);
+      backdrop.querySelector('#fcCancel').addEventListener('click', function(){ finish(null); });
+      backdrop.querySelector('#fcUp').addEventListener('click', function(){ if (stack.length > 1){ stack.pop(); load(); } });
+      backdrop.querySelector('#fcChoose').addEventListener('click', function(){ finish({ id: cur().id, name: cur().name }); });
+      backdrop.querySelector('#fcNew').addEventListener('click', async function(){
+        const nm = backdrop.querySelector('#fcNewName').value.trim();
+        if (!nm){ toast('Type a name for the new folder.'); return; }
+        try {
+          const res = await driveApiFetch('/files?fields=id,name', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: nm, mimeType: 'application/vnd.google-apps.folder', parents: [cur().id] }) });
+          if (!res.ok){ toast('Could not create the folder (status ' + res.status + ').'); return; }
+          const f = await res.json();
+          stack.push({ id: f.id, name: f.name });
+          backdrop.querySelector('#fcNewName').value = '';
+          load();
+        } catch (e){ toast('Could not create the folder: ' + (e && e.message ? e.message : e)); }
+      });
+      load();
     });
   }
 
