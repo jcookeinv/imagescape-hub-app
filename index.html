@@ -651,10 +651,10 @@
   .status-badge.publish{background:var(--good-soft);color:var(--good);}
   .status-badge.failed{background:var(--warn-soft);color:var(--warn);}
 
-  .save-toast{position:fixed;bottom:20px;right:20px;background:var(--navy-deep);color:#fff;
+  .save-toast{position:fixed;bottom:76px;right:20px;background:var(--navy-deep);color:#fff;
     padding:12px 18px;border-radius:8px;font-size:15px;font-weight:600;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);
     opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;
-    max-width:340px;}
+    max-width:420px;z-index:500;}
   .save-toast.show{opacity:1;transform:translateY(0);}
 
   /* Hover hint: small dark tooltip that fades in ~1s after hovering a text
@@ -7710,7 +7710,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     el.textContent = text;
     el.classList.add('show');
     clearTimeout(toast._t);
-    toast._t = setTimeout(function(){ el.classList.remove('show'); }, 4200);
+    // Longer messages stay up longer, so a warning can always be read.
+    toast._t = setTimeout(function(){ el.classList.remove('show'); }, Math.min(14000, 4200 + Math.max(0, String(text).length - 60) * 55));
   }
 
   // ---------------------------------------------------------------- clipboard (graceful fallback chain -
@@ -11811,7 +11812,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         needsOk.push('NEEDS ATTENTION - ' + zohoActionLabel(p, r) + '\n   Created in Zoho but could not be published (it is a draft): ' + r.result.publishError);
       }
       if (p.kind === 'recordPayment' && r.result && r.result.bankMatch && String(r.result.bankMatch).indexOf('not matched') === 0){
-        needsOk.push('PAYMENT RECORDED, BANK LINE NOT MATCHED - ' + zohoActionLabel(p, r) + '\n   ' + r.result.bankMatch + '\n   The payment is in Zoho. Match the bank line to it in Zoho Banking.');
+        needsOk.push('PAYMENT RECORDED, BANK LINE NOT MATCHED - ' + zohoActionLabel(p, r) + '\n   ' + r.result.bankMatch + '\n   The payment is in Zoho. To finish: Zoho Books, Banking, open the account, click the uncategorised line, and press Match next to the suggested payment (one click).');
       }
       if (p.kind === 'refundOverpayment' && r.result){
         const rr = r.result;
@@ -12632,21 +12633,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     q.title = nextQuoteRef_() + (t && t !== 'New quote' && t !== 'Untitled quote' ? ' ' + t : '');
     return true;
   }
+  function zohoInvoiceNumbers_(){
+    const out = {};
+    const c = zohoSnapshotCache && zohoSnapshotCache.contacts;
+    if (c) Object.keys(c).forEach(function(k){ ((c[k] || {}).invoices || []).forEach(function(i){ if (i.number) out[String(i.number).trim().toLowerCase()] = String(i.number).trim(); }); });
+    return out;
+  }
   function suggestImageScapeDocNumber(kind, q){
+    const zNums = kind === 'invoice' ? zohoInvoiceNumbers_() : {};
     if (q){
       const tok = quoteRefToken_(q.imageScapeRef) || quoteRefToken_(q.title);
       if (tok){
         const want = kind === 'quote' ? tok : tok.slice(1);
         const used = data.quotes.some(function(o){
           return o.id !== q.id && String(kind === 'quote' ? o.imageScapeRef : o.imageScapeInvoiceRef || '').trim().toLowerCase() === want.toLowerCase();
-        });
+        }) || !!zNums[want.toLowerCase()];
         if (!used) return want;
       }
     }
     const yy = String(new Date().getFullYear()).slice(2);
     const existing = kind === 'quote'
       ? data.quotes.map(function(q){ return q.imageScapeRef; }).filter(Boolean)
-      : data.quotes.map(function(q){ return q.imageScapeInvoiceRef; }).filter(Boolean);
+      : data.quotes.map(function(q){ return q.imageScapeInvoiceRef; }).concat(Object.keys(zNums).map(function(k){ return zNums[k]; })).filter(Boolean);
     let maxSeq = 0;
     existing.forEach(function(ref){
       const m = /^[A-Za-z]*(\d{5})$/.exec(ref || '');
@@ -13086,7 +13094,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         btn.textContent = pending ? 'Sending…' : 'Record payment on ' + inv.number;
         btn.disabled = pending;
         btn.addEventListener('click', function(){
-          if (!confirm('Record ' + fmtGBP(amt) + ' received on ' + t.date + ' against invoice ' + inv.number + ' (' + (inv.customerName || '') + ') in Zoho?\n\nThe payment goes into the bank account the money arrived in.' + ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? ' The bank line is matched to it for you.' : ' You then match it to the bank line in Zoho Banking.'))) return;
+          if (!confirm('Record ' + fmtGBP(amt) + ' received on ' + t.date + ' against invoice ' + inv.number + ' (' + (inv.customerName || '') + ') in Zoho?\n\nThe payment goes into the bank account the money arrived in.' + ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? ' The Hub also asks Zoho to match the bank line. If Zoho refuses you are told, and it is one click in Zoho Banking.' : ' You then match it to the bank line in Zoho Banking.'))) return;
           zohoFireWrite('recordPayment', { invoiceId: inv.invoiceId, amount: amt, date: t.date, paymentMode: 'banktransfer', accountId: t.accountId, referenceNumber: t.reference || '', matchLineId: ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? t.id : '') },
             { txnId: t.id, label: 'Invoice ' + inv.number + ' (' + fmtGBP(amt) + ')', date: t.date });
           toast('Sending to Zoho. Check the action log on the Dashboard shortly.');
@@ -13096,7 +13104,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } else if (!done){
         const hint = document.createElement('span');
         hint.style.cssText = 'font-size:12.5px;color:var(--muted);';
-        hint.textContent = 'No unpaid invoice for exactly this amount';
+        let draftInv = null;
+        Object.keys(snap.contacts || {}).forEach(function(k){
+          ((snap.contacts[k] || {}).invoices || []).forEach(function(i){
+            if (!draftInv && i.status === 'draft' && Math.abs(Number(i.total) - amt) < 0.005) draftInv = i;
+          });
+        });
+        hint.textContent = draftInv
+          ? 'Zoho has invoice ' + draftInv.number + ' for this amount but it is still a draft. Mark it as sent in Zoho first (open its quote, Mark as sent in Zoho), sync, then record this payment.'
+          : 'No unpaid invoice for exactly this amount';
         row.appendChild(hint);
       }
       wrap.appendChild(row);
@@ -13125,7 +13141,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           rb.addEventListener('click', function(){
             if (!sel.value){ toast('Pick the Zoho customer first. If they are not in Zoho yet, add them as a client and link them first.'); return; }
             const cn = sel.options[sel.selectedIndex].textContent;
-            if (!confirm('Record in Zoho: ' + fmtGBP(pr.inn.amount) + ' received from ' + cn + ' on ' + pr.inn.date + ', and refunded on ' + pr.out.date + '?\n\nZoho gets a customer payment (not applied to any invoice) and a refund of it, and both bank lines are matched. No income is recorded.')) return;
+            if (!confirm('Record in Zoho: ' + fmtGBP(pr.inn.amount) + ' received from ' + cn + ' on ' + pr.inn.date + ', and refunded on ' + pr.out.date + '?\n\nZoho gets a customer payment (not applied to any invoice) and a refund of it, and the Hub asks Zoho to match both bank lines (if Zoho refuses you are told, and each is one click in Zoho Banking). No income is recorded.')) return;
             zohoFireWrite('refundOverpayment', { customerId: sel.value, bankAccountId: pr.inn.accountId, amount: pr.inn.amount, depositDate: pr.inn.date, refundDate: pr.out.date,
               reference: pr.inn.reference || '', depositLineId: pr.inn.id, withdrawalLineId: pr.out.id }, { pairKey: pairKey, label: cn + ' ' + fmtGBP(pr.inn.amount) });
             toast('Sending to Zoho. Check the action log shortly.');
@@ -13231,7 +13247,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!c){ toast('Pick a client on the retainer first.'); return; }
     let q = data.quotes.find(function(x){ return x.retainerId === r.id && x.retainerMonth === mo.ym; });
     if (!q){
-      q = { id: randomId(), title: r.description + ' ' + mo.ym, clientId: r.clientId, status: 'accepted', lineItems: [{ id: randomId(), label: r.description, qty: 1, rate: r.amount, description: '' }],
+      q = { id: randomId(), title: nextQuoteRef_() + ' ' + r.description + ' ' + mo.ym, clientId: r.clientId, status: 'accepted', lineItems: [{ id: randomId(), label: r.description, qty: 1, rate: r.amount, description: '' }],
         costs: [], discountPct: 0, notes: '', createdAt: new Date().toISOString(), retainerId: r.id, retainerMonth: mo.ym };
       data.quotes.push(q); markDirty(); renderQuotes();
     }
