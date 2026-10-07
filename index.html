@@ -3255,8 +3255,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     await ensureGapi();
     await new Promise(function(resolve){ gapi.load('picker', resolve); });
     return new Promise(function(resolve){
-      const view = new google.picker.View(google.picker.ViewId.FOLDERS);
-      view.setSelectFolderEnabled(true);
+      // DocsView is the picker view that can offer folders for selection; the plain View has no folder-select
+      // method (calling it threw "setSelectFolderEnabled is not a function"). Each call is guarded so a change
+      // in Google's picker library can never stop the folder chooser opening.
+      let view;
+      if (google.picker.DocsView){
+        view = new google.picker.DocsView(google.picker.ViewId.FOLDERS);
+        if (typeof view.setIncludeFolders === 'function') view.setIncludeFolders(true);
+        if (typeof view.setSelectFolderEnabled === 'function') view.setSelectFolderEnabled(true);
+        if (typeof view.setMimeTypes === 'function') view.setMimeTypes('application/vnd.google-apps.folder');
+      } else {
+        view = new google.picker.View(google.picker.ViewId.FOLDERS);
+        if (typeof view.setSelectFolderEnabled === 'function') view.setSelectFolderEnabled(true);
+      }
       const picker = new google.picker.PickerBuilder()
         .setOAuthToken(accessToken)
         .setDeveloperKey(GOOGLE_API_KEY)
