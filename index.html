@@ -3253,53 +3253,98 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // data.imageScapeDocsFolder) rather than guessing one.
   async function showDriveFolderPicker(){
     // Built-in folder chooser that reads Drive directly. Google's own picker never opened reliably for folders
-    // here (it crashed, then froze the page), so this lists your folders itself, one level at a time.
+    // here (it crashed, then froze the page), so this lists your folders itself, one level at a time, with a
+    // search box and a Shared with me view.
     await getAccessToken(true);
     return new Promise(function(resolve){
       const backdrop = document.createElement('div');
       backdrop.className = 'folder-chooser-backdrop';
-      backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(20,22,30,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:80;';
+      backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(20,22,30,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:80;overscroll-behavior:contain;';
       backdrop.innerHTML =
-        '<div class="modal" style="max-width:520px;width:100%;max-height:82vh;display:flex;flex-direction:column;">' +
+        '<div class="modal" style="max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;">' +
           '<h3>Choose a Drive folder</h3>' +
-          '<div class="sub" id="fcPath" style="margin:-4px 0 6px;"></div>' +
-          '<div id="fcList" style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:8px;min-height:180px;max-height:46vh;"></div>' +
+          '<div style="display:flex;gap:6px;margin-bottom:6px;"><input type="text" id="fcSearch" placeholder="Search all folders by name" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;"><button class="btn btn-ghost" id="fcSearchBtn" style="width:auto;">Search</button></div>' +
+          '<div style="display:flex;gap:6px;margin-bottom:6px;"><button class="btn btn-ghost" id="fcMy" style="width:auto;">My Drive</button><button class="btn btn-ghost" id="fcShared" style="width:auto;">Shared with me</button></div>' +
+          '<div class="sub" id="fcPath" style="margin:0 0 6px;"></div>' +
+          '<div id="fcList" style="flex:1 1 auto;overflow-y:scroll;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:8px;min-height:160px;max-height:44vh;"></div>' +
           '<div style="display:flex;gap:6px;margin-top:8px;"><input type="text" id="fcNewName" placeholder="New folder name" style="flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;"><button class="btn btn-ghost" id="fcNew" style="width:auto;">Create here</button></div>' +
           '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="fcCancel">Cancel</button><button class="btn btn-ghost" id="fcUp">Up one level</button><button class="btn btn-primary" id="fcChoose">Use this folder</button></div>' +
         '</div>';
       document.body.appendChild(backdrop);
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';   // the page behind must not scroll while this is open
       const stack = [{ id: 'root', name: 'My Drive' }];
+      let mode = { kind: 'folder' };               // folder | shared | search
       const listEl = backdrop.querySelector('#fcList');
       let done = false;
-      function finish(v){ if (done) return; done = true; document.removeEventListener('keydown', onKey, true); backdrop.remove(); resolve(v); }
+      function finish(v){ if (done) return; done = true; document.removeEventListener('keydown', onKey, true); document.body.style.overflow = prevOverflow; backdrop.remove(); resolve(v); }
       function onKey(e){ if (e.key === 'Escape'){ e.stopPropagation(); finish(null); } }
       document.addEventListener('keydown', onKey, true);
+      // Keep wheel and trackpad scrolling inside the list, never the page behind.
+      backdrop.addEventListener('wheel', function(e){
+        if (listEl.contains(e.target)){
+          const atTop = listEl.scrollTop <= 0 && e.deltaY < 0;
+          const atBottom = listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 1 && e.deltaY > 0;
+          if (atTop || atBottom) e.preventDefault();
+        } else { e.preventDefault(); }
+      }, { passive: false });
       function cur(){ return stack[stack.length - 1]; }
       function note(text){ listEl.innerHTML = ''; const d = document.createElement('div'); d.className = 'empty-note'; d.style.padding = '12px'; d.textContent = text; listEl.appendChild(d); }
+      function esc(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+      async function fetchAll(q){
+        let out = [], token = '', guard = 0;
+        do {
+          const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=nextPageToken,files(id,name)&orderBy=name&pageSize=200&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+          if (!res.ok) throw new Error('Drive said status ' + res.status);
+          const body = await res.json();
+          out = out.concat(body.files || []);
+          token = body.nextPageToken || '';
+        } while (token && ++guard < 15);
+        return out;
+      }
       async function load(){
-        backdrop.querySelector('#fcPath').textContent = stack.map(function(f){ return f.name; }).join(' / ');
-        backdrop.querySelector('#fcUp').disabled = stack.length < 2;
+        const FOLDER = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+        let label, q;
+        if (mode.kind === 'shared'){ label = 'Shared with me'; q = FOLDER + ' and sharedWithMe = true'; }
+        else if (mode.kind === 'search'){ label = 'Search: ' + mode.text; q = FOLDER + " and name contains '" + esc(mode.text) + "'"; }
+        else { label = stack.map(function(f){ return f.name; }).join(' / '); q = "'" + cur().id + "' in parents and " + FOLDER; }
+        backdrop.querySelector('#fcPath').textContent = label;
+        backdrop.querySelector('#fcUp').disabled = mode.kind === 'folder' && stack.length < 2;
+        backdrop.querySelector('#fcChoose').disabled = mode.kind !== 'folder';
+        backdrop.querySelector('#fcNew').disabled = mode.kind !== 'folder';
         note('Loading...');
         try {
-          const q = "'" + cur().id + "' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-          const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&orderBy=name&pageSize=200&spaces=drive');
-          if (!res.ok){ note('Could not list this folder (status ' + res.status + ').'); return; }
-          const body = await res.json();
-          const files = body.files || [];
-          if (!files.length){ note('No folders in here. Use "Use this folder" to pick this one, or create a new one below.'); return; }
+          const files = await fetchAll(q);
+          if (!files.length){ note(mode.kind === 'folder' ? 'No folders in here. Use "Use this folder" to pick this one, or create a new one below.' : 'No folders found.'); return; }
           listEl.innerHTML = '';
           files.forEach(function(f){
             const row = document.createElement('button');
             row.type = 'button';
             row.style.cssText = 'display:block;width:100%;text-align:left;padding:9px 12px;border:none;border-bottom:1px solid var(--border);background:transparent;font:inherit;cursor:pointer;';
             row.textContent = f.name;
-            row.addEventListener('click', function(){ stack.push({ id: f.id, name: f.name }); load(); });
+            row.addEventListener('click', function(){
+              if (mode.kind !== 'folder'){ stack.length = 1; mode = { kind: 'folder' }; }
+              stack.push({ id: f.id, name: f.name });
+              load();
+            });
             listEl.appendChild(row);
           });
         } catch (e){ note('Could not read Drive: ' + (e && e.message ? e.message : e)); }
       }
       backdrop.querySelector('#fcCancel').addEventListener('click', function(){ finish(null); });
-      backdrop.querySelector('#fcUp').addEventListener('click', function(){ if (stack.length > 1){ stack.pop(); load(); } });
+      backdrop.querySelector('#fcUp').addEventListener('click', function(){
+        if (mode.kind !== 'folder'){ mode = { kind: 'folder' }; load(); return; }
+        if (stack.length > 1){ stack.pop(); load(); }
+      });
+      backdrop.querySelector('#fcMy').addEventListener('click', function(){ stack.length = 1; mode = { kind: 'folder' }; load(); });
+      backdrop.querySelector('#fcShared').addEventListener('click', function(){ mode = { kind: 'shared' }; load(); });
+      function doSearch(){
+        const t = backdrop.querySelector('#fcSearch').value.trim();
+        if (!t){ stack.length = 1; mode = { kind: 'folder' }; load(); return; }
+        mode = { kind: 'search', text: t }; load();
+      }
+      backdrop.querySelector('#fcSearchBtn').addEventListener('click', doSearch);
+      backdrop.querySelector('#fcSearch').addEventListener('keydown', function(e){ if (e.key === 'Enter') doSearch(); });
       backdrop.querySelector('#fcChoose').addEventListener('click', function(){ finish({ id: cur().id, name: cur().name }); });
       backdrop.querySelector('#fcNew').addEventListener('click', async function(){
         const nm = backdrop.querySelector('#fcNewName').value.trim();
