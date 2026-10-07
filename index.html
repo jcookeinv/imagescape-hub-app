@@ -7131,6 +7131,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const gBtn = document.querySelector('.group-btn[data-group="' + group.toLowerCase() + '"]');
       if (gBtn) gBtn.classList.add('active');
     }
+    // The Invoices tab lives in a sub-menu, so refresh its lists whenever it is shown, however it was reached.
+    if (panelId === 'invoices'){ try { renderInvoiceQueue(); } catch (e) { /* never block navigation */ } }
   }
 
   document.querySelectorAll('nav.tabs button[data-panel]').forEach(function(btn){
