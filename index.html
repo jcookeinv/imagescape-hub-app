@@ -6695,7 +6695,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // vault object itself (v/iterations/salt/iv/ciphertext) is already all ASCII, but this
   // goes the safe route in case that ever changes.
   function b64Utf8_(str){
-    return btoa(String.fromCharCode.apply(null, new TextEncoder().encode(str)));
+    // Chunked: String.fromCharCode.apply on the whole array throws "Maximum call stack
+    // size exceeded" for anything over ~100KB, which silently stopped every GitHub
+    // backup of a real-sized vault (found by dry test, 8 Oct 2026).
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return btoa(bin);
   }
 
   async function pushVaultBackupToGithub(vaultObj){
@@ -6737,6 +6743,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } catch (e){
       cfg.lastPushError = e.message || 'GitHub backup failed.';
       if (statusEl){ statusEl.textContent = 'GitHub backup failed: ' + cfg.lastPushError; statusEl.style.color = 'var(--warn)'; }
+      try { toast('Saved to Drive, but the GitHub backup failed: ' + cfg.lastPushError); } catch (e2){}
     }
   }
 
@@ -10098,6 +10105,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!data.soleTraderTaxFile || !data.soleTraderTaxFile.fileId){
       items.push({ level: 'soon', title: 'Tax spreadsheet not linked', sub: 'Needed for invoice numbers, logging invoices and mileage, and the tax pack - Locate spreadsheet on the Tax spreadsheet tab.', panel: 'setax', when: 'Access' });
     }
+    if (data.githubBackup && data.githubBackup.enabled && data.githubBackup.lastPushError){
+      items.push({
+        level: 'soon',
+        title: 'Last GitHub backup failed',
+        sub: data.githubBackup.lastPushError + ' - Drive saved fine. Open Backup / Restore (top right) and press Back up now to retry.',
+        when: 'Access'
+      });
+    }
     if (data.githubBackup && data.githubBackup.enabled && data.githubBackup.tokenExpiresAt){
       const ghUrgency = dateUrgency(data.githubBackup.tokenExpiresAt, false);
       if (ghUrgency){
@@ -10276,7 +10291,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             a.addEventListener('click', function(e){ e.stopPropagation(); });
             row.querySelector('.sub').appendChild(a);
           }
-          row.addEventListener('click', function(){ jumpToHubPanel_(item.panel); });
+          row.addEventListener('click', function(){ if (item.panel) jumpToHubPanel_(item.panel); else if (item.title === 'Last GitHub backup failed'){ const bb = document.getElementById('backupBtn'); if (bb) bb.click(); } });
         } else {
           row.querySelector('.when').textContent = (item.level === 'overdue' ? 'Was due ' : 'Due ') + item.date;
           row.addEventListener('click', function(){ jumpToPanel_(item.panel); });
