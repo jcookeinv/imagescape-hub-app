@@ -2539,6 +2539,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       { seedKey: 'is-chase', business: IS, attach: 'invoice', name: 'Payment reminder',
         subject: 'Reminder: invoice {{invoiceNumber}} ({{invoiceAmount}})',
         body: 'Hi {{firstName}},\n\nI hope you are well. Just a gentle reminder that invoice {{invoiceNumber}} for {{invoiceAmount}} was due on {{invoiceDueDate}} and is now {{daysOverdue}} days overdue. I have attached a copy for convenience.\n\nIf payment is already on its way, please ignore this. Otherwise I would be grateful if you could let me know when to expect it.\n\nKind regards,\n{{signature}}' },
+      { seedKey: 'is-receipt-pdf', business: IS, attach: 'receipt', name: 'Receipt (PDF attached)',
+        subject: 'Receipt for invoice {{invoiceNumber}} from {{companyName}}',
+        body: 'Hi {{firstName}},\n\nThank you for your payment. Please find attached your receipt for invoice {{invoiceNumber}} ({{invoiceAmount}}), now paid in full.\n\nIf you need anything else, just reply to this email.\n\nMany thanks,\n{{signature}}' },
       { seedKey: 'is-receipt', business: IS, attach: '', name: 'Payment received',
         subject: 'Payment received: invoice {{invoiceNumber}}',
         body: 'Hi {{firstName}},\n\nThank you, I have received your payment of {{invoiceAmount}} for invoice {{invoiceNumber}}, so your account is all settled.\n\nIt was a pleasure working with you and I hope to again soon.\n\nKind regards,\n{{signature}}' },
@@ -2866,7 +2869,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       t.subject = t.subject || '';
       t.body = t.body || '';
       t.business = (t.business === 'soletrader' || t.business === 'both') ? t.business : 'imagescape';
-      t.attach = (t.attach === 'quote' || t.attach === 'invoice') ? t.attach : '';
+      t.attach = (t.attach === 'quote' || t.attach === 'invoice' || t.attach === 'receipt') ? t.attach : '';
       t.seedKey = t.seedKey || '';
     });
     // Starter templates are added once each (tracked by seedKey), so editing one is kept
@@ -2885,6 +2888,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const esDefaults = {
         imageScapeName: 'ImageScape Studios',
         imageScapeFrom: 'ImageScape Studios <info@imagescape.uk>',
+        imageScapeProvider: 'microsoft', // where ImageScape email drafts are created: 'microsoft' (info@imagescape.uk, Microsoft 365) or 'gmail'
         imageScapeSignature: 'Jon Cooke\nImageScape Studios\ninfo@imagescape.uk\nhttps://imagescape.uk',
         soleTraderName: 'Jonathan Cooke',
         soleTraderFrom: 'Jonathan Cooke <jcookeinv@gmail.com>',
@@ -2898,6 +2902,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (Object.prototype.hasOwnProperty.call(src, k) && src[k] !== null && src[k] !== undefined) esDefaults[k] = src[k];
       });
       esDefaults.paymentTermsDays = Math.max(1, parseInt(esDefaults.paymentTermsDays, 10) || 30);
+      if (esDefaults.imageScapeProvider !== 'gmail') esDefaults.imageScapeProvider = 'microsoft';
       if (/sky\s*sight/i.test(esDefaults.imageScapeName)) esDefaults.imageScapeName = 'ImageScape Studios';
       d.emailSettings = esDefaults;
     })();
@@ -3645,6 +3650,122 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
       } catch (e){ /* best effort */ }
     }
+    return draft;
+  }
+
+  // ---------------------------------------------------------------- Microsoft 365 drafts (added 8 Oct 2026)
+  // ImageScape email goes out from info@imagescape.uk (Microsoft 365), not the Gmail account.
+  // Sign-in is the standard browser (SPA) flow: authorisation code + PKCE in a popup, no
+  // secret anywhere. The popup returns to this same page, which spots the ?code= in its
+  // address at boot (see boot) and hands it back to the window that opened it. Scope is
+  // Mail.ReadWrite: the Hub only ever creates a DRAFT; you open it in Outlook and press Send.
+  const MS_CLIENT_ID = 'c4430367-c33f-4d87-a151-55d045d3cd2f';
+  const MS_TENANT_ID = '508101dc-9ee1-49d1-9516-0336083800c5';
+  const MS_REDIRECT_URI = 'https://jcookeinv.github.io/imagescape-hub-app/';
+  const MS_SCOPE = 'https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/User.Read';
+  const MS_AUTH_BASE = 'https://login.microsoftonline.com/' + MS_TENANT_ID + '/oauth2/v2.0';
+  const MS_GRAPH = 'https://graph.microsoft.com/v1.0';
+  let msAccessToken = null;
+  let msTokenExpiresAt = 0;
+  let msAccountEmail = '';
+
+  function msB64Url_(bytes){
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  // Must be called straight from a click (before any await) so the browser allows the popup.
+  async function msGetAccessToken(loginHint){
+    if (msAccessToken && Date.now() < msTokenExpiresAt) return msAccessToken;
+    const popup = window.open('', 'msSignIn', 'width=520,height=700');
+    if (!popup) throw new Error('The browser blocked the Microsoft sign-in window. Allow pop-ups for this site and try again.');
+    let waiter = null;
+    try {
+      const verifier = msB64Url_(crypto.getRandomValues(new Uint8Array(48)));
+      const challenge = msB64Url_(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
+      const state = 'msauth.' + randomId();
+      const params = new URLSearchParams({
+        client_id: MS_CLIENT_ID, response_type: 'code', redirect_uri: MS_REDIRECT_URI, response_mode: 'query',
+        scope: MS_SCOPE, state: state, code_challenge: challenge, code_challenge_method: 'S256'
+      });
+      if (loginHint) params.set('login_hint', loginHint);
+      const code = await new Promise(function(resolve, reject){
+        const poll = setInterval(function(){
+          let closed = false; try { closed = popup.closed; } catch (e){}
+          if (closed){ done(); reject(new Error('The Microsoft sign-in window was closed before finishing.')); }
+        }, 600);
+        function onMsg(ev){
+          const d = ev.data;
+          if (ev.origin !== location.origin || !d || d.type !== 'ms-auth' || d.state !== state) return;
+          done();
+          if (d.error) reject(new Error('Microsoft sign-in failed: ' + (d.error_description || d.error)));
+          else resolve(d.code);
+        }
+        function done(){ clearInterval(poll); window.removeEventListener('message', onMsg); }
+        waiter = done;
+        window.addEventListener('message', onMsg);
+        popup.location.href = MS_AUTH_BASE + '/authorize?' + params.toString();
+      });
+      const res = await fetch(MS_AUTH_BASE + '/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: MS_CLIENT_ID, grant_type: 'authorization_code', code: code,
+          redirect_uri: MS_REDIRECT_URI, code_verifier: verifier, scope: MS_SCOPE
+        }).toString()
+      });
+      const body = await res.json().catch(function(){ return {}; });
+      if (!res.ok || !body.access_token) throw new Error('Microsoft sign-in failed: ' + (body.error_description || body.error || ('status ' + res.status)));
+      msAccessToken = body.access_token;
+      msTokenExpiresAt = Date.now() + (Number(body.expires_in || 3600) * 1000) - 60000;
+      return msAccessToken;
+    } finally {
+      if (waiter) waiter();
+      try { popup.close(); } catch (e){}
+    }
+  }
+
+  async function msGraphFetch(path, opts){
+    opts = opts || {};
+    const headers = Object.assign({ 'Authorization': 'Bearer ' + msAccessToken }, opts.headers || {});
+    return fetch(MS_GRAPH + path, Object.assign({}, opts, { headers: headers }));
+  }
+  async function msGraphError_(res, fallback){
+    const b = await res.json().catch(function(){ return {}; });
+    return new Error((b.error && b.error.message) || (fallback + ' (status ' + res.status + ').'));
+  }
+
+  async function createMsInvoiceDraft(opts){
+    // opts: { from?, to, subject, bodyText, pdfBlob?, pdfFilename? } - creates a DRAFT only.
+    // The token must already be held (msGetAccessToken called from the click).
+    assertNoLegacyBrand([opts.from, opts.subject, opts.bodyText, opts.pdfFilename].join('\n'), 'Draft');
+    if (!msAccessToken) throw new Error('Not signed in to Microsoft yet.');
+    const pdfBytes = opts.pdfBlob ? await opts.pdfBlob.arrayBuffer() : null;
+    if (pdfBytes && pdfBytes.byteLength > 2900000) throw new Error('That PDF is over 2.9MB, too big to attach in one go. Download it and attach it in Outlook by hand.');
+    const recipients = String(opts.to || '').split(/[;,]/).map(function(a){ return a.trim(); }).filter(Boolean)
+      .map(function(a){ return { emailAddress: { address: a } }; });
+    const res = await msGraphFetch('/me/messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject: opts.subject, body: { contentType: 'Text', content: opts.bodyText || '' }, toRecipients: recipients })
+    });
+    if (!res.ok) throw await msGraphError_(res, 'Could not create the Outlook draft');
+    const draft = await res.json();
+    if (pdfBytes){
+      const ar = await msGraphFetch('/me/messages/' + encodeURIComponent(draft.id) + '/attachments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ '@odata.type': '#microsoft.graph.fileAttachment', name: opts.pdfFilename || 'document.pdf',
+          contentType: 'application/pdf', contentBytes: arrayBufferToBase64(pdfBytes) })
+      });
+      if (!ar.ok) throw new Error('The draft was created but the PDF could not be attached: ' + (await msGraphError_(ar, 'attach failed')).message);
+    }
+    draft.account = '';
+    try {
+      const me = await msGraphFetch('/me?$select=mail,userPrincipalName');
+      if (me.ok){ const m = await me.json(); draft.account = (m.mail || m.userPrincipalName || '').toLowerCase(); msAccountEmail = draft.account; }
+    } catch (e){ /* best effort */ }
+    const want = extractEmailAddress(opts.from || '');
+    draft.fromMismatch = !!(want && draft.account && draft.account !== want);
     return draft;
   }
 
@@ -4982,9 +5103,56 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   //   items: [{ description, amount, dateIso? }],  // dateIso is invoice-only (per line item)
   //   folderId: string | null       // null = generate but don't upload to Drive
   // }
+  // Turns a filled-in invoice sheet into a receipt: new headings, the payment date, and the
+  // bank-transfer instructions replaced by a "paid in full" line. Everything else (items,
+  // total, addresses) stays exactly as on the invoice.
+  function odsTurnInvoiceIntoReceipt_(xmlDoc, table, paidLabel){
+    const cellsOf = function(row){ return Array.prototype.slice.call(row.getElementsByTagNameNS(ODF_NS.table, 'table-cell')); };
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const setIf = function(cell, from, to){ if ((cell.textContent || '').trim().toLowerCase() === from) odsSetCellText(xmlDoc, cell, to); };
+    let payIdx = -1, regIdx = -1;
+    rows.forEach(function(row, i){
+      const t = (row.textContent || '').toLowerCase();
+      if (payIdx < 0 && t.indexOf('payment terms and details') >= 0) payIdx = i;
+      if (regIdx < 0 && t.indexOf('registered address') >= 0) regIdx = i;
+    });
+    rows.forEach(function(row, i){
+      cellsOf(row).forEach(function(c){
+        setIf(c, 'invoice', 'RECEIPT');
+        setIf(c, 'invoice number:', 'Receipt for invoice:');
+        setIf(c, 'invoice date:', 'Date paid:');
+        setIf(c, 'total:', 'TOTAL PAID:');
+        if (i === payIdx) setIf(c, 'payment terms and details:', 'Payment:');
+      });
+    });
+    // "Quote Ref:" has no meaning on a receipt: blank the label and its value.
+    const qr = odsFindRowByLabel(table, 'Quote Ref:');
+    if (qr){
+      const lab = odsGetCellAt(qr.row, qr.cellIndex); if (lab) odsSetCellText(xmlDoc, lab, '');
+      const val = odsExpandedCellScan(qr.row, qr.cellIndex + 1) || odsGetCellAt(qr.row, qr.cellIndex + 1);
+      if (val) odsSetCellText(xmlDoc, val, '');
+    }
+    if (payIdx >= 0){
+      let replaced = false;
+      for (let i = payIdx + 1; i < rows.length && (regIdx < 0 || i < regIdx); i++){
+        const filled = cellsOf(rows[i]).filter(function(c){ return (c.textContent || '').trim(); });
+        if (!filled.length) continue;
+        if (!replaced){ odsSetCellText(xmlDoc, filled[0], 'Received in full on ' + paidLabel + '. Thank you.'); filled.slice(1).forEach(function(c){ odsSetCellText(xmlDoc, c, ''); }); replaced = true; }
+        else filled.forEach(function(c){ odsSetCellText(xmlDoc, c, ''); });
+      }
+    }
+  }
+
+  // File name used for the saved/downloaded quote or invoice: "26002 - Just Jules Events - 2026-10-01".
+  function docFileBase_(number, clientLabel, dateIso){
+    const clean = function(t){ return String(t || '').replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim(); };
+    return [clean(number), clean(clientLabel), clean(dateIso)].filter(Boolean).join(' - ');
+  }
+
   async function generateImageScapeDoc(opts){
     const kind = opts.kind;
-    const b64 = IMAGESCAPE_DOC_TEMPLATES[kind];
+    const fileBase = opts.fileBase || opts.number;
+    const b64 = IMAGESCAPE_DOC_TEMPLATES[kind === 'receipt' ? 'invoice' : kind];
     if (!b64) throw new Error('Unknown ImageScape document type "' + kind + '".');
     const zip = await JSZip.loadAsync(new Uint8Array(unb64(b64)));
     const xmlDoc = await odsLoadContentXml(zip);
@@ -5009,7 +5177,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       odsSetLabelledValue(xmlDoc, table, 'Invoice Number:', opts.number);
       // Plain text, not a typed date - same reasoning as above.
       odsSetLabelledValue(xmlDoc, table, 'Invoice Date:', dateLabel);
-      if (opts.quoteRef) odsSetLabelledValue(xmlDoc, table, 'Quote Ref:', opts.quoteRef);
+      // Always set it: the template ships with a stale example "Q26001" in this cell, which
+      // otherwise leaks onto invoices raised without a quote ref (found 8 Oct 2026).
+      odsSetLabelledValue(xmlDoc, table, 'Quote Ref:', opts.quoteRef || '');
       addrResult = odsSetAddressBlock(xmlDoc, table, 'To:', opts.client.name, addressLines);
       // The Date(s) column in this template is a plain string cell with no
       // number-format style of its own (unlike the header's Invoice Date field) - the
@@ -5026,6 +5196,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const total = opts.items.reduce(function(sum, it){ return sum + it.amount; }, 0);
     odsSetTotal(xmlDoc, table, total, header.amtIdx);
 
+    if (kind === 'receipt') odsTurnInvoiceIntoReceipt_(xmlDoc, table, ddmmyy(opts.dateIso));
     const savedBlob = await odsSaveContentXml(zip, xmlDoc);
 
     // Second pass just for the PDF export, same reasoning as generateSoleTraderInvoice
@@ -5039,8 +5210,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const pdfBlob = await convertOdsBlobToPdf(pdfSourceBlob, opts.number + ' (temp conversion)');
     let odsUpload = null, pdfUpload = null;
     if (opts.folderId){
-      odsUpload = await uploadNewDriveFile(savedBlob, opts.number + '.ods', 'application/vnd.oasis.opendocument.spreadsheet', opts.folderId);
-      pdfUpload = await uploadNewDriveFile(pdfBlob, opts.number + '.pdf', 'application/pdf', opts.folderId);
+      odsUpload = await uploadNewDriveFile(savedBlob, fileBase + '.ods', 'application/vnd.oasis.opendocument.spreadsheet', opts.folderId);
+      pdfUpload = await uploadNewDriveFile(pdfBlob, fileBase + '.pdf', 'application/pdf', opts.folderId);
     }
 
     return { odsBlob: savedBlob, pdfBlob: pdfBlob, odsFile: odsUpload, pdfFile: pdfUpload, total: total, addressOverflow: addrResult.overflow };
@@ -12847,6 +13018,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         toast(number + ' is already used' + (clash ? (' on "' + (clash.title || 'another quote') + '"') : ' by another job') + '. Pick a different ' + numberLabel.toLowerCase() + '.');
         return;
       }
+      const fileBase = docFileBase_(number, client.company || client.name, dateIso);
       const ownRef = kind === 'quote' ? q.imageScapeRef : q.imageScapeInvoiceRef;
       const regeneratingOwn = ownRef && String(ownRef).trim().toLowerCase() === numLc;
 
@@ -12870,7 +13042,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           folderId = folder.id;
           // Drive happily stores two files with the same name, so check the folder first.
           const esc = function(v){ return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
-          const dq = "'" + esc(folderId) + "' in parents and trashed = false and (name = '" + esc(number + '.pdf') + "' or name = '" + esc(number + '.ods') + "')";
+          const dq = "'" + esc(folderId) + "' in parents and trashed = false and (name = '" + esc(fileBase + '.pdf') + "' or name = '" + esc(fileBase + '.ods') + "' or name = '" + esc(number + '.pdf') + "' or name = '" + esc(number + '.ods') + "')";
           const dr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive');
           if (dr.ok){
             const db = await dr.json();
@@ -12898,7 +13070,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
         statusEl.textContent = skipDrive ? 'Converting to PDF…' : 'Converting to PDF and saving to Drive…';
         const result = await generateImageScapeDoc({
-          kind: kind, number: number, dateIso: dateIso,
+          kind: kind, number: number, dateIso: dateIso, fileBase: fileBase,
           quoteRef: kind === 'invoice' ? (backdrop.querySelector('#gdQuoteRef').value.trim() || undefined) : undefined,
           client: { name: client.company || client.name, address: address },
           items: items, folderId: folderId
@@ -12924,16 +13096,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
         const remembered = rememberGeneratedPdf({
           business: 'imagescape', clientId: client.id, kind: kind, number: number,
-          blob: result.pdfBlob, driveFileId: result.pdfFile && result.pdfFile.id,
+          blob: result.pdfBlob, driveFileId: result.pdfFile && result.pdfFile.id, odsFileId: result.odsFile && result.odsFile.id, fileBase: fileBase,
           dateIso: dateIso,
           dueIso: kind === 'invoice' ? addDaysIso(dateIso, Number(data.emailSettings.paymentTermsDays) || 30) : '',
           total: result.total, quoteId: q.id
         });
 
-        downloadBlob_(result.odsBlob, number + '.ods');
-        downloadBlob_(result.pdfBlob, number + '.pdf');
+        downloadBlob_(result.odsBlob, fileBase + '.ods');
+        downloadBlob_(result.pdfBlob, fileBase + '.pdf');
 
-        let msg = 'Generated ' + number + '.ods and .pdf';
+        let msg = 'Generated ' + fileBase + ' (.ods and .pdf)';
         if (result.pdfFile) msg += ' — saved to Drive and downloaded.';
         else msg += ' — downloaded (not saved to Drive).';
         if (result.addressOverflow) msg += ' Note: the address had more lines than the template has room for, so the extra lines were combined onto the last line — check it before sending.';
@@ -13339,6 +13511,147 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     toast('Retainer added.');
   });
 
+  // ---------------------------------------------------------------- receipts + Paid folder (added 8 Oct 2026)
+  // Once Zoho shows an invoice as paid, "Make receipt" produces a separate RECEIPT document
+  // (same number, bank details replaced by "received in full") saved into a "Paid" folder
+  // beside the invoice, and opens the email with it attached. When that email draft is created
+  // the original invoice (.pdf and .ods) is moved into the same Paid folder.
+  function quoteZohoInvoice_(q){
+    const client = q.clientId ? data.clients.find(function(x){ return x.id === q.clientId; }) : null;
+    const snap = zohoSnapshotCache && zohoSnapshotCache.contacts && client && client.zohoContactId && zohoSnapshotCache.contacts[client.zohoContactId];
+    if (!snap || !q.zohoInvoiceId) return null;
+    return (snap.invoices || []).find(function(i){ return i.invoiceId === q.zohoInvoiceId; }) || null;
+  }
+  function quoteInvoicePaid_(q){
+    const inv = quoteZohoInvoice_(q);
+    return !!(inv && inv.status === 'paid');
+  }
+
+  async function ensurePaidFolder_(parentId){
+    const esc = function(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+    const dq = "'" + esc(parentId) + "' in parents and name = 'Paid' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const r = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
+    if (!r.ok) throw new Error('Could not look for the Paid folder in Drive (status ' + r.status + ').');
+    const b = await r.json();
+    if (b.files && b.files.length) return b.files[0].id;
+    const c = await driveApiFetch('/files?supportsAllDrives=true&fields=id', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Paid', mimeType: 'application/vnd.google-apps.folder', parents: [parentId] })
+    });
+    if (!c.ok) throw new Error('Could not create the Paid folder in Drive (status ' + c.status + ').');
+    return (await c.json()).id;
+  }
+
+  // The folder the invoice PDF currently sits in (so Paid is created beside it).
+  async function invoiceFolderIdFor_(q){
+    const num = q.imageScapeInvoiceRef || q.zohoInvoiceNumber;
+    const rec = data.docPdfIndex.find(function(d){ return d.business === 'imagescape' && d.kind === 'invoice' && String(d.number) === String(num) && d.driveFileId; });
+    if (rec){
+      const r = await driveApiFetch('/files/' + encodeURIComponent(rec.driveFileId) + '?fields=parents&supportsAllDrives=true');
+      if (r.ok){ const b = await r.json(); if (b.parents && b.parents[0]) return { folderId: b.parents[0], rec: rec }; }
+    }
+    return { folderId: data.imageScapeDocsFolder && data.imageScapeDocsFolder.id || '', rec: rec || null };
+  }
+
+  async function moveInvoiceToPaid_(q){
+    const num = q.imageScapeInvoiceRef || q.zohoInvoiceNumber;
+    const found = await invoiceFolderIdFor_(q);
+    if (!found.folderId) throw new Error('No Drive folder known for invoice ' + num + ', so it was not moved.');
+    const paidId = await ensurePaidFolder_(found.folderId);
+    const esc = function(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+    const ids = {};
+    if (found.rec && found.rec.driveFileId) ids[found.rec.driveFileId] = true;
+    if (found.rec && found.rec.odsFileId) ids[found.rec.odsFileId] = true;
+    // Any invoice file (pdf or ods) in that folder named after this invoice, old or new style.
+    const client = data.clients.find(function(x){ return x.id === q.clientId; });
+    const names = [String(num)];
+    if (found.rec && found.rec.fileBase) names.push(found.rec.fileBase);
+    if (client && q.imageScapeInvoiceDate) names.push(docFileBase_(num, client.company || client.name, q.imageScapeInvoiceDate));
+    const nameQ = names.map(function(n){ return "name = '" + esc(n + '.pdf') + "' or name = '" + esc(n + '.ods') + "'"; }).join(' or ');
+    const dq = "'" + esc(found.folderId) + "' in parents and trashed = false and (" + nameQ + ")";
+    const lr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
+    if (lr.ok){ const lb = await lr.json(); (lb.files || []).forEach(function(f){ ids[f.id] = true; }); }
+    const idList = Object.keys(ids);
+    if (!idList.length) throw new Error('Could not find the invoice files in Drive to move.');
+    let moved = 0;
+    for (let i = 0; i < idList.length; i++){
+      const mr = await driveApiFetch('/files/' + encodeURIComponent(idList[i]) + '?addParents=' + encodeURIComponent(paidId) + '&removeParents=' + encodeURIComponent(found.folderId) + '&supportsAllDrives=true&fields=id', { method: 'PATCH' });
+      if (mr.ok) moved++;
+    }
+    if (!moved) throw new Error('Drive would not let the invoice files be moved (check you can edit that folder).');
+    q.invoiceMovedToPaidAt = new Date().toISOString();
+    markDirty();
+    return { moved: moved, paidId: paidId };
+  }
+
+  function openReceiptModal_(q){
+    const client = q.clientId ? data.clients.find(function(x){ return x.id === q.clientId; }) : null;
+    if (!client){ toast('This invoice has no client.'); return; }
+    const num = q.imageScapeInvoiceRef || q.zohoInvoiceNumber;
+    if (!num){ toast('This quote has no invoice number yet.'); return; }
+    const lastPay = (q.zohoPayments || []).map(function(p){ return p.date || ''; }).filter(Boolean).sort().pop() || '';
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" style="max-width:480px;">' +
+        '<h3>Make receipt for ' + escapeHtml(String(num)) + '</h3>' +
+        '<div class="sub" style="margin:-4px 0 10px;">Zoho shows this invoice as paid. This makes a RECEIPT (.ods and PDF) with the same number, saved in a <strong>Paid</strong> folder next to the invoice, then opens the email with it attached. The invoice itself moves into Paid when you create that email draft.</div>' +
+        '<div class="field"><label>Date payment was received</label><input type="date" id="rcDate"></div>' +
+        '<div id="rcStatus" class="sub" style="min-height:18px;"></div>' +
+        '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="rcCancel">Cancel</button><button class="btn btn-primary" id="rcGo">Make receipt</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    backdrop.querySelector('#rcDate').value = lastPay || todayIso_();
+    backdrop.querySelector('#rcCancel').addEventListener('click', function(){ backdrop.remove(); });
+    backdrop.querySelector('#rcGo').addEventListener('click', async function(){
+      const goBtn = backdrop.querySelector('#rcGo');
+      const st = backdrop.querySelector('#rcStatus');
+      const paidIso = backdrop.querySelector('#rcDate').value;
+      if (!paidIso){ st.textContent = 'Pick the date the payment arrived.'; return; }
+      goBtn.disabled = true;
+      try {
+        st.textContent = 'Signing in to Google Drive…';
+        await getAccessToken(true);
+        const found = await invoiceFolderIdFor_(q);
+        let folderId = null;
+        if (found.folderId){ st.textContent = 'Finding the Paid folder…'; folderId = await ensurePaidFolder_(found.folderId); }
+        const fileBase = docFileBase_(num, client.company || client.name, 'Receipt ' + paidIso);
+        const items = q.lineItems.map(function(li){
+          const amount = (Number(li.qty) || 0) * (Number(li.rate) || 0);
+          const description = ((li.label || '').trim() + (li.description ? (': ' + li.description.trim()) : '')) || li.description || li.label || '(no description)';
+          return { description: description, amount: amount };
+        });
+        st.textContent = 'Making the receipt and saving it…';
+        const result = await generateImageScapeDoc({
+          kind: 'receipt', number: String(num), dateIso: paidIso, fileBase: fileBase,
+          client: { name: client.company || client.name, address: client.address || '' },
+          items: items, folderId: folderId
+        });
+        q.receiptDate = paidIso;
+        markDirty();
+        const remembered = rememberGeneratedPdf({
+          business: 'imagescape', clientId: client.id, kind: 'receipt', number: String(num), fileBase: fileBase,
+          blob: result.pdfBlob, driveFileId: result.pdfFile && result.pdfFile.id, dateIso: paidIso,
+          dueIso: '', total: result.total, quoteId: q.id
+        });
+        downloadBlob_(result.odsBlob, fileBase + '.ods');
+        downloadBlob_(result.pdfBlob, fileBase + '.pdf');
+        toast('Receipt ' + fileBase + ' made' + (folderId ? ' and saved in the Paid folder.' : ' (downloaded only, no Drive folder known).') + ' Creating the email draft will move the invoice into Paid.');
+        backdrop.remove();
+        renderInvoiceQueue();
+        openEmailComposer({ business: 'imagescape', clientId: client.id, quoteId: q.id, seedKey: 'is-receipt-pdf', attachKey: remembered.attachKey,
+          onDraftCreated: async function(){
+            const r = await moveInvoiceToPaid_(q);
+            renderInvoiceQueue();
+            return 'Invoice ' + num + ' moved into the Paid folder (' + r.moved + ' file' + (r.moved === 1 ? '' : 's') + ').';
+          } });
+      } catch (e){
+        st.textContent = e.message || 'Could not make the receipt.';
+        goBtn.disabled = false;
+      }
+    });
+  }
+
   function renderInvoiceQueue(){
     try { renderBankFeed(); } catch (e){ /* never block the invoice lists */ }
     try { renderPnl(); } catch (e){ /* same */ }
@@ -13451,6 +13764,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         badge.style.cssText = 'flex-shrink:0;font-weight:700;' + (matches ? 'color:var(--good);' : 'color:var(--warn);');
         badge.textContent = matches ? 'Matches' : 'Differs';
         row.appendChild(badge);
+        if (quoteInvoicePaid_(q)){
+          const rb = document.createElement('button');
+          rb.className = 'btn btn-primary';
+          rb.style.cssText = 'width:auto;padding:4px 10px;font-size:12px;flex-shrink:0;margin-left:8px;';
+          rb.textContent = q.receiptDate ? 'Receipt again' : 'Make receipt';
+          rb.addEventListener('click', function(e){ e.stopPropagation(); openReceiptModal_(q); });
+          row.appendChild(rb);
+          if (q.receiptDate && !q.invoiceMovedToPaidAt){
+            const mb = document.createElement('button');
+            mb.className = 'btn btn-ghost';
+            mb.style.cssText = 'width:auto;padding:4px 10px;font-size:12px;flex-shrink:0;margin-left:6px;';
+            mb.textContent = 'Move invoice to Paid';
+            mb.addEventListener('click', async function(e){
+              e.stopPropagation(); mb.disabled = true;
+              try { const r = await moveInvoiceToPaid_(q); toast('Moved ' + r.moved + ' invoice file(s) into the Paid folder.'); renderInvoiceQueue(); }
+              catch (err){ toast(err.message || 'Could not move the invoice.'); mb.disabled = false; }
+            });
+            row.appendChild(mb);
+          } else if (q.invoiceMovedToPaidAt){
+            const ok = document.createElement('span'); ok.className = 'hint'; ok.style.cssText = 'flex-shrink:0;margin-left:6px;'; ok.textContent = 'In Paid';
+            row.appendChild(ok);
+          }
+        }
         row.addEventListener('click', function(){ openQuoteEditor(q.id); });
         ledgerWrap.appendChild(row);
       });
@@ -14912,14 +15248,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const key = 's:' + randomId();
     sessionPdfs.unshift({
       key: key, business: entry.business, clientId: entry.clientId || '', kind: entry.kind,
-      number: entry.number, blob: entry.blob, driveFileId: entry.driveFileId || '', quoteId: entry.quoteId || ''
+      number: entry.number, fileBase: entry.fileBase || '', blob: entry.blob, driveFileId: entry.driveFileId || '', quoteId: entry.quoteId || ''
     });
     let docId = '';
     if (entry.driveFileId){
       const existing = data.docPdfIndex.find(function(x){ return x.business === entry.business && x.number === entry.number && x.kind === entry.kind; });
       const rec = existing || { id: randomId() };
       rec.business = entry.business; rec.clientId = entry.clientId || ''; rec.kind = entry.kind;
-      rec.number = entry.number; rec.driveFileId = entry.driveFileId; rec.dateIso = entry.dateIso || '';
+      rec.number = entry.number; rec.fileBase = entry.fileBase || rec.fileBase || ''; rec.odsFileId = entry.odsFileId || rec.odsFileId || ''; rec.driveFileId = entry.driveFileId; rec.dateIso = entry.dateIso || '';
       rec.dueIso = entry.dueIso || ''; rec.total = Number(entry.total) || 0; rec.quoteId = entry.quoteId || '';
       rec.period = entry.period || ''; rec.createdAt = new Date().toISOString();
       if (!existing) data.docPdfIndex.unshift(rec);
@@ -15079,7 +15415,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Which document a template naturally carries.
   function templateAttachKind(t){
     if (!t) return '';
-    if (t.attach === 'quote' || t.attach === 'invoice') return t.attach;
+    if (t.attach === 'quote' || t.attach === 'invoice' || t.attach === 'receipt') return t.attach;
     return '';
   }
 
@@ -15092,16 +15428,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     sessionPdfs.filter(function(p){ return p.business === business && (!clientId || p.clientId === clientId); }).forEach(function(p){
       seen[p.kind + ':' + p.number] = true;
       out.push({ key: p.key, kind: p.kind, number: p.number, quoteId: p.quoteId, docId: p.docId || '',
-        label: (p.kind === 'quote' ? 'Quote ' : 'Invoice ') + p.number + ' (just generated)',
-        filename: p.number + '.pdf', getBlob: function(){ return Promise.resolve(p.blob); } });
+        label: (p.kind === 'quote' ? 'Quote ' : p.kind === 'receipt' ? 'Receipt ' : 'Invoice ') + p.number + ' (just generated)',
+        filename: (p.fileBase || p.number) + '.pdf', getBlob: function(){ return Promise.resolve(p.blob); } });
     });
     data.docPdfIndex.filter(function(d){ return d.business === business && d.driveFileId && (!clientId || d.clientId === clientId); }).forEach(function(d){
       if (seen[d.kind + ':' + d.number]) return;
       seen[d.kind + ':' + d.number] = true;
       let cached = null;
       out.push({ key: 'd:' + d.id, kind: d.kind, number: d.number, quoteId: d.quoteId, docId: d.id,
-        label: (d.kind === 'quote' ? 'Quote ' : 'Invoice ') + d.number + (d.dateIso ? (' (' + ddmmyy(d.dateIso) + ', from Drive)') : ' (from Drive)'),
-        filename: d.number + '.pdf',
+        label: (d.kind === 'quote' ? 'Quote ' : d.kind === 'receipt' ? 'Receipt ' : 'Invoice ') + d.number + (d.dateIso ? (' (' + ddmmyy(d.dateIso) + ', from Drive)') : ' (from Drive)'),
+        filename: (d.fileBase || d.number) + '.pdf',
         getBlob: async function(){
           if (cached) return cached;
           const res = await driveApiFetch('/files/' + encodeURIComponent(d.driveFileId) + '?alt=media');
@@ -15133,7 +15469,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function suggestSeedForQuote(q){
     if (!q) return 'is-enquiry';
     const paid = (q.zohoPayments || []).length > 0;
-    if (q.imageScapeInvoiceRef) return paid ? 'is-receipt' : 'is-invoice';
+    if (q.imageScapeInvoiceRef) return paid ? 'is-receipt-pdf' : 'is-invoice';
     if (q.status === 'accepted') return 'is-booking';
     if (q.status === 'sent') return 'is-quote-nudge';
     if (q.imageScapeRef) return 'is-quote';
@@ -15203,7 +15539,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     backdrop.innerHTML =
       '<div class="modal" style="max-width:940px;width:calc(100% - 32px);max-height:92vh;overflow:auto;box-sizing:border-box;">' +
         '<h3>Email: ' + escapeHtml(EMAIL_BUSINESS_LABELS[business]) + (client ? (' to ' + escapeHtml(client.name)) : '') + '</h3>' +
-        '<div class="sub" style="margin:-4px 0 12px;">From <strong id="ecFrom"></strong>. This only creates a Gmail draft with the PDF attached; nothing is sent until you press Send in Gmail.</div>' +
+        '<div class="sub" style="margin:-4px 0 12px;">From <strong id="ecFrom"></strong>. <span id="ecProvNote"></span></div>' +
+        (business === 'imagescape' ? '<div class="field" style="max-width:320px;"><label>Create the draft in</label><select id="ecProvider"><option value="microsoft">Microsoft 365 (info@imagescape.uk)</option><option value="gmail">Gmail</option></select></div>' : '') +
         '<div style="display:flex;gap:18px;flex-wrap:wrap;">' +
           '<div style="flex:1 1 380px;min-width:0;">' +
             '<div class="field"><label>Template</label><select id="ecTemplate" style="width:100%;"></select></div>' +
@@ -15233,14 +15570,29 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="row" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
           '<button class="btn btn-ghost" id="ecClose" style="width:auto;">Close</button>' +
           '<button class="btn btn-ghost" id="ecCopy" style="width:auto;">Copy text</button>' +
-          '<button class="btn btn-primary" id="ecDraft" style="width:auto;">Create Gmail draft</button>' +
+          '<button class="btn btn-primary" id="ecDraft" style="width:auto;">Create draft</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(backdrop);
 
     const $ = function(sel){ return backdrop.querySelector(sel); };
     const fromValue = emailFromFor(business);
-    $('#ecFrom').textContent = fromValue || 'your Gmail account';
+    const providerNow = function(){
+      return business === 'imagescape' && data.emailSettings.imageScapeProvider !== 'gmail' ? 'microsoft' : 'gmail';
+    };
+    const provNames = { microsoft: 'Outlook (Microsoft 365)', gmail: 'Gmail' };
+    const refreshProvider = function(){
+      const pv = providerNow();
+      $('#ecFrom').textContent = fromValue || (pv === 'microsoft' ? 'your Microsoft 365 mailbox' : 'your Gmail account');
+      $('#ecProvNote').textContent = 'This only creates a ' + (pv === 'microsoft' ? 'draft in Outlook' : 'Gmail draft') + ' with the PDF attached; nothing is sent until you press Send there.';
+      $('#ecDraft').textContent = 'Create ' + (pv === 'microsoft' ? 'Outlook' : 'Gmail') + ' draft';
+      const sel = $('#ecProvider'); if (sel) sel.value = pv;
+    };
+    refreshProvider();
+    if ($('#ecProvider')) $('#ecProvider').addEventListener('change', function(){
+      data.emailSettings.imageScapeProvider = $('#ecProvider').value === 'gmail' ? 'gmail' : 'microsoft';
+      markDirty(); refreshProvider();
+    });
     $('#ecTo').value = o.to || (client && client.email) || '';
 
     const tplSel = $('#ecTemplate');
@@ -15401,11 +15753,36 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!to){ status.textContent = 'Enter the client’s email address first.'; return; }
       if (!subject){ status.textContent = 'Add a subject first.'; return; }
       if (/\[[a-zA-Z][a-zA-Z ]{1,30}\]/.test(subject + ' ' + bodyText) &&
-          !confirm('The email still has [placeholders] in it. Create the draft anyway? (You can still edit it in Gmail.)')) return;
+          !confirm('The email still has [placeholders] in it. Create the draft anyway? (You can still edit it before sending.)')) return;
       const a = attachments.find(function(x){ return x.key === attSel.value; });
+      const pv = providerNow();
       btn.disabled = true;
-      status.textContent = 'Creating the Gmail draft…';
+      status.textContent = pv === 'microsoft' ? 'Signing in to Microsoft 365…' : 'Creating the Gmail draft…';
       try {
+        if (pv === 'microsoft'){
+          // Sign-in popup has to open straight from this click, before anything is awaited.
+          const tokenPromise = msGetAccessToken(extractEmailAddress(fromValue) || 'info@imagescape.uk');
+          const pdfBlobMs = a ? await a.getBlob() : null;
+          await tokenPromise;
+          status.textContent = 'Creating the Outlook draft…';
+          const mres = await createMsInvoiceDraft({
+            from: fromValue, to: to, subject: subject, bodyText: bodyText,
+            pdfBlob: pdfBlobMs, pdfFilename: a ? a.filename : ''
+          });
+          let mhtml = 'Draft created' + (a ? (' with ' + escapeHtml(a.filename) + ' attached') : '') + ' in ' + escapeHtml(mres.account || 'your Microsoft 365 mailbox') + '. ' +
+            (mres.webLink ? ('<a href="' + escapeHtml(mres.webLink) + '" target="_blank" rel="noopener"><strong>Open it in Outlook</strong></a> to check it and press Send. ') : 'Find it in Drafts in Outlook, check it and press Send. ') + 'Nothing has been sent yet.';
+          if (mres.fromMismatch){
+            mhtml += '<br><span style="color:#b45309;">You signed in as ' + escapeHtml(mres.account) + ', not ' + escapeHtml(extractEmailAddress(fromValue)) + ', so the draft is in that mailbox. Sign in with the info@ account to keep ImageScape mail together.</span>';
+          }
+          status.innerHTML = mhtml;
+          btn.textContent = 'Create another draft';
+          toast('Outlook draft created' + (a ? (' with ' + a.filename) : '') + '.');
+          if (typeof o.onDraftCreated === 'function'){
+            try { const note = await o.onDraftCreated(); if (note) status.innerHTML += '<br>' + escapeHtml(note); }
+            catch (hookErr){ status.innerHTML += '<br><span style="color:#b45309;">' + escapeHtml(hookErr.message || 'Follow-up step failed.') + '</span>'; }
+          }
+          return;
+        }
         const pdfBlob = a ? await a.getBlob() : null;
         const result = await createGmailInvoiceDraft({
           from: fromValue, to: to, subject: subject, bodyText: bodyText,
@@ -15424,8 +15801,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         status.innerHTML = html;
         btn.textContent = 'Create another draft';
         toast('Gmail draft created' + (a ? (' with ' + a.filename) : '') + '.');
+        if (typeof o.onDraftCreated === 'function'){
+          try { const note = await o.onDraftCreated(); if (note) status.innerHTML += '<br>' + escapeHtml(note); }
+          catch (hookErr){ status.innerHTML += '<br><span style="color:#b45309;">' + escapeHtml(hookErr.message || 'Follow-up step failed.') + '</span>'; }
+        }
       } catch (e){
-        status.textContent = e.message || 'Could not create the Gmail draft.';
+        status.textContent = e.message || 'Could not create the draft.';
       } finally {
         btn.disabled = false;
       }
@@ -15512,7 +15893,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="field"><label>Name</label><input type="text" id="tName"></div>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
           '<div class="field" style="flex:1;min-width:160px;"><label>Business</label><select id="tBusiness"><option value="imagescape">ImageScape</option><option value="soletrader">Self-employed</option><option value="both">Both</option></select></div>' +
-          '<div class="field" style="flex:1;min-width:160px;"><label>Attaches</label><select id="tAttach"><option value="">Nothing</option><option value="quote">Quote PDF</option><option value="invoice">Invoice PDF</option></select></div>' +
+          '<div class="field" style="flex:1;min-width:160px;"><label>Attaches</label><select id="tAttach"><option value="">Nothing</option><option value="quote">Quote PDF</option><option value="invoice">Invoice PDF</option><option value="receipt">Receipt PDF</option></select></div>' +
         '</div>' +
         '<div class="field"><label>Subject</label><input type="text" id="tSubject"></div>' +
         '<div class="field"><label>Body</label><textarea id="tBody" rows="12" style="font-family:inherit;"></textarea></div>' +
@@ -16943,6 +17324,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   })();
 
   // ---------------------------------------------------------------- boot
+  // Microsoft 365 sign-in popup: Microsoft sends the popup back to this page with ?code=...
+  // Hand the result to the window that opened it and stop; this must not start the Hub.
+  if (/[?&]state=msauth\./.test(location.search) && window.opener){
+    const q = new URLSearchParams(location.search);
+    try {
+      window.opener.postMessage({ type: 'ms-auth', state: q.get('state'), code: q.get('code'), error: q.get('error'), error_description: q.get('error_description') }, location.origin);
+    } catch (e){}
+    document.body.innerHTML = '<p style="font:16px sans-serif;padding:24px;">Signed in. You can close this window.</p>';
+    setTimeout(function(){ window.close(); }, 300);
+    return;
+  }
   conn = loadConnection();
   if (!conn || !conn.fileId){
     showScreen('connectScreen');
