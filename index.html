@@ -4986,7 +4986,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const kind = opts.kind;
     const b64 = IMAGESCAPE_DOC_TEMPLATES[kind];
     if (!b64) throw new Error('Unknown ImageScape document type "' + kind + '".');
-    const zip = await JSZip.loadAsync(ohB64ToBytes(b64));
+    const zip = await JSZip.loadAsync(new Uint8Array(unb64(b64)));
     const xmlDoc = await odsLoadContentXml(zip);
     const table = xmlDoc.getElementsByTagNameNS(ODF_NS.table, 'table')[0];
     if (!table) throw new Error('This template has no sheet to fill in.');
