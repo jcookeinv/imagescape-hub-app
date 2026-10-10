@@ -651,26 +651,6 @@
   .status-badge.publish{background:var(--good-soft);color:var(--good);}
   .status-badge.failed{background:var(--warn-soft);color:var(--warn);}
 
-  /* Activity tray: live progress for anything that talks to Zoho, Drive, Microsoft or Google */
-  #activityTray{position:fixed;left:20px;bottom:76px;z-index:520;display:flex;flex-direction:column-reverse;gap:8px;width:min(360px,calc(100vw - 40px));pointer-events:none;}
-  .act-card{pointer-events:auto;background:var(--navy-deep);color:#fff;border-radius:10px;padding:10px 12px 11px;box-shadow:0 6px 22px rgba(0,0,0,.28);font-size:12.5px;line-height:1.35;animation:actIn .18s ease-out;}
-  @keyframes actIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
-  .act-head{display:flex;align-items:flex-start;gap:8px;}
-  .act-title{font-weight:700;font-size:13px;flex:1;min-width:0;}
-  .act-x{background:none;border:none;color:#fff;opacity:.6;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;}
-  .act-x:hover{opacity:1;}
-  .act-steps{margin:6px 0 7px;display:flex;flex-direction:column;gap:2px;}
-  .act-step{opacity:.55;display:flex;gap:6px;}
-  .act-step.done{opacity:.85;} .act-step.now{opacity:1;font-weight:600;}
-  .act-step .ic{width:14px;flex-shrink:0;text-align:center;}
-  .act-track{height:5px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden;}
-  .act-fill{height:100%;width:0;border-radius:3px;background:var(--gold);transition:width .35s ease;}
-  .act-card.running .act-fill.ind{width:40%;animation:actInd 1.1s ease-in-out infinite;}
-  @keyframes actInd{0%{margin-left:-40%;}100%{margin-left:100%;}}
-  .act-card.ok .act-fill{width:100%;background:#4caf7d;}
-  .act-card.fail .act-fill{width:100%;background:#e5594f;}
-  .act-msg{margin-top:6px;opacity:.95;word-break:break-word;}
-  .act-card.fail .act-msg{color:#ffc9c4;}
   .save-toast{position:fixed;bottom:76px;right:20px;background:var(--navy-deep);color:#fff;
     padding:12px 18px;border-radius:8px;font-size:15px;font-weight:600;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);
     opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;
@@ -5164,43 +5144,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // File name used for the saved/downloaded quote or invoice: "26002 - Just Jules Events - 2026-10-01".
-  // prefix is a word put in front of the number: "Invoice 26002 - Client - 2026-10-01".
-  function docFileBase_(number, clientLabel, dateIso, prefix){
+  function docFileBase_(number, clientLabel, dateIso){
     const clean = function(t){ return String(t || '').replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim(); };
-    return [((prefix ? (prefix + ' ') : '') + clean(number)).trim(), clean(clientLabel), clean(dateIso)].filter(Boolean).join(' - ');
-  }
-
-  // The template leaves 16 blank rows between TOTAL and the payment details, so the payment
-  // block sat far below the total (and every extra item pushed it further down). Cut that
-  // spacer to a few rows; extra item lines then just push the block down a little. The print
-  // area (fixed at row 50 in the template) is stretched to cover however many rows there end
-  // up being, so nothing falls outside it.
-  function odsTightenInvoiceLayout_(table, spacerRows, kind){
-    const rowsOf = function(){ return Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row')); };
-    const repOf = function(r){ return parseInt(r.getAttributeNS(ODF_NS.table, 'number-rows-repeated') || '1', 10); };
-    const shrink = function(r){
-      if (repOf(r) > spacerRows && !(r.textContent || '').trim()){ r.setAttributeNS(ODF_NS.table, 'table:number-rows-repeated', String(spacerRows)); return true; }
-      return false;
-    };
-    let rows = rowsOf();
-    if (kind === 'quote'){
-      // Quote: the blank run sits between the notes and the "Registered address" footer.
-      const reg = rows.findIndex(function(r){ return (r.textContent || '').toLowerCase().indexOf('registered address') >= 0; });
-      for (let i = reg - 1; reg >= 0 && i >= Math.max(0, reg - 3); i--){ if (shrink(rows[i])) break; }
-    } else {
-      // Invoice / receipt: the blank run sits between TOTAL and the payment details.
-      const tIdx = rows.findIndex(function(r){ return odsRowHasLabelPrefix(r, ['total']); });
-      for (let i = tIdx + 1; tIdx >= 0 && i < rows.length && i <= tIdx + 3; i++){ if (shrink(rows[i])) break; }
-    }
-    rows = rowsOf();
-    // Rows used = everything down to the footer (the template ends with a huge blank run).
-    const regIdx = rows.findIndex(function(r){ return (r.textContent || '').toLowerCase().indexOf('registered address') >= 0; });
-    let used = 0;
-    const upTo = regIdx >= 0 ? regIdx + 1 : rows.length;
-    for (let i = 0; i < upTo; i++) used += repOf(rows[i]);
-    const pr = table.getAttributeNS(ODF_NS.table, 'print-ranges');
-    const m = pr && /^(.*\.[A-Z]+\d+:.*\.[A-Z]+)(\d+)$/.exec(pr);
-    if (m) table.setAttributeNS(ODF_NS.table, 'table:print-ranges', m[1] + String(Math.max(used + 2, 12)));
+    return [clean(number), clean(clientLabel), clean(dateIso)].filter(Boolean).join(' - ');
   }
 
   async function generateImageScapeDoc(opts){
@@ -5251,7 +5197,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     odsSetTotal(xmlDoc, table, total, header.amtIdx);
 
     if (kind === 'receipt') odsTurnInvoiceIntoReceipt_(xmlDoc, table, ddmmyy(opts.dateIso));
-    odsTightenInvoiceLayout_(table, kind === 'quote' ? 2 : 3, kind);
     const savedBlob = await odsSaveContentXml(zip, xmlDoc);
 
     // Second pass just for the PDF export, same reasoning as generateSoleTraderInvoice
@@ -7640,9 +7585,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (wasOffline){ showScreen('connectScreen'); } else { fetchFlow(true); } // re-fetch fresh on every re-unlock, in case another device/session saved since
   });
 
-  async function saveToDrive(password, act){
+  async function saveToDrive(password){
     const newVault = await encryptData(password, data);
-    if (act) act.step(1);
     const sha = await pushVaultFile(newVault, currentSha);
     currentSha = sha;
     syncReminders(); // best-effort side channel — never awaited, never blocks or fails a save
@@ -7654,19 +7598,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!currentPassword){ toast('Nothing to save yet.'); return; }
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
-    const act = activityBegin('Saving to Drive', ['Encrypting your data', 'Writing it to Drive']);
     try {
-      await saveToDrive(currentPassword, act);
+      await saveToDrive(currentPassword);
       markClean();
       toast('Saved.');
-      act.ok('Saved to Drive.' + ((data.githubBackup && data.githubBackup.enabled && data.githubBackup.token) ? ' GitHub backup is running; a failure will show on the dashboard.' : ''));
     } catch (e){
       if (e instanceof ConflictError){
         toast('This was updated elsewhere since you loaded it. Lock and unlock again to load the latest before saving.');
-        act.fail('This was updated elsewhere since you loaded it. Lock and unlock again to load the latest before saving.');
       } else {
         toast('Save failed: ' + e.message);
-        act.fail('Save failed: ' + e.message);
       }
     } finally {
       btn.disabled = false;
@@ -11795,21 +11735,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return created.id;
   }
 
-  let zohoSnapshotLastError_ = '';
   async function fetchZohoSnapshot(){
     if (!data.zohoConnection) return null;
     try {
       const file = await findZohoSnapshotFile();
       if (!file){ zohoSnapshotCache = null; return null; }
       const res = await driveApiFetch('/files/' + file.id + '?alt=media');
-      if (!res.ok){ zohoSnapshotLastError_ = 'Drive returned ' + res.status + ' when reading the Zoho data.'; return null; }
+      if (!res.ok) return null;
       const obj = await res.json();
       zohoSnapshotCache = obj;
       zohoSnapshotFileId = file.id;
-      zohoSnapshotLastError_ = '';
       return obj;
     } catch (e){
-      zohoSnapshotLastError_ = 'Could not read the Zoho data from Drive: ' + (e && e.message ? e.message : 'network error');
       return null;
     }
   }
@@ -11933,8 +11870,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const conn = data.zohoConnection;
     if (!conn || !conn.webAppUrl) return;
     const label = document.getElementById('zohoSyncedLabel');
-    const act = activityBegin('Syncing with Zoho', ['Contacting the Zoho bridge', 'Zoho is reading your books', 'Loading the fresh data']);
-    const before = zohoSnapshotCache && zohoSnapshotCache.syncedAt;
     try {
       await ensureZohoSnapshotFile();
       await fetch(conn.webAppUrl, {
@@ -11943,31 +11878,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ secret: conn.sharedSecret, action: 'requestSync', fyEnd: ((data.financeProfile && /^\d{4}-\d{2}-\d{2}$/.test(data.financeProfile.companyFyEnd || '')) ? data.financeProfile.companyFyEnd : '') })
       });
+      if (label){ label.textContent = 'Sync requested — check back in a minute (it also refreshes itself every 30 minutes on its own).'; }
+      setTimeout(function(){ if (!offlineReadOnly) zohoReconcile(); }, 8000);
     } catch (e){
       if (label){ label.textContent = 'Sync request failed to send: ' + e.message; }
-      act.fail('Could not reach the Zoho bridge or Drive (' + (e.message || 'network error') + '). Nothing was requested.');
-      return;
     }
-    act.step(1);
-    if (label){ label.textContent = 'Sync requested, waiting for Zoho...'; }
-    const started = Date.now();
-    while (Date.now() - started < 120000){
-      await new Promise(function(r){ setTimeout(r, 5000); });
-      if (!data || offlineReadOnly) return;
-      act.step(1, 'Zoho is reading your books (' + Math.round((Date.now() - started) / 1000) + 's)');
-      let snap = null;
-      try { snap = await fetchZohoSnapshot(); } catch (e){}
-      if (snap && snap.syncedAt && snap.syncedAt !== before){
-        act.step(2);
-        try { await zohoReconcile(); } catch (e){}
-        const n = Object.keys((zohoSnapshotCache && zohoSnapshotCache.contacts) || {}).length;
-        if (label){ label.textContent = 'Synced just now.'; }
-        act.ok('Synced. ' + n + ' client' + (n === 1 ? '' : 's') + ' with Zoho data.');
-        return;
-      }
-    }
-    if (label){ label.textContent = 'No fresh data from Zoho yet.'; }
-    act.fail((zohoSnapshotLastError_ ? (zohoSnapshotLastError_ + ' ') : '') + 'Zoho has not refreshed after ' + Math.round((Date.now() - started) / 1000) + 's. The request may still be running (it also refreshes itself every 30 minutes). If this keeps happening, open the Apps Script Executions list for errors.');
   }
 
   document.getElementById('zohoSyncBtn').addEventListener('click', function(){
@@ -11995,99 +11910,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Fires a write to the Apps Script bridge and remembers it as pending until the next
   // snapshot read resolves it. `meta` is whatever zohoApplyPendingResults() needs later
   // to know what the result is *for* (which client, which quote).
-  // ---------------------------------------------------------------- activity tray
-  // One small card per running job, showing which stage it is at (and, for Zoho, that the
-  // result really came back), then green on success or red with the reason on failure.
-  // activityBegin('Title', ['Step one', 'Step two', ...]) -> { step(n, text?), ok(text), fail(text), cancel() }
-  function activityBegin(title, steps){
-    let tray = document.getElementById('activityTray');
-    if (!tray){ tray = document.createElement('div'); tray.id = 'activityTray'; document.body.appendChild(tray); }
-    steps = steps || [];
-    const card = document.createElement('div');
-    card.className = 'act-card running';
-    card.innerHTML = '<div class="act-head"><div class="act-title"></div><button class="act-x" title="Hide">×</button></div>' +
-      '<div class="act-steps"></div><div class="act-track"><div class="act-fill ind"></div></div><div class="act-msg" style="display:none;"></div>';
-    card.querySelector('.act-title').textContent = title;
-    tray.appendChild(card);
-    const stepsEl = card.querySelector('.act-steps');
-    const fill = card.querySelector('.act-fill');
-    const msgEl = card.querySelector('.act-msg');
-    let current = 0, finished = false, hideTimer = null;
-    const labels = steps.slice();
-    function paint(){
-      stepsEl.innerHTML = '';
-      labels.forEach(function(t, i){
-        const d = document.createElement('div');
-        const state = finished === 'ok' ? 'done' : (i < current ? 'done' : (i === current && !finished ? 'now' : ''));
-        d.className = 'act-step ' + state;
-        d.innerHTML = '<span class="ic">' + (state === 'done' ? '✓' : (state === 'now' ? '›' : '·')) + '</span><span></span>';
-        d.lastChild.textContent = t;
-        stepsEl.appendChild(d);
-      });
-      if (labels.length && !finished){ fill.classList.remove('ind'); fill.style.width = Math.round(((current + 0.5) / labels.length) * 100) + '%'; }
-    }
-    function remove(){ clearTimeout(hideTimer); if (card.parentNode) card.parentNode.removeChild(card); }
-    card.querySelector('.act-x').addEventListener('click', remove);
-    paint();
-    return {
-      step: function(n, text){
-        if (finished) return;
-        current = Math.max(0, Math.min(n, Math.max(labels.length - 1, 0)));
-        if (text && labels[current] !== undefined) labels[current] = text;
-        else if (text){ labels.push(text); current = labels.length - 1; }
-        paint();
-      },
-      ok: function(text){
-        if (finished) return; finished = 'ok'; card.className = 'act-card ok'; fill.classList.remove('ind'); fill.style.width = ''; paint();
-        if (text){ msgEl.style.display = ''; msgEl.textContent = text; }
-        hideTimer = setTimeout(remove, 6000);
-      },
-      fail: function(text){
-        if (finished) return; finished = 'fail'; card.className = 'act-card fail'; fill.classList.remove('ind'); fill.style.width = ''; paint();
-        msgEl.style.display = ''; msgEl.textContent = text || 'Something went wrong.';
-        // stays until dismissed, so a failure can't be missed
-      },
-      cancel: remove
-    };
-  }
-
-  function zohoActionTitle_(kind){
-    return ({
-      createContact: 'Creating the contact in Zoho', createInvoiceFromQuote: 'Sending the invoice to Zoho',
-      recordPayment: 'Recording the payment in Zoho', markInvoiceSent: 'Marking the invoice as sent in Zoho',
-      createPrepaidExpense: 'Creating the prepaid expense in Zoho', createJournal: 'Creating the journal in Zoho',
-      refundOverpayment: 'Recording the overpayment refund in Zoho'
-    })[kind] || 'Sending an update to Zoho';
-  }
-
-  // Follows one Zoho write until its result is read back from the snapshot, or tells you it
-  // has not heard back. The bridge answers by writing a result file, so this polls that.
-  async function zohoWatchRequest_(requestId, act){
-    const started = Date.now();
-    const waits = [5000, 5000, 6000, 8000, 8000, 10000, 10000, 12000, 15000, 15000, 15000, 15000];
-    for (let i = 0; i < waits.length; i++){
-      await new Promise(function(r){ setTimeout(r, waits[i]); });
-      if (!data || offlineReadOnly) return;
-      act.step(1, 'Waiting for Zoho to carry it out (' + Math.round((Date.now() - started) / 1000) + 's)');
-      try { await zohoReconcile(); } catch (e){ /* try again next round */ }
-      if (!data.zohoPending.some(function(p){ return p.requestId === requestId; })){
-        act.step(2);
-        const r = zohoSnapshotCache && zohoSnapshotCache.writeResults && zohoSnapshotCache.writeResults[requestId];
-        if (r && !r.ok) act.fail('Zoho refused it: ' + (r.error || 'unknown error'));
-        else act.ok('Zoho confirmed it.');
-        return;
-      }
-    }
-    act.fail('No answer from Zoho after ' + Math.round((Date.now() - started) / 1000) + 's. It may still go through: press Sync now in a minute. If it keeps failing, check the Apps Script is deployed and the web address on the Zoho Books card is right.');
-  }
-
   async function zohoFireWrite(kind, payload, meta){
     const conn = data.zohoConnection;
     if (!conn || !conn.webAppUrl){ toast('Connect a Zoho Books destination first (Zoho Books card, bottom of the Dashboard).'); return null; }
     const requestId = zohoRequestId();
     data.zohoPending.push({ requestId: requestId, kind: kind, meta: meta || {}, sentAt: new Date().toISOString() });
     markDirty();
-    const act = activityBegin(zohoActionTitle_(kind), ['Sending the request to the Zoho bridge', 'Waiting for Zoho to carry it out', 'Reading the result back']);
     try {
       await fetch(conn.webAppUrl, {
         method: 'POST',
@@ -12095,16 +11923,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ secret: conn.sharedSecret, action: 'write', kind: kind, requestId: requestId, payload: payload })
       });
-    } catch (e){
-      // The browser could not even deliver it (offline, blocked, wrong address): it never left, so it is not pending.
-      data.zohoPending = data.zohoPending.filter(function(p){ return p.requestId !== requestId; });
-      markDirty();
-      act.fail('Could not reach the Zoho bridge (' + (e && e.message ? e.message : 'network error') + '). Nothing was sent. Check your connection and the web address on the Zoho Books card, then try again.');
-      try { renderInvoiceQueue(); } catch (e2){}
-      return null;
-    }
-    act.step(1);
-    zohoWatchRequest_(requestId, act);
+    } catch (e){ /* still tracked as pending — a later reconcile will just never resolve it, which is honest */ }
+    setTimeout(function(){ if (!offlineReadOnly) zohoReconcile(); }, 8000);
     return requestId;
   }
 
@@ -13198,8 +13018,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         toast(number + ' is already used' + (clash ? (' on "' + (clash.title || 'another quote') + '"') : ' by another job') + '. Pick a different ' + numberLabel.toLowerCase() + '.');
         return;
       }
-      const filePrefix = kind === 'invoice' ? 'Invoice' : 'Quote';
-      const fileBase = docFileBase_(number, client.company || client.name, dateIso, filePrefix);
+      const fileBase = docFileBase_(number, client.company || client.name, dateIso);
       const ownRef = kind === 'quote' ? q.imageScapeRef : q.imageScapeInvoiceRef;
       const regeneratingOwn = ownRef && String(ownRef).trim().toLowerCase() === numLc;
 
@@ -13210,51 +13029,46 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       goBtn.disabled = true;
       statusEl.textContent = 'Signing in to Google Drive…';
-      const docWord = kind === 'quote' ? 'quote' : 'invoice';
-      const act = activityBegin('Making ' + docWord + ' ' + number, ['Signing in to Google', 'Checking the Drive folder', 'Filling in the template', 'Converting to PDF' + (skipDrive ? '' : ' and saving'), 'Finishing' + (kind === 'invoice' ? ' (and sending to Zoho)' : '')]);
       try {
         // Needed even when "just download" is ticked: the PDF conversion itself goes
         // via a temporary Drive file (convertOdsBlobToPdf, upload-then-export-then-
         // delete) since there's no other way to render a PDF here - only the final
         // save-into-a-folder step below is actually optional.
         await getAccessToken(true);
-        act.step(1);
         let folderId = null;
         if (!skipDrive){
           const folder = await ensureImageScapeDocsFolder(false);
-          if (!folder){ act.cancel(); statusEl.textContent = ''; goBtn.disabled = false; toast('Choose a Drive folder first, or tick "just download".'); return; }
+          if (!folder){ statusEl.textContent = ''; goBtn.disabled = false; toast('Choose a Drive folder first, or tick "just download".'); return; }
           folderId = folder.id;
           // Drive happily stores two files with the same name, so check the folder first.
           const esc = function(v){ return v.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
-          const dq = "'" + esc(folderId) + "' in parents and trashed = false and (name = '" + esc(fileBase + '.pdf') + "' or name = '" + esc(fileBase + '.ods') + "' or name = '" + esc(number + '.pdf') + "' or name = '" + esc(number + '.ods') + "' or name = '" + esc(docFileBase_(number, client.company || client.name, dateIso) + '.pdf') + "' or name = '" + esc(docFileBase_(number, client.company || client.name, dateIso) + '.ods') + "')";
+          const dq = "'" + esc(folderId) + "' in parents and trashed = false and (name = '" + esc(fileBase + '.pdf') + "' or name = '" + esc(fileBase + '.ods') + "' or name = '" + esc(number + '.pdf') + "' or name = '" + esc(number + '.ods') + "')";
           const dr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive');
           if (dr.ok){
             const db = await dr.json();
             if (db.files && db.files.length){
               if (!regeneratingOwn){
-                act.cancel(); statusEl.textContent = ''; goBtn.disabled = false;
+                statusEl.textContent = ''; goBtn.disabled = false;
                 toast('A file named ' + db.files[0].name + ' is already in that Drive folder, so ' + number + ' has been used before. Pick a different ' + numberLabel.toLowerCase() + '.');
                 return;
               }
               if (!confirm(db.files[0].name + ' is already in the Drive folder. Generating again adds a second file with the same name - delete or rename the old one in Drive afterwards. Continue?')){
-                act.cancel(); statusEl.textContent = ''; goBtn.disabled = false; return;
+                statusEl.textContent = ''; goBtn.disabled = false; return;
               }
             }
           } else {
-            act.cancel(); statusEl.textContent = ''; goBtn.disabled = false;
+            statusEl.textContent = ''; goBtn.disabled = false;
             toast('Could not check the Drive folder for an existing ' + number + ' (status ' + dr.status + '). Nothing was created - try again.');
             return;
           }
         }
         statusEl.textContent = 'Filling in the template…';
-        act.step(2);
         const items = q.lineItems.map(function(li){
           const amount = (Number(li.qty) || 0) * (Number(li.rate) || 0);
           const description = ((li.label || '').trim() + (li.description ? (': ' + li.description.trim()) : '')) || li.description || li.label || '(no description)';
           return { description: description, amount: amount };
         });
         statusEl.textContent = skipDrive ? 'Converting to PDF…' : 'Converting to PDF and saving to Drive…';
-        act.step(3);
         const result = await generateImageScapeDoc({
           kind: kind, number: number, dateIso: dateIso, fileBase: fileBase,
           quoteRef: kind === 'invoice' ? (backdrop.querySelector('#gdQuoteRef').value.trim() || undefined) : undefined,
@@ -13297,8 +13111,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (result.addressOverflow) msg += ' Note: the address had more lines than the template has room for, so the extra lines were combined onto the last line — check it before sending.';
         msg += zohoNote;
         toast(msg);
-        act.step(4);
-        act.ok(msg);
         backdrop.remove();
         renderInvoiceQueue();
         // Straight into the email, PDF attached and previewed - one more click makes the draft.
@@ -13308,7 +13120,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e){
         statusEl.textContent = '';
         goBtn.disabled = false;
-        act.fail(e.message || 'Could not generate the document.');
         toast(e.message || 'Could not generate the document.');
       }
     });
@@ -13755,7 +13566,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const client = data.clients.find(function(x){ return x.id === q.clientId; });
     const names = [String(num)];
     if (found.rec && found.rec.fileBase) names.push(found.rec.fileBase);
-    if (client && q.imageScapeInvoiceDate){ names.push(docFileBase_(num, client.company || client.name, q.imageScapeInvoiceDate, 'Invoice')); names.push(docFileBase_(num, client.company || client.name, q.imageScapeInvoiceDate)); }
+    if (client && q.imageScapeInvoiceDate) names.push(docFileBase_(num, client.company || client.name, q.imageScapeInvoiceDate));
     const nameQ = names.map(function(n){ return "name = '" + esc(n + '.pdf') + "' or name = '" + esc(n + '.ods') + "'"; }).join(' or ');
     const dq = "'" + esc(found.folderId) + "' in parents and trashed = false and (" + nameQ + ")";
     const lr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
@@ -13798,23 +13609,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const paidIso = backdrop.querySelector('#rcDate').value;
       if (!paidIso){ st.textContent = 'Pick the date the payment arrived.'; return; }
       goBtn.disabled = true;
-      const act = activityBegin('Making receipt ' + num, ['Signing in to Google', 'Finding the Paid folder', 'Building the receipt', 'Converting to PDF and saving', 'Finishing']);
       try {
         st.textContent = 'Signing in to Google Drive…';
         await getAccessToken(true);
-        act.step(1);
         const found = await invoiceFolderIdFor_(q);
         let folderId = null;
         if (found.folderId){ st.textContent = 'Finding the Paid folder…'; folderId = await ensurePaidFolder_(found.folderId); }
-        act.step(2);
-        const fileBase = docFileBase_(num, client.company || client.name, paidIso, 'Receipt');
+        const fileBase = docFileBase_(num, client.company || client.name, 'Receipt ' + paidIso);
         const items = q.lineItems.map(function(li){
           const amount = (Number(li.qty) || 0) * (Number(li.rate) || 0);
           const description = ((li.label || '').trim() + (li.description ? (': ' + li.description.trim()) : '')) || li.description || li.label || '(no description)';
           return { description: description, amount: amount };
         });
         st.textContent = 'Making the receipt and saving it…';
-        act.step(3);
         const result = await generateImageScapeDoc({
           kind: 'receipt', number: String(num), dateIso: paidIso, fileBase: fileBase,
           client: { name: client.company || client.name, address: client.address || '' },
@@ -13830,8 +13637,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         downloadBlob_(result.odsBlob, fileBase + '.ods');
         downloadBlob_(result.pdfBlob, fileBase + '.pdf');
         toast('Receipt ' + fileBase + ' made' + (folderId ? ' and saved in the Paid folder.' : ' (downloaded only, no Drive folder known).') + ' Creating the email draft will move the invoice into Paid.');
-        act.step(4);
-        act.ok('Made ' + fileBase + '.');
         backdrop.remove();
         renderInvoiceQueue();
         openEmailComposer({ business: 'imagescape', clientId: client.id, quoteId: q.id, seedKey: 'is-receipt-pdf', attachKey: remembered.attachKey,
@@ -13842,7 +13647,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           } });
       } catch (e){
         st.textContent = e.message || 'Could not make the receipt.';
-        act.fail(e.message || 'Could not make the receipt.');
         goBtn.disabled = false;
       }
     });
@@ -15954,16 +15758,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const pv = providerNow();
       btn.disabled = true;
       status.textContent = pv === 'microsoft' ? 'Signing in to Microsoft 365…' : 'Creating the Gmail draft…';
-      const act = activityBegin(pv === 'microsoft' ? 'Creating the Outlook draft' : 'Creating the Gmail draft',
-        pv === 'microsoft' ? ['Signing in to Microsoft 365', 'Loading the PDF', 'Creating the draft and attaching the PDF', 'Finishing'] : ['Loading the PDF', 'Creating the draft in Gmail', 'Finishing']);
       try {
         if (pv === 'microsoft'){
           // Sign-in popup has to open straight from this click, before anything is awaited.
           const tokenPromise = msGetAccessToken(extractEmailAddress(fromValue) || 'info@imagescape.uk');
-          act.step(1);
           const pdfBlobMs = a ? await a.getBlob() : null;
           await tokenPromise;
-          act.step(2);
           status.textContent = 'Creating the Outlook draft…';
           const mres = await createMsInvoiceDraft({
             from: fromValue, to: to, subject: subject, bodyText: bodyText,
@@ -15976,8 +15776,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           }
           status.innerHTML = mhtml;
           btn.textContent = 'Create another draft';
-          act.step(3);
-          act.ok('Outlook draft created. Nothing has been sent.');
           toast('Outlook draft created' + (a ? (' with ' + a.filename) : '') + '.');
           if (typeof o.onDraftCreated === 'function'){
             try { const note = await o.onDraftCreated(); if (note) status.innerHTML += '<br>' + escapeHtml(note); }
@@ -15986,7 +15784,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           return;
         }
         const pdfBlob = a ? await a.getBlob() : null;
-        act.step(1);
         const result = await createGmailInvoiceDraft({
           from: fromValue, to: to, subject: subject, bodyText: bodyText,
           pdfBlob: pdfBlob, pdfFilename: a ? a.filename : ''
@@ -16003,8 +15800,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
         status.innerHTML = html;
         btn.textContent = 'Create another draft';
-        act.step(2);
-        act.ok('Gmail draft created. Nothing has been sent.');
         toast('Gmail draft created' + (a ? (' with ' + a.filename) : '') + '.');
         if (typeof o.onDraftCreated === 'function'){
           try { const note = await o.onDraftCreated(); if (note) status.innerHTML += '<br>' + escapeHtml(note); }
@@ -16012,7 +15807,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
       } catch (e){
         status.textContent = e.message || 'Could not create the draft.';
-        act.fail(e.message || 'Could not create the draft.');
       } finally {
         btn.disabled = false;
       }
