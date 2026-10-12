@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src *; img-src * data: blob:; frame-src https://accounts.google.com https://apis.google.com blob:;">
-<title>ImageScape Studios — Management Hub</title>
+<title>ImageScape Studios — Hub</title>
 <!--
   ImageScape Studios Management Hub — a small static app (no build step, no
   server-side code of its own) meant to be hosted on GitHub Pages from a
@@ -40,8 +40,8 @@
   :root{
     --navy:#4A5473; --navy-deep:#333c54; --gold:#CDB16D; --gold-deep:#a3833f;
     --bg:#f5f6f8; --card:#ffffff; --ink:#22262f; --muted:#6a7080; --border:#e2e4ea;
-    --good:#1a8f5e; --good-soft:#e6f6ee; --warn:#b6541c; --warn-soft:#fdeee2;
-    --soon:#a3833f; --soon-soft:#fbf2df; --info:#3a6ea5; --info-soft:#e7eff7;
+    --good:#157a50; --good-soft:#e6f6ee; --warn:#a64b15; --warn-soft:#fdeee2;
+    --soon:#86681f; --soon-soft:#fbf2df; --info:#3a6ea5; --info-soft:#e7eff7;
     /* Self-employed context's own shade (a warm, lighter orange, rather than reusing --navy)
        so the header/active-tab colour itself signals which side of the Hub you're on,
        not just the small ctx-switch pill. Added 18 Sep 2026; recoloured from the original
@@ -178,8 +178,8 @@
   .ctx-switch button.active{background:#fff;color:var(--navy-deep);}
   .ctx-switch button:not(.active):hover{color:#fff;}
 
-  .global-search-wrap{position:relative;max-width:1400px;margin:14px auto 0;padding:0 24px;}
-  .global-search-wrap input{width:100%;padding:10px 14px;border:1px solid var(--border);
+  .global-search-wrap{position:relative;max-width:1400px;margin:14px auto 0;padding:0 24px;display:flex;gap:10px;align-items:center;}
+  .global-search-wrap input{flex:1;min-width:0;width:100%;padding:10px 14px;border:1px solid var(--border);
     border-radius:10px;font-size:15.5px;font-family:inherit;box-sizing:border-box;}
   .global-search-wrap input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold-deep);}
   .global-search-results{display:none;position:absolute;left:24px;right:24px;top:calc(100% + 4px);
@@ -205,6 +205,85 @@
   nav.tabs.tabs-sub button{padding:9px 14px;font-size:14px;}
   nav.tabs button.group-btn{display:flex;align-items:center;gap:4px;}
   nav.tabs button.group-btn .chev{font-size:11px;opacity:.7;}
+
+
+  /* ---- Phone, touch and accessibility polish ---- */
+  #moreBtn{display:none;}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[role="button"]:focus-visible,summary:focus-visible{
+    outline:3px solid var(--gold-deep);outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important;} }
+  nav.tabs{scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  nav.tabs::-webkit-scrollbar{display:none;}
+  @media (pointer:coarse){
+    .btn,nav.tabs button,select,.task-filter button,.ctx-switch button{min-height:44px;}
+    input[type="text"],input[type="date"],input[type="number"],input[type="email"],input[type="password"],input[type="search"],input[type="tel"],input[type="url"]{min-height:44px;}
+    .attention-row,.task-row{padding-top:10px;padding-bottom:10px;}
+  }
+  @media(max-width:640px){
+    input,select,textarea{font-size:16px !important;}
+    header.hub-header{padding:10px 14px;gap:8px;}
+    header.hub-header .brand{order:1;flex:1;min-width:0;}
+    header.hub-header .brand strong{font-size:15px;line-height:1.15;}
+    header.hub-header .brand span.mark{flex:0 0 auto;}
+    header.hub-header .actions .btn{padding:8px 12px;}
+    header.hub-header .actions{order:2;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+    header.hub-header .actions .more-item{display:none;}
+    header.hub-header .actions.show-more{flex-basis:100%;order:4;justify-content:flex-start;}
+    header.hub-header .actions.show-more .more-item:not([style*="display: none"]){display:inline-flex !important;}
+    #moreBtn{display:inline-flex;}
+    .ctx-switch{order:3;flex-basis:100%;}
+    .ctx-switch button{flex:1;}
+    .global-search-wrap{margin-top:10px;}
+    #quickAddBtn{position:fixed;right:14px;bottom:calc(76px + env(safe-area-inset-bottom, 0px));z-index:44;border-radius:999px;padding:14px 20px;
+      box-shadow:0 8px 20px -6px rgba(30,35,55,.5);font-size:16px;}
+    .alert-banner{padding:8px 14px;font-size:14px;}
+    nav.tabs{padding:0 8px;}
+    nav.tabs button{padding:12px 12px;font-size:15px;}
+    nav.tabs.tabs-sub{padding:0 8px;}
+    .card{padding:14px 14px;}
+    #dashGreeting{padding:10px 14px;}
+    #dashGreeting h2{font-size:17px;}
+    #dashGreeting .sub{margin-bottom:0;}
+    .modal-backdrop{padding:10px;align-items:flex-end;}
+    .modal{max-width:100% !important;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;}
+    .unsaved-bar{padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));}
+  }
+
+  /* Section colours: every menu group has its own colour, shown on its top button, its
+     sub-menu bar and the heading card of whichever page is open, so where you are is
+     obvious without reading. Home slate, Calendar teal, Business Admin blue, Clients
+     green, Flight Logs rose, Website purple, Self-employed orange. */
+  :root{--sec-home:#4A5473;--sec-cal:#0b7377;--sec-admin:#2f6fb3;--sec-client:#167a50;--sec-flights:#c0446f;--sec-website:#7b4bb3;--sec-se:#b8601f;}
+  nav.tabs-primary button[data-panel="home"]{--bc:var(--sec-home);}
+  nav.tabs-primary button[data-panel="cal"]{--bc:var(--sec-cal);}
+  nav.tabs-primary button[data-group="admin"]{--bc:var(--sec-admin);}
+  nav.tabs-primary button[data-group="client"]{--bc:var(--sec-client);}
+  nav.tabs-primary button[data-panel="flights"]{--bc:var(--sec-flights);}
+  nav.tabs-primary button[data-group="website"]{--bc:var(--sec-website);}
+  #tabsSelfEmployed button{--bc:var(--sec-se);}
+  nav.tabs-primary button[data-panel], nav.tabs-primary button.group-btn{
+    border-bottom-color:color-mix(in srgb, var(--bc, #999) 45%, transparent);}
+  nav.tabs-primary button.active{color:var(--bc, var(--navy));border-bottom-color:var(--bc, var(--gold));
+    background:color-mix(in srgb, var(--bc, #999) 11%, #fff);}
+  body.ctx-se nav.tabs-primary button.active{color:var(--se-warm-deep);}
+  nav.tabs-primary button:not(.active):hover{background:color-mix(in srgb, var(--bc, #999) 7%, #fff);}
+  #subNavAdmin{--bc:var(--sec-admin);}
+  #subNavClient{--bc:var(--sec-client);}
+  #subNavWebsite{--bc:var(--sec-website);}
+  nav.tabs.tabs-sub{background:color-mix(in srgb, var(--bc, #999) 8%, #fff);
+    border-bottom:2px solid color-mix(in srgb, var(--bc, #999) 35%, transparent);}
+  nav.tabs.tabs-sub button.active{color:var(--bc);border-bottom-color:var(--bc);
+    background:color-mix(in srgb, var(--bc, #999) 14%, #fff);}
+  body[data-sec="home"]{--sc:var(--sec-home);}
+  body[data-sec="cal"]{--sc:var(--sec-cal);}
+  body[data-sec="admin"]{--sc:var(--sec-admin);}
+  body[data-sec="client"]{--sc:var(--sec-client);}
+  body[data-sec="flights"]{--sc:var(--sec-flights);}
+  body[data-sec="website"]{--sc:var(--sec-website);}
+  body[data-sec="se"]{--sc:var(--sec-se);}
+  body[data-sec] .panel.active > .card:first-child{border-top:4px solid var(--sc);}
+  body[data-sec] .panel.active > .card:first-child > h2:first-child,
+  body[data-sec] .panel.active > .card:first-child > .dash-section-head h2{color:var(--sc);}
 
   main.hub-main{max-width:1400px;margin:0 auto;padding:26px 24px 80px;}
   .panel{display:none;}
@@ -908,7 +987,7 @@
 <div id="unlockScreen" class="center-screen" style="display:none;">
   <div class="auth-card">
     <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
-    <h1>Management Hub</h1>
+    <h1>Hub</h1>
     <p class="lead">Enter the password to decrypt this file. Nothing below this point is readable without it.</p>
     <div id="unlockMsg"></div>
     <div class="field">
@@ -929,23 +1008,25 @@
   <header class="hub-header">
     <div class="brand ro-allow" id="homeBrand" role="button" tabindex="0" title="Back to Home">
       <span class="mark"></span>
-      <div><strong>ImageScape Studios</strong><span>Management Hub</span></div>
+      <div><strong>ImageScape Studios</strong><span>Hub</span></div>
     </div>
     <div class="ctx-switch ro-allow" id="ctxSwitch">
       <button type="button" class="active" data-ctx="imagescape">ImageScape</button>
       <button type="button" data-ctx="selfemployed">Self-employed</button>
     </div>
     <div class="actions">
-      <button class="btn btn-ghost gh-badge" id="driveBadgeBtn" title="Change Google Drive connection">⇄ <span id="driveBadgeLabel"></span></button>
-      <button class="btn btn-ghost" id="changePwBtn">Change password</button>
-      <button class="btn btn-ghost" id="backupBtn">Backup / Restore</button>
+      <button class="btn btn-ghost gh-badge more-item" id="driveBadgeBtn" title="Change Google Drive connection">⇄ <span id="driveBadgeLabel"></span></button>
+      <button class="btn btn-ghost more-item" id="changePwBtn">Change password</button>
+      <button class="btn btn-ghost more-item" id="backupBtn">Backup / Restore</button>
       <button class="btn btn-ghost" id="saveBtn"><span id="dirtyDot" class="dirty-dot" style="display:none;"></span>Save</button>
       <button class="btn btn-ghost ro-allow" id="lockBtn" title="Also auto-locks after 1 hour of inactivity">Lock</button>
+      <button class="btn btn-ghost ro-allow" id="moreBtn" aria-label="More options" aria-expanded="false" title="Drive connection, password, backup">More ▾</button>
     </div>
   </header>
 
   <div class="global-search-wrap ro-allow">
-    <input type="text" id="globalSearchInput" placeholder="Search everything — clients, tasks, quotes, notes, documents…" autocomplete="off">
+    <input type="text" id="globalSearchInput" placeholder="Search everything — clients, tasks, quotes, notes, documents, renewals…" autocomplete="off">
+    <button type="button" class="btn btn-primary" id="quickAddBtn" style="width:auto;white-space:nowrap;" title="Add a task, event or renewal from anywhere">+ Quick add</button>
     <div class="global-search-results" id="globalSearchResults"></div>
   </div>
 
@@ -973,6 +1054,7 @@
   </nav>
   <nav class="tabs tabs-sub ro-allow" id="subNavAdmin" style="display:none;">
     <button data-panel="tasks">Tasks</button>
+    <button data-panel="renewals">Renewals</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="finance">Finance</button>
     <button data-panel="emails">Email Templates</button>
@@ -1002,7 +1084,17 @@
         <h2 id="dashGreetingText">Welcome back</h2>
         <div class="sub" id="dashDateText"></div>
       </div>
+      <div class="card" id="dashTodayCard">
+        <div class="dash-section-head"><h2>Today</h2></div>
+        <div class="sub">What is on today, what is overdue, and any renewal or invoice that needs a nudge.</div>
+        <div id="dashTodayList"></div>
+      </div>
       <div class="stat-grid" id="dashStats"></div>
+      <div class="card" id="dashMoneyCard">
+        <div class="dash-section-head"><h2>Money</h2></div>
+        <div class="stat-grid" id="dashMoneyTiles" style="margin-top:8px;"></div>
+        <div class="hint" id="dashMoneyNote" style="margin-top:6px;"></div>
+      </div>
       <div class="card">
         <div class="dash-section-head"><h2>Needs attention</h2></div>
         <div class="sub">Sign-ins, passwords and access the Hub needs, then overdue and due-soon tasks and paperwork across every client, in one list.</div>
@@ -1023,6 +1115,21 @@
         </div>
         <div class="sub">Manual events plus paperwork due/sent dates and task due dates, whichever comes first.</div>
         <div id="dashUpcomingList"></div>
+      </div>
+      <div class="card" id="dashTrashCard">
+        <div class="dash-section-head"><h2>Recently deleted</h2><span class="hint-count" id="dashTrashSummary"></span></div>
+        <div class="sub">Anything you delete in the Hub waits here after your next save, so a slip is never final. Restore puts it back where it came from.</div>
+        <div id="dashTrashList"></div>
+      </div>
+      <div class="card" id="healthCard">
+        <div class="dash-section-head"><h2>Hub health and about</h2>
+          <button type="button" class="btn btn-ghost" id="healthRunBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Run health check</button>
+        </div>
+        <div class="sub">A monthly check that Drive, Zoho, your backups and your data are all in order, in plain English. <span id="healthSummary"></span></div>
+        <div id="healthResults"></div>
+        <details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;"><span id="aboutVersion"></span>: what changed and when</summary>
+          <div id="aboutLog"></div>
+        </details>
       </div>
       <div class="card" id="zohoCard" style="margin-top:16px;">
         <h2>Zoho Books</h2>
@@ -1184,6 +1291,38 @@
         <div class="sub">Reusable, ordered lists of tasks for the jobs you do over and over. Apply one to a client from their client card to generate every step in one click, spaced out from a date you choose.</div>
         <button class="btn btn-primary" id="checklistNewBtn" style="width:auto;margin-bottom:14px;">+ New checklist</button>
         <div class="link-grid" id="checklistGrid"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-renewals">
+      <div class="card">
+        <h2>Renewals and reminders</h2>
+        <div class="sub">Anything that comes round again: insurance, drone permissions, domains, subscriptions, tax, MOT, bills, health appointments. Whatever is due soon shows on the Dashboard under Today and Needs attention.</div>
+        <div class="link-add">
+          <input type="text" id="rnName" placeholder="What is it? e.g. Drone insurance" style="flex:2;min-width:200px;">
+          <select id="rnCat"></select>
+          <select id="rnScope"><option value="business">Business</option><option value="personal">Personal</option></select>
+          <input type="date" id="rnDue" title="Next due date">
+          <select id="rnRepeat" title="How often">
+            <option value="yearly">Yearly</option><option value="monthly">Monthly</option>
+            <option value="quarterly">Every 3 months</option><option value="none">One-off</option>
+          </select>
+          <input type="number" id="rnCost" placeholder="Cost £" min="0" step="0.01" style="width:100px;">
+          <input type="number" id="rnRemind" placeholder="Warn days" min="1" max="365" title="How many days before the due date to start warning" style="width:100px;">
+          <input type="text" id="rnNotes" placeholder="Notes or link (optional)" style="flex:2;min-width:180px;">
+          <button class="btn btn-primary" id="rnAddBtn" style="width:auto;">Add</button>
+          <button class="btn btn-ghost" id="rnCancelBtn" style="width:auto;display:none;">Cancel</button>
+        </div>
+        <div class="task-filter-row">
+          <div class="task-filter" id="rnFilter">
+            <button data-f="all" class="active">All</button>
+            <button data-f="soon">Due soon</button>
+            <button data-f="business">Business</button>
+            <button data-f="personal">Personal</button>
+          </div>
+          <div class="hint-count" id="rnSummary"></div>
+        </div>
+        <div id="rnList"></div>
       </div>
     </div>
 
@@ -1837,10 +1976,9 @@ function doPost(e) {
         <div class="sub">Who each business's emails come from, and the signature added to them. Changes save with the rest of the Hub.</div>
         <div class="field"><label>ImageScape "From"</label><input type="text" id="esIsFrom" placeholder="ImageScape Studios &lt;info@imagescape.uk&gt;" style="width:100%;box-sizing:border-box;"></div>
         <div class="hint" style="margin:-4px 0 10px;">For Gmail to send as info@imagescape.uk it must first be added in Gmail (jcookeinv@gmail.com) under Settings → Accounts and Import → Send mail as. Until then Gmail swaps it for your own address; the Hub checks every draft and tells you if that happened.</div>
-        <div class="field"><label>ImageScape signature</label><textarea id="esIsSig" rows="4" style="width:100%;box-sizing:border-box;font-family:inherit;"></textarea></div>
-        <div class="field"><label>ImageScape rich signature (optional)</label>
+        <div class="field"><label>ImageScape signature (required)</label>
           <div id="esIsSigHtml" contenteditable="true" spellcheck="false" style="min-height:60px;max-height:260px;overflow:auto;border:1px solid var(--line, #cbd5e1);border-radius:8px;padding:8px 10px;background:#fff;color:#111;box-sizing:border-box;"></div>
-          <div class="hint" style="margin-top:4px;">Paste your Outlook signature here (copy it from Outlook's signature editor), or paste its HTML code. If this has something in it, Outlook and Gmail drafts use it in place of the plain signature above. Images need to be web links, not attached pictures. <button type="button" class="btn btn-ghost" id="esIsSigHtmlClear" style="width:auto;padding:2px 8px;">Clear</button></div></div>
+          <div class="hint" style="margin-top:4px;">Paste your Outlook signature here (copy it from Outlook's signature editor), or paste its HTML code. Every ImageScape email draft (Outlook and Gmail) ends with this signature. Images need to be web links, not attached pictures. <strong id="esIsSigWarn" style="color:var(--warn);"></strong></div></div>
         <div class="field"><label>Self-employed "From"</label><input type="text" id="esStFrom" placeholder="Jonathan Cooke &lt;jcookeinv@gmail.com&gt;" style="width:100%;box-sizing:border-box;"></div>
         <div class="field"><label>Self-employed signature</label><textarea id="esStSig" rows="3" style="width:100%;box-sizing:border-box;font-family:inherit;"></textarea></div>
         <div class="field"><label>Self-employed rich signature (optional)</label>
@@ -2037,7 +2175,7 @@ function doPost(e) {
       group: 'External Apps & Links',
       collapsed: false,
       items: [
-        { id:'github-hub-app', name:'ImageScape Studios Hub (GitHub Pages)', desc:'Opens the live, password-protected Management Hub app in a new tab — this app, deployed. Linked here purely for one-click access to the deployed copy, added 15 Aug 2026.', kind:'link', url:'https://jcookeinv.github.io/imagescape-hub-app/', icon:'⇗' },
+        { id:'github-hub-app', name:'ImageScape Studios Hub (GitHub Pages)', desc:'Opens the live, password-protected Hub app in a new tab — this app, deployed. Linked here purely for one-click access to the deployed copy, added 15 Aug 2026.', kind:'link', url:'https://jcookeinv.github.io/imagescape-hub-app/', icon:'⇗' },
         { id:'offline-hub-viewer', name:'Hub Offline Backup Viewer', desc:'Emergency, fully-offline companion to the Hub app above — makes no network requests at all. Loads a local vault.json backup (a manual download from the private data repo) and decrypts it right here with the same password as the main Hub. Deliberately read-only, no add/edit/delete controls anywhere — for looking something up when GitHub isn’t reachable, not a second copy of the truth. Added 15 Aug 2026.', payload:'tool_offline_viewer', kind:'tool', icon:'⇗' },
       ],
     },
@@ -2589,7 +2727,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ];
   }
 
+  // Bump only for a change that an older copy of the Hub could not safely read or write.
+  const APP_SCHEMA_VERSION = 1;
+  const RENEWAL_CATS = { insurance: 'Insurance', drone: 'Drone and permissions', domain: 'Domain and hosting', software: 'Software and subscriptions',
+    vehicle: 'Vehicle', tax: 'Tax and accounts', home: 'Home and bills', health: 'Health and personal', other: 'Other' };
+  const RENEWAL_REPEATS = { none: 'One-off', monthly: 'Monthly', quarterly: 'Every 3 months', yearly: 'Yearly' };
   function normalizeData(d){
+    if (!d || typeof d !== 'object' || Array.isArray(d)){ const er0 = new Error('the saved data is not in the expected shape'); er0.name = 'BadVault'; throw er0; }
+    if ((Number(d.schemaVersion) || 0) > APP_SCHEMA_VERSION){
+      const er = new Error('this data was saved by a newer version of the Hub than this one'); er.name = 'NewerVersion'; throw er;
+    }
+    d.schemaVersion = APP_SCHEMA_VERSION;
+    d.healthCheckLastRun = /^\d{4}-\d{2}-\d{2}$/.test(d.healthCheckLastRun || '') ? d.healthCheckLastRun : '';
+    d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(function(x){
+      return x && typeof x === 'object' && typeof x.key === 'string' && x.item && typeof x.item === 'object' && typeof x.deletedAt === 'string';
+    }).map(function(x){ return { id: x.id || randomId(), key: x.key, item: x.item, deletedAt: x.deletedAt }; });
     d.events = d.events || [];
     d.events.forEach(function(e){ e.paperworkId = e.paperworkId || ''; e.kind = e.kind || ''; });
     d.tasks = d.tasks || [];
@@ -2799,6 +2951,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       r.active = r.active !== false;
       r.endYm = /^\d{4}-\d{2}$/.test(r.endYm || '') ? r.endYm : '';
     });
+    d.renewals = Array.isArray(d.renewals) ? d.renewals : [];
+    d.renewals = d.renewals.filter(function(r){ return r && typeof r === 'object'; }).map(function(r){
+      return {
+        id: r.id || randomId(),
+        name: String(r.name || '').slice(0, 200),
+        category: RENEWAL_CATS[r.category] ? r.category : 'other',
+        scope: r.scope === 'personal' ? 'personal' : 'business',
+        due: /^\d{4}-\d{2}-\d{2}$/.test(r.due || '') ? r.due : '',
+        repeat: RENEWAL_REPEATS[r.repeat] ? r.repeat : 'yearly',
+        cost: Number(r.cost) || 0,
+        remindDays: Math.min(365, Math.max(1, Math.round(Number(r.remindDays)) || 30)),
+        notes: String(r.notes || '').slice(0, 1000),
+        done: !!r.done,
+        lastRenewed: /^\d{4}-\d{2}-\d{2}$/.test(r.lastRenewed || '') ? r.lastRenewed : ''
+      };
+    });
     d.subscriptions = d.subscriptions || [];
     d.subscriptions.forEach(function(s){
       s.id = s.id || randomId();
@@ -2934,6 +3102,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       ['imageScapeSignatureHtml', 'soleTraderSignatureHtml'].forEach(function(k){
         esDefaults[k] = sanitizeSigHtml_(typeof esDefaults[k] === 'string' ? esDefaults[k] : '');
       });
+      if (esDefaults.imageScapeSignatureHtml){ const t = sigHtmlToText_(esDefaults.imageScapeSignatureHtml); if (t) esDefaults.imageScapeSignature = t; }
       if (/sky\s*sight/i.test(esDefaults.imageScapeName)) esDefaults.imageScapeName = 'ImageScape Studios';
       d.emailSettings = esDefaults;
     })();
@@ -3603,6 +3772,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (el.tagName === 'A' && el.getAttribute('href')) el.setAttribute('rel', 'noopener');
     });
     return doc.body.innerHTML.trim();
+  }
+
+  // The plain-text twin of a rich signature (used for the text part of an email and for Copy).
+  function sigHtmlToText_(html){
+    try {
+      const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+      doc.querySelectorAll('br').forEach(function(b){ b.replaceWith('\n'); });
+      doc.querySelectorAll('p,div,tr,li,h1,h2,h3,h4,h5,h6').forEach(function(b){ b.append('\n'); });
+      return (doc.body.textContent || '').replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    } catch (e){ return ''; }
   }
 
   // Plain text -> HTML for the draft body: escaped, line breaks kept, web links made clickable.
@@ -5261,6 +5440,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (m) table.setAttributeNS(ODF_NS.table, 'table:print-ranges', m[1] + String(Math.max(used + 2, 12)));
   }
 
+  // The lines that go on a quote, invoice or receipt document: every line item, then the discount
+  // and VAT (when they apply) so the document total always equals the total shown in the Hub.
+  function docItemsForQuote_(q){
+    const items = (q.lineItems || []).map(function(li){
+      const description = ((li.label || '').trim() + (li.description ? (': ' + String(li.description).trim()) : '')) || li.description || li.label || '(no description)';
+      return { description: description, amount: lineAmt_(li) };
+    });
+    const t = computeQuoteTotals(q);
+    if (t.discount) items.push({ description: 'Discount (' + discountPct_(q) + '%)', amount: -t.discount });
+    if (t.vat) items.push({ description: 'VAT (20%)', amount: t.vat });
+    return items;
+  }
   async function generateImageScapeDoc(opts){
     const kind = opts.kind;
     const fileBase = opts.fileBase || opts.number;
@@ -7298,6 +7489,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const newVault = await encryptData(p1, data);
       const sha = await pushVaultFile(newVault, null);
       currentSha = sha;
+      snapshotBase_();
       showDashboard();
       markClean();
       toast('Vault created and saved to Google Drive.');
@@ -7321,12 +7513,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!pw){ return; }
     btn.disabled = true; btn.textContent = 'Unlocking…';
     try {
-      data = normalizeData(await decryptVault(pw, pendingVaultJson));
-      currentPassword = pw;
-      document.getElementById('unlockPw').value = '';
-      showDashboard();
-    } catch (e){
-      msg.innerHTML = '<div class="msg error">Incorrect password.</div>';
+      let plain;
+      try { plain = await decryptVault(pw, pendingVaultJson); }
+      catch (e){ msg.innerHTML = '<div class="msg error">Incorrect password.</div>'; return; }
+      // The password was right. A problem from here on is the Hub failing to read the data, never a wrong password.
+      try {
+        data = normalizeData(plain);
+        snapshotBase_();
+        currentPassword = pw;
+        document.getElementById('unlockPw').value = '';
+        showDashboard();
+      } catch (e){
+        data = null; currentPassword = null;
+        if (e && e.name === 'NewerVersion'){
+          msg.innerHTML = '<div class="msg error">The password is right, but your saved data was written by a newer version of the Hub than the one on this page. Nothing has been changed. Upload the newest index.html to GitHub (or refresh to clear an old cached copy) and try again.</div>';
+          return;
+        }
+        msg.innerHTML = '<div class="msg error">The password is right, but the Hub could not read the saved data (' + escapeHtml(e && e.message ? e.message : String(e)) + '). Nothing has been changed. Open an earlier copy through Backup / Restore on the offline option, or ask Claude to look at it.</div>';
+      }
     } finally {
       btn.disabled = false; btn.textContent = 'Unlock';
     }
@@ -7477,8 +7681,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderSoleTraderClients();
     renderSoleTraderCalStatus();
     renderSoleTraderSheetStatus();
+    renderRenewals();
+    renderTrash_();
+    renderAbout_();
     renderHome();
     setContext(currentContext);
+    try { showWhatsNewOnce_(); } catch (e){ /* never block opening */ }
     const mtgDateEl = document.getElementById('mtgDate');
     if (mtgDateEl && !mtgDateEl.value) mtgDateEl.value = lastFridayIso();
 
@@ -7496,6 +7704,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('changePwBtn').style.display = offlineReadOnly ? 'none' : '';
     document.getElementById('backupBtn').style.display = offlineReadOnly ? 'none' : '';
     document.getElementById('saveBtn').style.display = offlineReadOnly ? 'none' : '';
+    document.getElementById('quickAddBtn').style.display = offlineReadOnly ? 'none' : '';
     if (offlineReadOnly){
       hydrateOpsHubConn();
       return;
@@ -7506,13 +7715,64 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     hydrateOpsHubConn();
   }
 
+
+  // ---- Double-tap guard: a second press on a main button within half a second is ignored, so a shaky
+  // double click or a slow phone can never add a task twice, send an invoice twice or save twice. ----
+  document.addEventListener('click', function(e){
+    const b = e.target && e.target.closest ? e.target.closest('button.btn-primary, #saveBtn, #unsavedBarSaveBtn') : null;
+    if (!b || !e.isTrusted) return;
+    const now = Date.now();
+    if (b.__lastTap && now - b.__lastTap < 500){ e.stopImmediatePropagation(); e.preventDefault(); return; }
+    b.__lastTap = now;
+  }, true);
+
+  // ---- Phone menu, accessibility labels, dialog focus ----
+  (function(){
+    const more = document.getElementById('moreBtn');
+    const actions = document.querySelector('header.hub-header .actions');
+    if (more && actions){
+      more.addEventListener('click', function(){
+        const open = actions.classList.toggle('show-more');
+        more.setAttribute('aria-expanded', open ? 'true' : 'false');
+        more.textContent = open ? 'Less ▴' : 'More ▾';
+      });
+      actions.addEventListener('click', function(e){
+        if (e.target.closest && e.target.closest('.more-item')){ actions.classList.remove('show-more'); more.setAttribute('aria-expanded', 'false'); more.textContent = 'More ▾'; }
+      });
+    }
+    [['tabsImagescape', 'Main menu'], ['subNavClient', 'Clients menu'], ['subNavAdmin', 'Business Admin menu'], ['subNavWebsite', 'Website menu'], ['tabsSelfEmployed', 'Self-employed menu']].forEach(function(p){
+      const el = document.getElementById(p[0]); if (el) el.setAttribute('aria-label', p[1]);
+    });
+    const search = document.getElementById('globalSearchInput');
+    if (search) search.setAttribute('aria-label', 'Search everything');
+    // Anything that opens as a pop-up becomes a proper dialog: announced, and focus moves into it.
+    const obs = new MutationObserver(function(list){
+      list.forEach(function(rec){
+        rec.addedNodes.forEach(function(n){
+          if (!(n instanceof HTMLElement) || !n.classList.contains('modal-backdrop')) return;
+          const m = n.querySelector('.modal');
+          if (m){
+            m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+            const hd = m.querySelector('h3,h2'); if (hd){ if (!hd.id) hd.id = 'dlg' + Math.random().toString(36).slice(2, 8); m.setAttribute('aria-labelledby', hd.id); }
+          }
+          setTimeout(function(){
+            if (!n.isConnected) return;
+            const f = n.querySelector('input:not([type="hidden"]):not([type="radio"]),textarea,select,button.btn-primary,button');
+            if (f && !n.contains(document.activeElement)) try { f.focus({ preventScroll: true }); } catch (e){ /* ignore */ }
+          }, 30);
+        });
+      });
+    });
+    obs.observe(document.body, { childList: true });
+  })();
+
   // Nav is two-tier: a primary row (Dashboard, Calendar, and the group buttons: Business Admin, Clients, Website), and a
   // sub row per group that shows/hides depending which group the active panel belongs
   // to. PANEL_GROUP maps every grouped panel id to its group's sub-nav; panels not
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
     clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client', retention: 'Client',
-    tasks: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', tax: 'Admin',
+    tasks: 'Admin', renewals: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', tax: 'Admin',
     blog: 'Website', links: 'Website', webdev: 'Website', social: 'Website'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
@@ -7521,16 +7781,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // off DOM .active classes, since activatePanel() clears .active on every button when
   // navigating away (see below) and that would otherwise erase this memory.
   const lastPanelForGroup = { Client: 'clients', Admin: 'tasks', Website: 'blog' };
+  // Section colour for the panels that sit on the primary row (the rest take their group's).
+  const PANEL_SEC_ = { home: 'home', cal: 'cal', flights: 'flights', sedash: 'se', secal: 'se', seclients: 'se', seinvoices: 'se', setax: 'se' };
 
-  function activatePanel(panelId){
+  let currentPanelId_ = 'home';
+  function activatePanel(panelId, fromHistory){
     const panel = document.getElementById('panel-' + panelId);
     if (!panel) return;
+    // The phone's Back button/gesture steps back through the tabs you visited instead of leaving the Hub.
+    if (!fromHistory && panelId !== currentPanelId_){
+      try { history.pushState({ hubPanel: panelId }, ''); } catch (e) { /* history unavailable: fine */ }
+    }
+    currentPanelId_ = panelId;
     document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
     panel.classList.add('active');
     document.querySelectorAll('nav.tabs button[data-panel]').forEach(function(b){
       b.classList.toggle('active', b.dataset.panel === panelId);
+      if (b.dataset.panel === panelId) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     const group = PANEL_GROUP[panelId] || null;
+    document.body.setAttribute('data-sec', group ? group.toLowerCase() : (PANEL_SEC_[panelId] || 'home'));
     document.querySelectorAll('nav.tabs.tabs-sub').forEach(function(sub){ sub.style.display = 'none'; });
     document.querySelectorAll('.group-btn').forEach(function(b){ b.classList.remove('active'); });
     if (group){
@@ -7542,10 +7812,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     // The Invoices tab lives in a sub-menu, so refresh its lists whenever it is shown, however it was reached.
     if (panelId === 'invoices'){ try { renderInvoiceQueue(); } catch (e) { /* never block navigation */ } }
+    try {
+      document.querySelectorAll('nav.tabs button.active').forEach(function(b){
+        if (b.offsetParent && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
+    } catch (e) { /* cosmetic only */ }
   }
 
   document.querySelectorAll('nav.tabs button[data-panel]').forEach(function(btn){
     btn.addEventListener('click', function(){ activatePanel(btn.dataset.panel); });
+  });
+  window.addEventListener('popstate', function(e){
+    if (!data) return; // locked: nothing to step back through
+    const open = document.querySelectorAll('.modal-backdrop');
+    if (open.length){
+      // Back closes an open pop-up first, and stays on the same tab.
+      open.forEach(function(m){ m.remove(); });
+      try { history.pushState({ hubPanel: currentPanelId_ }, ''); } catch (err) { /* ignore */ }
+      return;
+    }
+    const st = e.state;
+    if (st && st.hubPanel && document.getElementById('panel-' + st.hubPanel)) activatePanel(st.hubPanel, true);
+    else if (currentPanelId_ !== 'home' && !st){ activatePanel('home', true); try { history.pushState({ hubPanel: 'home' }, ''); } catch (err) { /* ignore */ } }
   });
   document.querySelectorAll('.group-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -7676,7 +7964,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function doLock(){
     data = null; currentPassword = null; dirty = false;
-    pendingVaultJson = null; currentSha = null;
+    pendingVaultJson = null; currentSha = null; baseJson_ = null; remoteNewerToasted_ = false;
     revealedIds.clear();
     clearTimeout(autoLockTimer);
     // Also clear the Ops Hub's in-memory WordPress connection (including its
@@ -7698,11 +7986,498 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (wasOffline){ showScreen('connectScreen'); } else { fetchFlow(true); } // re-fetch fresh on every re-unlock, in case another device/session saved since
   });
 
+  // ---------------------------------------------------------------- safe saving for two people
+  // Jon and Mike share one vault. Drive tells us when the file changed since we loaded it
+  // (headRevisionId). Instead of making the second person lose their work, a clash now does
+  // a three-way merge: base (what we loaded or last saved), mine (what is on screen) and
+  // theirs (what is on Drive now). Different items, or different fields of one item, merge
+  // by themselves; only the same field changed two ways asks which to keep. Nothing is
+  // ever dropped silently.
+  let baseJson_ = null;
+  function snapshotBase_(){ try { baseJson_ = JSON.stringify(data); } catch (e){ baseJson_ = null; } }
+
+  function stableJson_(v){
+    if (v === undefined) return 'undefined';
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(stableJson_).join(',') + ']';
+    return '{' + Object.keys(v).sort().filter(function(k){ return v[k] !== undefined; }).map(function(k){ return JSON.stringify(k) + ':' + stableJson_(v[k]); }).join(',') + '}';
+  }
+  function isPlainObj_(v){ return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function itemKey_(x){ return (isPlainObj_(x) && typeof x.id === 'string' && x.id) ? 'id:' + x.id : 'j:' + stableJson_(x); }
+
+  const MERGE_NAMES_ = { tasks: 'Task', clients: 'Client', events: 'Calendar event', meetings: 'Meeting note', documents: 'Document', paperwork: 'Paperwork',
+    quotes: 'Quote', renewals: 'Renewal', links: 'Link', galleries: 'Gallery', emailTemplates: 'Email template', soleTraderClients: 'Self-employed client',
+    subscriptions: 'Subscription', opportunities: 'Opportunity', retainers: 'Retainer', blogPosts: 'Blog post', emailSettings: 'Email settings', financeProfile: 'Finance profile' };
+  function mergeRecLabel_(r){
+    if (!isPlainObj_(r)) return '';
+    return String(r.name || r.title || r.text || r.label || r.vendor || r.imageScapeRef || r.number || r.ref || '').slice(0, 60);
+  }
+
+  // Builds a tree: v = settled value, o = object of nodes, a = list of keyed nodes, c = a clash to decide.
+  function mergeNode_(b, m, t, path, conflicts, rec){
+    const sb = stableJson_(b), sm = stableJson_(m), st = stableJson_(t);
+    if (sm === sb) return { k: 'v', v: t };
+    if (st === sb || st === sm) return { k: 'v', v: m };
+    if (isPlainObj_(m) && isPlainObj_(t) && (b === undefined || isPlainObj_(b))){
+      const keys = {};
+      [m, t, b || {}].forEach(function(o){ Object.keys(o).forEach(function(k){ keys[k] = 1; }); });
+      const o = {};
+      Object.keys(keys).forEach(function(k){
+        o[k] = mergeNode_(b ? b[k] : undefined, m[k], t[k], path.concat(k), conflicts, rec);
+      });
+      return { k: 'o', o: o };
+    }
+    if (Array.isArray(m) && Array.isArray(t) && (b === undefined || Array.isArray(b))){
+      const index = function(a){ const mp = {}; (a || []).forEach(function(x){ mp[itemKey_(x)] = x; }); return mp; };
+      const bm = index(b), mm = index(m), tm = index(t);
+      const order = [];
+      t.forEach(function(x){ const k = itemKey_(x); if (order.indexOf(k) < 0) order.push(k); });
+      m.forEach(function(x){ const k = itemKey_(x); if (order.indexOf(k) < 0) order.push(k); });
+      return { k: 'a', items: order.map(function(key){
+        const r = mergeRecLabel_(mm[key]) || mergeRecLabel_(tm[key]) || mergeRecLabel_(bm[key]);
+        return mergeNode_(bm[key], mm[key], tm[key], path.concat(key.slice(0, 3) === 'id:' ? key.slice(3) : '#'), conflicts, path.length === 1 ? r : rec);
+      }) };
+    }
+    const node = { k: 'c', mine: m, theirs: t, path: path, rec: rec || '', choice: 'mine' };
+    conflicts.push(node);
+    return node;
+  }
+  function materializeNode_(n){
+    if (n.k === 'v') return n.v;
+    if (n.k === 'c') return n.choice === 'mine' ? n.mine : n.theirs;
+    if (n.k === 'o'){
+      const o = {};
+      Object.keys(n.o).forEach(function(k){ const v = materializeNode_(n.o[k]); if (v !== undefined) o[k] = v; });
+      return o;
+    }
+    return n.items.map(materializeNode_).filter(function(v){ return v !== undefined; });
+  }
+
+  function shortValue_(v){
+    if (v === undefined) return '(deleted)';
+    if (typeof v === 'string') return v.length > 120 ? v.slice(0, 117) + '...' : (v || '(empty)');
+    let s; try { s = JSON.stringify(v); } catch (e){ s = String(v); }
+    return s.length > 120 ? s.slice(0, 117) + '...' : s;
+  }
+
+  function askMergeChoices_(conflicts){
+    return new Promise(function(resolve){
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      backdrop.setAttribute('data-merge', '1');
+      const shown = conflicts.slice(0, 40);
+      let html = '<div class="modal" style="max-width:640px;max-height:86vh;overflow:auto;">' +
+        '<h3>Someone else changed the same thing</h3>' +
+        '<p>While you were working, another copy of the Hub saved changes. Everything that did not clash has been combined for you. For the ' + conflicts.length + ' item' + (conflicts.length === 1 ? '' : 's') + ' below, both of you changed the same thing, so choose which to keep.</p>';
+      shown.forEach(function(c, i){
+        const where = (MERGE_NAMES_[c.path[0]] || c.path[0]) + (c.rec ? ' "' + c.rec + '"' : '') + (c.path.length > 2 ? ': ' + c.path.slice(2).join(' > ') : '');
+        html += '<div class="merge-item" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:8px 0;">' +
+          '<div style="font-weight:700;margin-bottom:6px;" data-i="' + i + '" class="mi-title"></div>' +
+          '<label style="display:block;margin:3px 0;"><input type="radio" name="mc' + i + '" value="mine" checked> <strong>Yours:</strong> <span class="mi-mine"></span></label>' +
+          '<label style="display:block;margin:3px 0;"><input type="radio" name="mc' + i + '" value="theirs"> <strong>Theirs:</strong> <span class="mi-theirs"></span></label></div>';
+      });
+      if (conflicts.length > shown.length) html += '<p>' + (conflicts.length - shown.length) + ' more are kept as yours.</p>';
+      html += '<div class="row"><button class="btn btn-ghost" id="mcCancel">Cancel, don\'t save</button><button class="btn btn-ghost" id="mcAllTheirs">All theirs</button><button class="btn btn-primary" id="mcOk">Save combined</button></div></div>';
+      backdrop.innerHTML = html;
+      document.body.appendChild(backdrop);
+      shown.forEach(function(c, i){
+        const where = (MERGE_NAMES_[c.path[0]] || c.path[0]) + (c.rec ? ' "' + c.rec + '"' : '') + (c.path.length > 2 ? ': ' + c.path.slice(2).join(' > ') : '');
+        backdrop.querySelector('.mi-title[data-i="' + i + '"]').textContent = where;
+        backdrop.querySelectorAll('.merge-item')[i].querySelector('.mi-mine').textContent = shortValue_(c.mine);
+        backdrop.querySelectorAll('.merge-item')[i].querySelector('.mi-theirs').textContent = shortValue_(c.theirs);
+      });
+      const done = function(ok){ backdrop.remove(); resolve(ok); };
+      backdrop.querySelector('#mcCancel').addEventListener('click', function(){ done(false); });
+      backdrop.querySelector('#mcAllTheirs').addEventListener('click', function(){
+        backdrop.querySelectorAll('input[value="theirs"]').forEach(function(r){ r.checked = true; });
+      });
+      backdrop.querySelector('#mcOk').addEventListener('click', function(){
+        shown.forEach(function(c, i){
+          const sel = backdrop.querySelector('input[name="mc' + i + '"]:checked');
+          c.choice = sel && sel.value === 'theirs' ? 'theirs' : 'mine';
+        });
+        done(true);
+      });
+    });
+  }
+
+  function MergeCancelled_(msg){ this.name = 'MergeCancelled'; this.message = msg || 'Save cancelled. Nothing was changed on Drive.'; }
+  MergeCancelled_.prototype = Object.create(Error.prototype);
+
+  // Pulls what is on Drive now and combines it with what is on screen. Leaves `data`,
+  // currentSha and the merge base updated so the caller can simply try the save again.
+  async function mergeWithRemote_(){
+    if (!baseJson_) throw new Error('This was updated elsewhere since you loaded it, and the Hub no longer has the starting copy needed to combine the two. Lock and unlock to load the latest, then redo your last change.');
+    const r = await fetchVaultFile();
+    if (!r.exists) throw new Error('The vault file could not be found on Drive to combine with.');
+    let rawTheirs;
+    try { rawTheirs = await decryptVault(currentPassword, r.obj); }
+    catch (e){ throw new Error('The file on Drive was saved with a different password, so it can\'t be combined. Lock and unlock with the current password.'); }
+    const theirs = normalizeData(rawTheirs);
+    const base = JSON.parse(baseJson_);
+    const conflicts = [];
+    const tree = mergeNode_(base, data, theirs, [], conflicts, null);
+    if (conflicts.length){
+      const ok = await askMergeChoices_(conflicts);
+      if (!ok) throw new MergeCancelled_();
+    }
+    const merged = normalizeData(materializeNode_(tree));
+    data = merged;
+    currentSha = r.sha;
+    try { baseJson_ = JSON.stringify(theirs); } catch (e){ baseJson_ = null; }
+    hydrateOpsHubConn();
+    rerenderAll_();
+    markDirty();
+    return { conflicts: conflicts.length };
+  }
+
+  // ---------------------------------------------------------------- recently deleted + mass-delete guard
+  // Every save compares what is on screen with what was loaded. Anything that has gone from
+  // a user-facing list is kept in "Recently deleted" for 90 days with a Restore button, so
+  // no delete anywhere in the Hub is ever final by accident. A save that removes a large
+  // share of a list at once asks first.
+  const TRASH_KEYS_ = { tasks: 'Task', clients: 'Client', meetings: 'Meeting note', documents: 'Document', paperwork: 'Paperwork', quotes: 'Quote',
+    renewals: 'Renewal', links: 'Link', galleries: 'Gallery', emailTemplates: 'Email template', subscriptions: 'Subscription',
+    opportunities: 'Opportunity', retainers: 'Retainer', blogPosts: 'Blog post', discussionTopics: 'Discussion topic', soleTraderClients: 'Self-employed client',
+    websiteLinks: 'Website link' };
+  const TRASH_DAYS_ = 90, TRASH_MAX_ = 300;
+
+  function removedSinceBase_(){
+    const out = [];
+    if (!baseJson_ || !data) return out;
+    let base; try { base = JSON.parse(baseJson_); } catch (e){ return out; }
+    Object.keys(TRASH_KEYS_).forEach(function(key){
+      const was = Array.isArray(base[key]) ? base[key] : [], now = Array.isArray(data[key]) ? data[key] : [];
+      const have = {}; now.forEach(function(x){ if (x && x.id) have[x.id] = 1; });
+      was.forEach(function(x){ if (x && typeof x === 'object' && x.id && !have[x.id]) out.push({ key: key, item: x, baseLen: was.length }); });
+    });
+    return out;
+  }
+
+  // Returns false if the person declines a big removal. Stashes removed items in data.trash.
+  function guardAndStashDeletions_(){
+    const removed = removedSinceBase_();
+    if (!removed.length) return true;
+    const perKey = {};
+    removed.forEach(function(r){ perKey[r.key] = perKey[r.key] || { n: 0, len: r.baseLen }; perKey[r.key].n++; });
+    const big = Object.keys(perKey).filter(function(k){ return perKey[k].n >= 5 && perKey[k].n >= 0.25 * perKey[k].len; });
+    if (big.length && !confirm('This save removes ' + big.map(function(k){ return perKey[k].n + ' of ' + perKey[k].len + ' ' + TRASH_KEYS_[k].toLowerCase() + 's'; }).join(' and ') + '. That is a lot at once.\n\nContinue? (Anything removed can be brought back from Recently deleted on the Dashboard for ' + TRASH_DAYS_ + ' days.)')) return false;
+    const nowIso = new Date().toISOString();
+    removed.forEach(function(r){
+      let size = 0; try { size = JSON.stringify(r.item).length; } catch (e){ size = 0; }
+      if (!size || size > 300000) return;
+      data.trash = data.trash.filter(function(x){ return !(x.key === r.key && x.item && x.item.id === r.item.id); });
+      data.trash.push({ id: randomId(), key: r.key, item: r.item, deletedAt: nowIso });
+    });
+    const cutoff = Date.now() - TRASH_DAYS_ * 86400000;
+    data.trash = data.trash.filter(function(x){ const t = Date.parse(x.deletedAt); return isNaN(t) || t >= cutoff; });
+    if (data.trash.length > TRASH_MAX_) data.trash = data.trash.slice(data.trash.length - TRASH_MAX_);
+    return true;
+  }
+
+  function trashItemLabel_(x){
+    const it = x.item || {};
+    return String(it.name || it.title || it.text || it.label || it.vendor || it.imageScapeRef || it.number || it.ref || it.id || '').slice(0, 80) || '(no title)';
+  }
+
+  function renderTrash_(){
+    const wrap = document.getElementById('dashTrashList');
+    if (!wrap || !data) return;
+    wrap.innerHTML = '';
+    const items = (data.trash || []).slice().sort(function(a, b){ return a.deletedAt < b.deletedAt ? 1 : -1; });
+    const sum = document.getElementById('dashTrashSummary');
+    if (sum) sum.textContent = items.length ? items.length + ' item' + (items.length === 1 ? '' : 's') + ', kept ' + TRASH_DAYS_ + ' days after deletion' : '';
+    if (!items.length){ wrap.innerHTML = '<div class="empty-note">Nothing deleted lately. Whatever you delete anywhere in the Hub shows up here for ' + TRASH_DAYS_ + ' days after you next save, with a Restore button.</div>'; return; }
+    items.slice(0, 60).forEach(function(x){
+      const row = document.createElement('div');
+      row.className = 'attention-row';
+      row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div><div class="sub"></div></div><button class="btn btn-ghost" style="width:auto;padding:4px 12px;font-size:13px;">Restore</button>';
+      row.querySelector('.txt').textContent = trashItemLabel_(x);
+      row.querySelector('.sub').textContent = (TRASH_KEYS_[x.key] || x.key) + ' · deleted ' + (x.deletedAt || '').slice(0, 10);
+      row.querySelector('button').addEventListener('click', function(){
+        if (!Array.isArray(data[x.key])) data[x.key] = [];
+        if (!data[x.key].some(function(y){ return y && y.id === x.item.id; })) data[x.key].push(x.item);
+        data.trash = data.trash.filter(function(y){ return y.id !== x.id; });
+        markDirty(); rerenderAll_();
+        toast('Restored "' + trashItemLabel_(x) + '". Press Save to keep it.');
+      });
+      wrap.appendChild(row);
+    });
+    if (items.length > 60){ const m = document.createElement('div'); m.className = 'hint'; m.textContent = (items.length - 60) + ' older items not shown.'; wrap.appendChild(m); }
+  }
+
+  // ---------------------------------------------------------------- Hub version, change log and health check
+  // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
+  // only, newest first. After an update the Hub shows "What is new" once per browser.
+  const HUB_VERSION = '2026.10.13';
+  const HUB_CHANGELOG = [
+    { v: '2026.10.13', date: '13 Oct 2026', items: [
+      'ImageScape emails now use one signature only: the rich one you paste in Sending settings. The separate plain box is gone, and a draft will not be made until a signature is saved.' ] },
+    { v: '2026.10.12', date: '12 Oct 2026', items: [
+      'Built for the phone: a compact top bar with a More menu, a floating Quick add button, bigger touch targets, and the Back gesture now steps back through tabs and closes pop-ups.',
+      'Quote and invoice documents now include the discount (and VAT, if you are VAT registered), so the document, the Hub and Zoho always show the same total to the penny.',
+      'Money is added up in whole pennies at every step, and a double tap can no longer send the same payment or invoice to Zoho twice.',
+      'Company deadlines (Corporation Tax, accounts, confirmation statement) roll on to the next year by themselves.',
+      'The Health check now warns before a new tax year if the Hub does not hold its tax rates yet.',
+      'Darker text colours for easier reading, and a visible focus outline for keyboard use.' ] },
+    { v: '2026.10.11', date: '11 Oct 2026', items: [
+      'The app is now simply called Hub.',
+      'Each menu section has its own colour so you can tell where you are at a glance.',
+      'New Today card and Money card on the Dashboard.',
+      'New Renewals tab for insurance, permissions, domains, subscriptions and personal reminders, with Quick add beside the search box.',
+      'You and Mike can now save at the same time: changes are combined, and you are only asked when you both changed the very same thing.',
+      'Recently deleted keeps anything you delete for 90 days with a Restore button, and a save that removes a lot at once asks first.',
+      'Every save is checked by reading it back from Drive. Data saved by a newer Hub is never overwritten by an older one.',
+      'New Health check and this change log.' ] },
+    { v: '2026.10.10', date: '10 Oct 2026', items: [
+      'Email drafts can use your rich signature (paste it in Sending settings).',
+      'Outlook and Gmail drafts keep the signature formatting.' ] },
+    { v: '2026.10.08', date: '8 Oct 2026', items: [
+      'A progress tray shows every save, sync and Zoho action, and warns when a connection fails.',
+      'Zoho invoice, quote, credit note and receipt layouts now match the Hub documents.' ] }
+  ];
+  const HUB_SEEN_KEY = 'imagescapeHub.seenVersion.v1';
+
+  function renderAbout_(){
+    const ver = document.getElementById('aboutVersion');
+    if (ver) ver.textContent = 'Hub version ' + HUB_VERSION;
+    const wrap = document.getElementById('aboutLog');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    HUB_CHANGELOG.forEach(function(e){
+      const box = document.createElement('div');
+      box.style.cssText = 'margin:8px 0 12px;';
+      const hd = document.createElement('div'); hd.style.fontWeight = '700'; hd.textContent = 'Version ' + e.v + ' (' + e.date + ')';
+      box.appendChild(hd);
+      const ul = document.createElement('ul'); ul.style.cssText = 'margin:4px 0 0 18px;padding:0;';
+      e.items.forEach(function(t){ const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+      box.appendChild(ul); wrap.appendChild(box);
+    });
+  }
+
+  function showWhatsNewOnce_(){
+    let seen = '';
+    try { seen = localStorage.getItem(HUB_SEEN_KEY) || ''; } catch (e){ return; }
+    if (seen === HUB_VERSION) return;
+    try { localStorage.setItem(HUB_SEEN_KEY, HUB_VERSION); } catch (e){ return; }
+    if (!seen) return; // first ever visit on this browser: nothing to compare with
+    const entry = HUB_CHANGELOG[0];
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = '<div class="modal" style="max-width:520px;"><h3>Hub updated</h3><p>Version ' + HUB_VERSION + '. What is new:</p><ul id="wnList" style="margin:0 0 6px 18px;padding:0;line-height:1.5;"></ul><div class="row"><button class="btn btn-primary" id="wnOk">Got it</button></div></div>';
+    document.body.appendChild(backdrop);
+    entry.items.forEach(function(t){ const li = document.createElement('li'); li.textContent = t; backdrop.querySelector('#wnList').appendChild(li); });
+    backdrop.querySelector('#wnOk').addEventListener('click', function(){ backdrop.remove(); });
+  }
+
+  // Looks for things that are wrong inside the data itself, and says plainly what each means.
+  function dataIntegrityIssues_(){
+    const issues = [];
+    if (!data) return issues;
+    const clientIds = {};
+    (data.clients || []).forEach(function(c){ if (c && c.id) clientIds[c.id] = 1; });
+    Object.keys(TRASH_KEYS_).forEach(function(key){
+      const arr = Array.isArray(data[key]) ? data[key] : [];
+      const seen = {}; let dup = 0, orphan = 0;
+      arr.forEach(function(x){
+        if (!x || typeof x !== 'object') return;
+        if (x.id){ if (seen[x.id]) dup++; seen[x.id] = 1; }
+        if (key !== 'clients' && key !== 'soleTraderClients' && x.clientId && !clientIds[x.clientId]) orphan++;
+      });
+      if (dup) issues.push({ level: 'bad', title: TRASH_KEYS_[key] + 's: ' + dup + ' duplicate record' + (dup === 1 ? '' : 's'), detail: 'Two records share one internal ID, which can make edits land on the wrong one. Tell Claude and it will be repaired.' });
+      if (orphan) issues.push({ level: 'warn', title: TRASH_KEYS_[key] + 's: ' + orphan + ' linked to a client that no longer exists', detail: 'Harmless, but they will show as "No client". Open each and pick the right client.' });
+    });
+    let badDates = 0;
+    (data.tasks || []).forEach(function(t){ if (t.due && !/^\d{4}-\d{2}-\d{2}$/.test(t.due)) badDates++; });
+    (data.renewals || []).forEach(function(r){ if (r.due && !/^\d{4}-\d{2}-\d{2}$/.test(r.due)) badDates++; });
+    if (badDates) issues.push({ level: 'warn', title: badDates + ' date' + (badDates === 1 ? '' : 's') + ' in an unreadable format', detail: 'These will not show as due. Re-enter them.' });
+    return issues;
+  }
+
+  async function runHealthCheck_(){
+    const btn = document.getElementById('healthRunBtn');
+    const wrap = document.getElementById('healthResults');
+    if (!data || !wrap) return;
+    if (btn){ btn.disabled = true; btn.textContent = 'Checking…'; }
+    const act = activityBegin('Hub health check', ['Google Drive', 'Zoho and backups', 'Your data', 'This browser']);
+    const res = [];
+    const add = function(level, title, detail){ res.push({ level: level, title: title, detail: detail || '' }); };
+    try {
+      // 1 Google Drive
+      try {
+        const r = await driveApiFetch('/files/' + conn.fileId + '?fields=headRevisionId,trashed,modifiedTime');
+        if (!r.ok) throw new Error('Drive answered with status ' + r.status + '.');
+        const m = await r.json();
+        if (m.trashed) add('bad', 'The vault file is in the Drive bin', 'Open Google Drive, find vault.json in the bin and press Restore, or the Hub cannot save.');
+        else if (m.headRevisionId && currentSha && m.headRevisionId !== currentSha) add('warn', 'Someone has saved since you opened the Hub', 'Press Save and the two sets of changes are combined safely.');
+        else add('ok', 'Google Drive is connected and in step', 'Last saved ' + new Date(m.modifiedTime).toLocaleString() + '.');
+      } catch (e){
+        add('bad', 'Cannot reach Google Drive', (e.message || String(e)) + ' Check your internet, then lock and unlock the Hub to sign in again.');
+      }
+      act.step(1);
+      // 2 Zoho + backups
+      if (!data.zohoConnection){
+        add('warn', 'Zoho Books is not connected', 'Connect it on the Zoho Books card on the Dashboard to see what you are owed.');
+      } else if (!zohoSnapshotCache || !zohoSnapshotCache.syncedAt){
+        add('warn', 'No Zoho data has arrived yet', 'Press Sync now on the Zoho Books card. ' + (zohoSnapshotLastError_ || ''));
+      } else {
+        const ageH = (Date.now() - Date.parse(zohoSnapshotCache.syncedAt)) / 3600000;
+        if (isNaN(ageH) || ageH > 72) add('bad', 'Zoho has not synced for ' + Math.round(ageH / 24) + ' days', 'Open the Apps Script project and check its daily trigger is still running, then press Sync now.');
+        else if (ageH > 26) add('warn', 'Zoho last synced ' + Math.round(ageH) + ' hours ago', 'Press Sync now. If it keeps happening, check the Apps Script trigger.');
+        else add('ok', 'Zoho is syncing', 'Last sync ' + new Date(zohoSnapshotCache.syncedAt).toLocaleString() + '.');
+        if ((Number(zohoSnapshotCache.scriptVersion) || 1) < ZOHO_BANK_SCRIPT_VERSION) add('warn', 'The Zoho Apps Script is out of date', 'Paste the latest Code.gs into the Apps Script project and deploy a new version.');
+      }
+      const gb = data.githubBackup;
+      if (!gb || !gb.enabled || !gb.token) add('warn', 'The second backup (GitHub) is off', 'Drive is the only copy. Set up GitHub backup under Backup / Restore.');
+      else if (gb.lastPushError) add('bad', 'The last GitHub backup failed', gb.lastPushError + ' Open Backup / Restore and press Back up now.');
+      else {
+        const tl = gb.tokenExpiresAt ? Math.round((Date.parse(gb.tokenExpiresAt) - Date.now()) / 86400000) : null;
+        if (tl !== null && tl < 0) add('bad', 'The GitHub backup token has expired', 'Make a new fine-grained token on GitHub and paste it into Backup / Restore.');
+        else if (tl !== null && tl < 30) add('warn', 'The GitHub backup token expires in ' + tl + ' days', 'Make a new token before then and paste it into Backup / Restore.');
+        else add('ok', 'GitHub backup is working', gb.lastPushedAt ? 'Last copy ' + new Date(gb.lastPushedAt).toLocaleString() + '.' : 'Waiting for the next save.');
+      }
+      if (!data.emailSettings || !data.emailSettings.imageScapeSignatureHtml) add('warn', 'No ImageScape email signature saved', 'Paste your Outlook signature into Emails, Sending settings. ImageScape email drafts need it.');
+      add('ok', 'Microsoft 365 email', 'Checked when you create an Outlook draft: a sign-in window opens if needed. Allow pop-ups for this site.');
+      act.step(2);
+      // 3 data
+      const issues = dataIntegrityIssues_();
+      if (!issues.length) add('ok', 'Your records are consistent', 'No duplicate or broken links found in clients, tasks, quotes, paperwork and the rest.');
+      issues.forEach(function(i){ add(i.level, i.title, i.detail); });
+      let size = 0; try { size = JSON.stringify(data).length; } catch (e){ size = 0; }
+      add(size > 25000000 ? 'warn' : 'ok', 'Vault size ' + (size / 1048576).toFixed(1) + ' MB', size > 25000000 ? 'Getting large. Tell Claude so old records can be archived.' : 'Plenty of room.');
+      // Yearly rates the Hub carries inside itself: warn well before a new tax year needs them.
+      try {
+        const soon = new Date(Date.now() + 45 * 86400000);
+        const y = soon.getFullYear() - ((soon.getMonth() < 3 || (soon.getMonth() === 3 && soon.getDate() < 6)) ? 1 : 0);
+        const lab = y + '-' + String(y + 1).slice(2);
+        if (!TAXPACK_SPT[lab] || !TAXPACK_CLASS2_WEEKLY[lab]) add('warn', 'Tax rates for ' + lab + ' are not in the Hub yet', 'The Self Assessment pack needs the new Small Profits Threshold and Class 2 rate. Ask Claude to add them before you file.');
+        else add('ok', 'Tax rates for ' + lab + ' are in the Hub', 'Small Profits Threshold and Class 2 rate are on file.');
+      } catch (e){ /* never let this stop the check */ }
+      act.step(3);
+      // 4 browser
+      try { if (!(window.crypto && crypto.subtle)) throw new Error('no crypto'); add('ok', 'This browser can encrypt and save', 'Hub version ' + HUB_VERSION + ', data format ' + APP_SCHEMA_VERSION + '.'); }
+      catch (e){ add('bad', 'This browser cannot do the encryption the Hub needs', 'Use an up-to-date Chrome, Safari, Edge or Firefox over https.'); }
+      let lsOk = true; try { localStorage.setItem('hubprobe', '1'); localStorage.removeItem('hubprobe'); } catch (e){ lsOk = false; }
+      if (!lsOk) add('warn', 'This browser blocks site storage', 'The Hub still works but forgets small settings each visit. Allow site data for this site.');
+      if (!navigator.onLine) add('bad', 'This device is offline', 'Saving and syncing need internet.');
+      act.ok('Health check done.');
+    } catch (e){
+      add('bad', 'The health check itself failed', e && e.message ? e.message : String(e));
+      act.fail('The health check hit a problem.');
+    }
+    data.healthCheckLastRun = todayIso_();
+    markDirty();
+    wrap.innerHTML = '';
+    res.forEach(function(x){
+      const row = document.createElement('div');
+      row.className = 'attention-row' + (x.level === 'bad' ? ' lvl-overdue' : (x.level === 'warn' ? ' lvl-soon' : ''));
+      row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div><div class="sub"></div></div><div class="when"></div>';
+      row.querySelector('.txt').textContent = x.title;
+      row.querySelector('.sub').textContent = x.detail;
+      row.querySelector('.when').textContent = x.level === 'bad' ? 'Fix' : (x.level === 'warn' ? 'Check' : 'OK');
+      wrap.appendChild(row);
+    });
+    const bad = res.filter(function(x){ return x.level === 'bad'; }).length, warn = res.filter(function(x){ return x.level === 'warn'; }).length;
+    const sum = document.getElementById('healthSummary');
+    if (sum) sum.textContent = (bad ? bad + ' to fix' : 'Nothing broken') + (warn ? ', ' + warn + ' to look at' : '') + '. Checked ' + new Date().toLocaleString() + '.';
+    if (btn){ btn.disabled = false; btn.textContent = 'Run health check'; }
+    try { renderHome(); } catch (e){ /* ignore */ }
+    return res;
+  }
+
+  function healthCheckAttentionItem_(){
+    const last = data && data.healthCheckLastRun;
+    const due = !last || (Date.parse(last + 'T00:00:00') < Date.now() - 35 * 86400000);
+    if (!due) return null;
+    return { level: 'soon', date: todayIso_(), title: last ? 'Monthly Hub health check is due' : 'Run the Hub health check', when: 'Hub', panel: 'home',
+      sub: 'Takes a few seconds: tests Drive, Zoho, backups and your data, and says plainly what to fix. Press Run health check near the bottom of the Dashboard.' };
+  }
+
+  (function(){
+    const b = document.getElementById('healthRunBtn');
+    if (b) b.addEventListener('click', function(){ runHealthCheck_(); });
+  })();
+
+  // Save, and if Drive says the file changed, combine and save again (a few tries in case
+  // the other person saves again at the same moment).
+  async function saveWithMerge_(password, act){
+    let combined = false;
+    for (let attempt = 0; attempt < 4; attempt++){
+      try {
+        if (!guardAndStashDeletions_()) throw new MergeCancelled_('Save cancelled. Nothing was removed and nothing was changed on Drive.');
+        await saveToDrive(password, act);
+        return { combined: combined };
+      } catch (e){
+        if (!(e instanceof ConflictError)) throw e;
+        if (act) act.step(0, 'Combining with changes saved by someone else');
+        await mergeWithRemote_();
+        combined = true;
+      }
+    }
+    throw new Error('The file on Drive keeps changing, so it could not be combined this time. Wait a moment and press Save again.');
+  }
+
+  function rerenderAll_(){
+    [renderCalendar, renderClients, renderTasks, renderMeetings, renderDocuments, renderPaperwork, renderFinance, renderRatePresets, renderQuotes,
+     renderInvoiceQueue, renderTemplates, populateUseTemplateSelects, renderEmailSettings, renderTaxPackCard, renderFlights, renderDjiProxySettings,
+     renderLinks, renderWebsiteSocials, renderWpStatus, renderBlogHistory, renderGalleries, renderRetention, renderChecklists, renderSoleTraderClients,
+     renderSoleTraderCalStatus, renderSoleTraderSheetStatus, renderRenewals, renderTrash_, renderAbout_, renderHome].forEach(function(fn){
+      try { fn(); } catch (e){ if (window.console) console.warn('Hub refresh step failed:', fn && fn.name, e); }
+    });
+  }
+
+  // Quietly notices that someone else has saved, when the tab comes back into view.
+  // Nothing on screen is replaced if you have unsaved work, a pop-up open or are typing.
+  let remoteCheckAt_ = 0, remoteNewerToasted_ = false;
+  async function checkRemoteChanges_(){
+    if (!data || !currentPassword || offlineReadOnly || !conn || !conn.fileId || !currentSha) return;
+    if (Date.now() - remoteCheckAt_ < 120000) return;
+    if (!accessToken || Date.now() >= tokenExpiresAt) return;
+    remoteCheckAt_ = Date.now();
+    try {
+      const metaRes = await driveApiFetch('/files/' + conn.fileId + '?fields=headRevisionId,trashed');
+      if (!metaRes.ok) return;
+      const meta = await metaRes.json();
+      if (meta.trashed || !meta.headRevisionId || meta.headRevisionId === currentSha) return;
+      if (dirty){
+        if (!remoteNewerToasted_){ remoteNewerToasted_ = true; toast('Someone else has saved changes. Yours will be combined with theirs when you press Save.'); }
+        return;
+      }
+      const ae = document.activeElement;
+      if (document.querySelector('.modal-backdrop') || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.value)) return;
+      const r = await fetchVaultFile();
+      if (!r.exists) return;
+      const theirs = normalizeData(await decryptVault(currentPassword, r.obj));
+      data = theirs; currentSha = r.sha; snapshotBase_();
+      hydrateOpsHubConn(); rerenderAll_(); markClean();
+      remoteNewerToasted_ = false;
+      toast('Updated with changes saved from another device.');
+    } catch (e){ /* a background check must never bother anyone */ }
+  }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) checkRemoteChanges_(); });
+  window.addEventListener('focus', function(){ checkRemoteChanges_(); });
+
   async function saveToDrive(password, act){
     const newVault = await encryptData(password, data);
     if (act) act.step(1);
     const sha = await pushVaultFile(newVault, currentSha);
     currentSha = sha;
+    // Read it back: Drive must hold exactly the bytes we sent, or the save is not trusted.
+    try {
+      for (let rb = 0; rb < 2; rb++){
+        const back = await driveApiFetch('/files/' + conn.fileId + '?alt=media');
+        if (!back.ok) break;
+        const stored = await back.json();
+        if (stored && stored.ciphertext === newVault.ciphertext && stored.iv === newVault.iv) break;
+        if (rb === 1) throw new Error('Drive did not keep the save exactly as sent. Your changes are still on screen and still unsaved: press Save again.');
+        await sleep_(1200); // Drive can briefly serve the previous copy
+      }
+    } catch (e){
+      if (e && /did not keep the save/.test(e.message || '')) throw e;
+      /* a failed read-back is not a failed save: the write itself succeeded */
+    }
+    snapshotBase_();
+    remoteNewerToasted_ = false;
     syncReminders(); // best-effort side channel — never awaited, never blocks or fails a save
     pushVaultBackupToGithub(newVault); // ditto — mirrors the same encrypted bytes to GitHub
     return sha;
@@ -7714,14 +8489,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     btn.disabled = true;
     const act = activityBegin('Saving to Drive', ['Encrypting your data', 'Writing it to Drive']);
     try {
-      await saveToDrive(currentPassword, act);
+      const res = await saveWithMerge_(currentPassword, act);
       markClean();
-      toast('Saved.');
-      act.ok('Saved to Drive.' + ((data.githubBackup && data.githubBackup.enabled && data.githubBackup.token) ? ' GitHub backup is running; a failure will show on the dashboard.' : ''));
+      toast(res.combined ? 'Saved, combined with changes from another device.' : 'Saved.');
+      act.ok((res.combined ? 'Saved to Drive, combined with changes someone else had saved.' : 'Saved to Drive.') + ((data.githubBackup && data.githubBackup.enabled && data.githubBackup.token) ? ' GitHub backup is running; a failure will show on the dashboard.' : ''));
     } catch (e){
       if (e instanceof ConflictError){
         toast('This was updated elsewhere since you loaded it. Lock and unlock again to load the latest before saving.');
         act.fail('This was updated elsewhere since you loaded it. Lock and unlock again to load the latest before saving.');
+      } else if (e && e.name === 'MergeCancelled'){
+        toast('Save cancelled. Your changes are still on screen and nothing was changed on Drive.');
+        act.fail('Save cancelled. Your changes are still on screen; nothing was changed on Drive.');
       } else {
         toast('Save failed: ' + e.message);
         act.fail('Save failed: ' + e.message);
@@ -7791,7 +8569,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data = normalizeData(parsed);
     markDirty();
     hydrateOpsHubConn();
-    renderCalendar(); renderClients(); renderTasks(); renderMeetings(); renderDocuments(); renderPaperwork(); renderFinance(); renderRatePresets(); renderQuotes(); renderInvoiceQueue(); renderTemplates(); populateUseTemplateSelects(); renderEmailSettings(); renderTaxPackCard(); renderFlights(); renderDjiProxySettings(); renderLinks(); renderWebsiteSocials(); renderWpStatus(); renderBlogHistory(); renderSoleTraderClients(); renderSoleTraderCalStatus(); renderSoleTraderSheetStatus(); renderHome();
+    rerenderAll_();
   }
 
   document.getElementById('backupBtn').addEventListener('click', function(){
@@ -9921,7 +10699,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // and URL — since those are credential values, not searchable notes.
   function performGlobalSearch(term){
     const q = (term || '').trim().toLowerCase();
-    const results = { clients: [], tasks: [], quotes: [], paperwork: [], documents: [], meetings: [], discussions: [], galleries: [], templates: [], links: [], websiteLinks: [], blog: [] };
+    const results = { renewals: [], clients: [], tasks: [], quotes: [], paperwork: [], documents: [], meetings: [], discussions: [], galleries: [], templates: [], links: [], websiteLinks: [], blog: [] };
     if (!q) return results;
     const hit = function(s){ return typeof s === 'string' && s.toLowerCase().indexOf(q) !== -1; };
     const clientIdx = buildClientIndex();
@@ -9929,6 +10707,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data.clients.forEach(function(c){
       if (hit(c.name) || hit(c.company) || hit(c.email) || hit(c.notes) || hit(c.referralSource)){
         results.clients.push({ text: c.name + (c.company ? ' — ' + c.company : ''), sub: c.email || '', onClick: function(){ openClientDetail(c.id); } });
+      }
+    });
+    (data.renewals || []).forEach(function(r){
+      if (hit(r.name) || hit(r.notes) || hit(RENEWAL_CATS[r.category])){
+        results.renewals.push({ text: r.name, sub: (r.due ? 'Due ' + r.due + ' · ' : '') + (RENEWAL_CATS[r.category] || ''), onClick: function(){ jumpToPanel_('renewals'); } });
       }
     });
     data.tasks.forEach(function(t){
@@ -10006,11 +10789,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   const GSR_GROUP_LABELS = {
-    clients: 'Clients', tasks: 'Tasks', quotes: 'Quotes', paperwork: 'Paperwork', documents: 'Documents',
+    renewals: 'Renewals', clients: 'Clients', tasks: 'Tasks', quotes: 'Quotes', paperwork: 'Paperwork', documents: 'Documents',
     meetings: 'Meetings', discussions: 'Discussion topics', galleries: 'Galleries',
     templates: 'Email templates', links: 'Links', websiteLinks: 'Website & Socials', blog: 'Blog posts'
   };
-  const GSR_GROUP_ORDER = ['clients', 'tasks', 'quotes', 'paperwork', 'documents', 'meetings', 'discussions', 'galleries', 'templates', 'links', 'websiteLinks', 'blog'];
+  const GSR_GROUP_ORDER = ['clients', 'tasks', 'renewals', 'quotes', 'paperwork', 'documents', 'meetings', 'discussions', 'galleries', 'templates', 'links', 'websiteLinks', 'blog'];
   const GSR_MAX_PER_GROUP = 5;
 
   function renderGlobalSearchResults(term){
@@ -10543,6 +11326,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           panel: 'invoices', when: 'Retainer' });
       }
     } catch (e){ /* retainers optional */ }
+    renewalsAttentionItems_().forEach(function(it){ attnItems.push(it); });
+    try { const hc = healthCheckAttentionItem_(); if (hc) attnItems.push(hc); } catch (e){ /* optional */ }
     // Business tax and filing deadlines (the Key deadlines on the Tax tab): anything already
     // past, or due within the next 60 days. After filing, update the dates on the Tax tab and
     // the next set rolls forward.
@@ -10616,6 +11401,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       runBtn.disabled = true; runBtn.textContent = 'Checking…';
       try { await runAccessCheck(true); } finally { runBtn.disabled = false; runBtn.textContent = 'Run access check'; document.getElementById('dashAccessDetails').open = true; }
     };
+    try { renderTodayCard_(); } catch (e){ /* never block the Dashboard */ }
+    try { renderMoneyCard_(); } catch (e){ /* never block the Dashboard */ }
     maybeAutoRunAccessCheck();
   }
 
@@ -12142,8 +12929,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function zohoFireWrite(kind, payload, meta){
     const conn = data.zohoConnection;
     if (!conn || !conn.webAppUrl){ toast('Connect a Zoho Books destination first (Zoho Books card, bottom of the Dashboard).'); return null; }
+    // A double click (or a second tap on a slow phone) must never send the same money action twice.
+    let metaKey = '';
+    try { metaKey = JSON.stringify([meta || {}, payload || {}]); } catch (e){ metaKey = ''; }
+    const dup = metaKey && data.zohoPending.find(function(p){ return p.kind === kind && p.dupKey === metaKey && (Date.now() - Date.parse(p.sentAt)) < 15 * 60000; });
+    if (dup){ toast('That was already sent to Zoho a moment ago and is still being carried out. Wait for the result before trying again.'); return null; }
     const requestId = zohoRequestId();
-    data.zohoPending.push({ requestId: requestId, kind: kind, meta: meta || {}, sentAt: new Date().toISOString() });
+    data.zohoPending.push({ requestId: requestId, kind: kind, meta: meta || {}, sentAt: new Date().toISOString(), dupKey: metaKey });
     markDirty();
     const act = activityBegin(zohoActionTitle_(kind), ['Sending the request to the Zoho bridge', 'Waiting for Zoho to carry it out', 'Reading the result back']);
     try {
@@ -12588,12 +13380,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---------------------------------------------------------------- quotes
+  // Money is always rounded to whole pennies at each step (line, discount, VAT), the way an
+  // invoice is added up on paper, so the screen, the PDF and Zoho can never differ by a penny.
+  function r2_(n){ n = Number(n); if (!isFinite(n)) return 0; return Math.round(Math.abs(n) * 100 + 1e-7) / 100 * (n < 0 ? -1 : 1); }
+  function lineAmt_(li){ return r2_((Number(li.qty) || 0) * (Number(li.rate) || 0)); }
+  function discountPct_(q){ const d = Number(q.discountPct) || 0; return d < 0 ? 0 : d > 100 ? 100 : d; }
   function computeQuoteTotals(q){
-    const subtotal = (q.lineItems || []).reduce(function(sum, li){ return sum + (Number(li.qty) || 0) * (Number(li.rate) || 0); }, 0);
-    const discount = subtotal * ((Number(q.discountPct) || 0) / 100);
-    const afterDiscount = subtotal - discount;
-    const vat = data.financeProfile.isVatRegistered ? afterDiscount * 0.2 : 0;
-    const total = afterDiscount + vat;
+    const subtotal = r2_((q.lineItems || []).reduce(function(sum, li){ return sum + lineAmt_(li); }, 0));
+    const discount = r2_(subtotal * (discountPct_(q) / 100));
+    const afterDiscount = r2_(subtotal - discount);
+    const vat = data.financeProfile.isVatRegistered ? r2_(afterDiscount * 0.2) : 0;
+    const total = r2_(afterDiscount + vat);
     // netRevenue excludes VAT deliberately - VAT is collected on the client's behalf and
     // passed to HMRC, so it was never really "yours" and shouldn't count toward this job's
     // own profit margin below.
@@ -12857,17 +13654,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         row.querySelector('.li-qty').value = li.qty;
         row.querySelector('.li-rate').value = li.rate;
         row.querySelector('.li-description').value = li.description || '';
-        row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
+        row.querySelector('.amount').textContent = fmtGBP(lineAmt_(li));
         row.querySelector('.li-label').addEventListener('input', function(e){ li.label = e.target.value; markDirty(); });
         row.querySelector('.li-description').addEventListener('input', function(e){ li.description = e.target.value; markDirty(); });
         row.querySelector('.li-qty').addEventListener('input', function(e){
           li.qty = e.target.value; markDirty();
-          row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
+          row.querySelector('.amount').textContent = fmtGBP(lineAmt_(li));
           renderTotals(); renderProfit();
         });
         row.querySelector('.li-rate').addEventListener('input', function(e){
           li.rate = e.target.value; markDirty();
-          row.querySelector('.amount').textContent = fmtGBP((Number(li.qty) || 0) * (Number(li.rate) || 0));
+          row.querySelector('.amount').textContent = fmtGBP(lineAmt_(li));
           renderTotals(); renderProfit();
         });
         row.querySelector('.del').addEventListener('click', function(){
@@ -13036,7 +13833,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Quote references are Q + two-digit year + three-digit running number (Q26002, then Q26003 ...; a new year restarts
   // at Q27001). Q26001 was the Hickman & Smith quote made before MH existed, so 2026 counting starts after it.
   function quoteRefToken_(text){
-    const m = /^(Q\d{5})(?!\d)/i.exec(String(text || '').trim());
+    const m = /^(Q\d{5,})(?!\d)/i.exec(String(text || '').trim());
     return m ? m[1].toUpperCase() : '';
   }
   function nextQuoteRef_(){
@@ -13081,7 +13878,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       : data.quotes.map(function(q){ return q.imageScapeInvoiceRef; }).concat(Object.keys(zNums).map(function(k){ return zNums[k]; })).filter(Boolean);
     let maxSeq = 0;
     existing.forEach(function(ref){
-      const m = /^[A-Za-z]*(\d{5})$/.exec(ref || '');
+      const m = /^[A-Za-z]*(\d{5,})$/.exec(ref || '');
       if (m && m[1].slice(0, 2) === yy) maxSeq = Math.max(maxSeq, parseInt(m[1].slice(2), 10));
     });
     const seq = String(maxSeq + 1).padStart(3, '0');
@@ -13182,7 +13979,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       invoiceNumber: q.imageScapeInvoiceRef || undefined,
       referenceNumber: q.imageScapeInvoiceRef || q.imageScapeRef || '',
       notes: q.notes || '',
-      lineItems: q.lineItems.map(function(li){ return { description: li.label + (li.description ? (' — ' + li.description) : ''), rate: li.rate, quantity: li.qty }; })
+      lineItems: q.lineItems.map(function(li){ return { description: li.label + (li.description ? (' — ' + li.description) : ''), rate: Number(li.rate) || 0, quantity: Number(li.qty) || 0 }; })
+        .concat(computeQuoteTotals(q).discount ? [{ description: 'Discount (' + discountPct_(q) + '%)', rate: -computeQuoteTotals(q).discount, quantity: 1 }] : [])
     }, { quoteId: q.id });
     renderInvoiceQueue();
   }
@@ -13306,11 +14104,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
         statusEl.textContent = 'Filling in the template…';
         act.step(2);
-        const items = q.lineItems.map(function(li){
-          const amount = (Number(li.qty) || 0) * (Number(li.rate) || 0);
-          const description = ((li.label || '').trim() + (li.description ? (': ' + li.description.trim()) : '')) || li.description || li.label || '(no description)';
-          return { description: description, amount: amount };
-        });
+        const items = docItemsForQuote_(q);
         statusEl.textContent = skipDrive ? 'Converting to PDF…' : 'Converting to PDF and saving to Drive…';
         act.step(3);
         const result = await generateImageScapeDoc({
@@ -13866,11 +14660,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (found.folderId){ st.textContent = 'Finding the Paid folder…'; folderId = await ensurePaidFolder_(found.folderId); }
         act.step(2);
         const fileBase = docFileBase_(num, client.company || client.name, paidIso, 'Receipt');
-        const items = q.lineItems.map(function(li){
-          const amount = (Number(li.qty) || 0) * (Number(li.rate) || 0);
-          const description = ((li.label || '').trim() + (li.description ? (': ' + li.description.trim()) : '')) || li.description || li.label || '(no description)';
-          return { description: description, amount: amount };
-        });
+        const items = docItemsForQuote_(q);
         st.textContent = 'Making the receipt and saving it…';
         act.step(3);
         const result = await generateImageScapeDoc({
@@ -15338,6 +16128,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (Math.abs(f.check.invoices - f.turnover) > 0.005) problems.push('Turnover on the ' + fyTab + ' tab (' + fmtGBP(f.turnover) + ') does not match the Invoices tab for the year (' + fmtGBP(f.check.invoices) + ').');
       if (Math.abs(f.check.expenses - f.expenses) > 0.005) problems.push('Expenses on the ' + fyTab + ' tab (' + fmtGBP(f.expenses) + ') do not match the Expenses tab for the year (' + fmtGBP(f.check.expenses) + ').');
       if (f.turnover >= TAXPACK_SHORT_FORM_LIMIT) problems.push('Turnover is £90,000 or more, so the full Self-employment page (SA103F) is needed instead of the short one.');
+      if (!spt) problems.push('The Small Profits Threshold for ' + yi.label + ' is not stored in the Hub yet, so box 36 (Class 2) cannot be checked. Ask Claude to add the new year figures, or check HMRC rates yourself before filing.');
       if (spt && profit > 0 && profit < spt && !s.voluntaryClass2) problems.push('Profit (' + taxPackMoney(profit) + ') is under the ' + taxPackMoney(spt) + ' Small Profits Threshold, so box 36 needs your decision: choose whether to pay voluntary Class 2 above (' + fmtGBP((TAXPACK_CLASS2_WEEKLY[yi.label] || 0) * 52) + ' for the year).');
       if (f.expenses > 0 && f.expenses < 1000 && f.turnover > 1000) notes.push('Expenses are under £1,000, so the £1,000 trading allowance (box 10.1) would give a smaller profit than claiming actual expenses. The pack uses actual expenses.');
       if (f.status && f.status.toUpperCase() !== 'FINAL' && f.status.toUpperCase() !== 'SUBMITTED' && f.status.toUpperCase() !== 'PAID') notes.push('The ' + fyTab + ' tab is still marked ' + f.status + ', so the pack is labelled as draft figures.');
@@ -16009,6 +16800,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const plainSigNow = (business === 'soletrader' ? data.emailSettings.soleTraderSignature : data.emailSettings.imageScapeSignature) || '';
       const bodyHtml = buildDraftHtml_(rawBody, sigHtml);
       const bodyText = rawBody.split(SIG_MARKER).join(plainSigNow);
+      if (business !== 'soletrader' && !sigHtml){ status.textContent = 'Add your ImageScape signature first: Emails tab, Sending settings. Every ImageScape email needs it.'; return; }
       if (!to){ status.textContent = 'Enter the client’s email address first.'; return; }
       if (!subject){ status.textContent = 'Add a subject first.'; return; }
       if (/\[[a-zA-Z][a-zA-Z ]{1,30}\]/.test(subject + ' ' + bodyText) &&
@@ -16088,7 +16880,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- email settings card
   function renderEmailSettings(){
     const s = data.emailSettings;
-    const map = { esIsFrom: 'imageScapeFrom', esIsSig: 'imageScapeSignature', esStFrom: 'soleTraderFrom',
+    const map = { esIsFrom: 'imageScapeFrom', esStFrom: 'soleTraderFrom',
       esStSig: 'soleTraderSignature', esWebsite: 'websiteUrl', esReview: 'reviewUrl', esTerms: 'paymentTermsDays' };
     Object.keys(map).forEach(function(id){
       const el = document.getElementById(id);
@@ -16096,14 +16888,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     [['esIsSigHtml', 'imageScapeSignatureHtml'], ['esStSigHtml', 'soleTraderSignatureHtml']].forEach(function(p){
       const el = document.getElementById(p[0]);
-      if (el && document.activeElement !== el && el.innerHTML !== (s[p[1]] || '')) el.innerHTML = s[p[1]] || '';
+      const clean = sanitizeSigHtml_(s[p[1]] || '');
+      if (el && document.activeElement !== el && el.innerHTML !== clean) el.innerHTML = clean;
     });
+    updateIsSigWarn_();
+  }
+  function updateIsSigWarn_(){
+    const w = document.getElementById('esIsSigWarn');
+    if (w) w.textContent = (data && data.emailSettings && data.emailSettings.imageScapeSignatureHtml) ? '' : 'Nothing saved yet: paste your signature above before sending ImageScape emails.';
   }
   (function(){
     [['esIsSigHtml', 'imageScapeSignatureHtml'], ['esStSigHtml', 'soleTraderSignatureHtml']].forEach(function(p){
       const el = document.getElementById(p[0]);
       if (!el) return;
-      const save = function(){ data.emailSettings[p[1]] = sanitizeSigHtml_(el.innerHTML); markDirty(); };
+      const save = function(){
+        data.emailSettings[p[1]] = sanitizeSigHtml_(el.innerHTML);
+        if (p[1] === 'imageScapeSignatureHtml'){
+          const t = sigHtmlToText_(data.emailSettings[p[1]]);
+          if (t) data.emailSettings.imageScapeSignature = t;
+          updateIsSigWarn_();
+        }
+        markDirty();
+      };
       // A paste replaces the whole box. Rendered HTML (copied from Outlook) is used as is; if
       // only text arrives and it looks like HTML source, it is treated as HTML code.
       el.addEventListener('paste', function(ev){
@@ -16124,7 +16930,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   })();
   (function(){
-    const map = { esIsFrom: 'imageScapeFrom', esIsSig: 'imageScapeSignature', esStFrom: 'soleTraderFrom',
+    const map = { esIsFrom: 'imageScapeFrom', esStFrom: 'soleTraderFrom',
       esStSig: 'soleTraderSignature', esWebsite: 'websiteUrl', esReview: 'reviewUrl', esTerms: 'paymentTermsDays' };
     Object.keys(map).forEach(function(id){
       const el = document.getElementById(id);
@@ -16221,7 +17027,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function fmtQuoteLines(q){
     return (q.lineItems || []).map(function(li){
-      const amt = (Number(li.qty) || 0) * (Number(li.rate) || 0);
+      const amt = lineAmt_(li);
       return '- ' + (li.label || '') + ' (' + (li.qty || 0) + ' x ' + fmtGBP(li.rate || 0) + ' = ' + fmtGBP(amt) + ')';
     }).join('\n');
   }
@@ -16382,16 +17188,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return candidate;
   }
 
+  // Company deadlines repeat every year. The year end / statement date stored in the Finance profile is
+  // only a starting point: once a deadline is more than a month in the past it rolls on to next
+  // year's, so the list never goes stale and nobody has to remember to update the dates.
+  function rollDeadline_(base, fn){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(base || ''))) return '';
+    const t = new Date();
+    const cutoff = addDaysIso(isoDate(t.getFullYear(), t.getMonth(), t.getDate()), -31);
+    let d = fn(base, 0);
+    for (let k = 1; d < cutoff && k < 80; k++) d = fn(base, k * 12);
+    return d;
+  }
   function computeDeadlines(){
     const p = data.financeProfile;
     const items = [];
+    function add(label, hint, base, fn){ const d = rollDeadline_(base, fn); if (d) items.push({ label: label, hint: hint, date: d }); }
     if (p.companyFyEnd){
-      items.push({ label: 'Corporation Tax payment due', hint: 'Pay HMRC — due 9 months + 1 day after the financial year end', date: addDaysIso(addMonthsIso(p.companyFyEnd, 9), 1) });
-      items.push({ label: 'Corporation Tax return (CT600) due', hint: 'File with HMRC — due 12 months after the financial year end', date: addMonthsIso(p.companyFyEnd, 12) });
-      items.push({ label: 'Companies House annual accounts due', hint: 'File with Companies House — due 9 months after the year end (a company’s first accounts instead run 21 months from incorporation — check if this applies)', date: addMonthsIso(p.companyFyEnd, 9) });
+      add('Corporation Tax payment due', 'Pay HMRC — due 9 months + 1 day after the financial year end', p.companyFyEnd, function(b, m){ return addDaysIso(addMonthsIso(b, 9 + m), 1); });
+      add('Corporation Tax return (CT600) due', 'File with HMRC — due 12 months after the financial year end', p.companyFyEnd, function(b, m){ return addMonthsIso(b, 12 + m); });
+      add('Companies House annual accounts due', 'File with Companies House — due 9 months after the year end (a company’s first accounts instead run 21 months from incorporation — check if this applies)', p.companyFyEnd, function(b, m){ return addMonthsIso(b, 9 + m); });
     }
     if (p.confirmationStatementDate){
-      items.push({ label: 'Confirmation statement due', hint: 'File with Companies House — due within 14 days of the statement date (one year on from the last one)', date: addDaysIso(addMonthsIso(p.confirmationStatementDate, 12), 14) });
+      add('Confirmation statement due', 'File with Companies House — due within 14 days of the statement date (one year on from the last one)', p.confirmationStatementDate, function(b, m){ return addDaysIso(addMonthsIso(b, 12 + m), 14); });
     }
     items.push({ label: 'Self Assessment — file online & pay balancing amount', hint: 'HMRC deadline for the previous UK tax year (6 Apr – 5 Apr)', date: nextAnnualDate(0, 31) });
     items.push({ label: 'Self Assessment — second payment on account', hint: 'Only applies if HMRC has asked for payments on account', date: nextAnnualDate(6, 31) });
@@ -16596,6 +17414,296 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       wrap.appendChild(card);
     });
   }
+
+  // ---------------------------------------------------------------- renewals and reminders
+  // Added Oct 2026. Anything that comes round again (insurance, permissions, domains,
+  // subscriptions, tax, MOT, bills, appointments), business or personal. Marking one renewed
+  // rolls its due date forward by its repeat. Due-soon ones feed the Dashboard (Today and
+  // Needs attention) and the global search.
+  let renewalFilter = 'all';
+  let renewalEditId = null;
+
+  function renewalMonthsFor_(rep){ return rep === 'monthly' ? 1 : (rep === 'quarterly' ? 3 : (rep === 'yearly' ? 12 : 0)); }
+  function renewalLevel_(r){
+    if (!r || r.done || !r.due) return null;
+    const t = todayIso_();
+    if (r.due < t) return 'overdue';
+    if (r.due <= addDaysIso(t, Number(r.remindDays) || 30)) return 'soon';
+    return null;
+  }
+  function renewalDaysText_(r){
+    const a = new Date(todayIso_() + 'T00:00:00'), b = new Date(r.due + 'T00:00:00');
+    const n = Math.round((b - a) / 86400000);
+    if (n === 0) return 'due today';
+    if (n < 0) return 'was due ' + (-n) + ' day' + (n === -1 ? '' : 's') + ' ago';
+    return 'due in ' + n + ' day' + (n === 1 ? '' : 's');
+  }
+  function renewalsAttentionItems_(){
+    const out = [];
+    (data.renewals || []).forEach(function(r){
+      const lvl = renewalLevel_(r);
+      if (!lvl) return;
+      out.push({ level: lvl, date: r.due, title: r.name + ' ' + (lvl === 'overdue' ? 'is overdue' : 'is coming up'),
+        sub: (RENEWAL_CATS[r.category] || 'Renewal') + ' · ' + (r.scope === 'personal' ? 'Personal' : 'Business') + (r.cost ? ' · ' + fmtGBP(r.cost) : '') + ' · ' + renewalDaysText_(r),
+        panel: 'renewals' });
+    });
+    return out;
+  }
+
+  function renewalFormReset_(){
+    renewalEditId = null;
+    document.getElementById('rnName').value = '';
+    document.getElementById('rnDue').value = '';
+    document.getElementById('rnCost').value = '';
+    document.getElementById('rnRemind').value = '';
+    document.getElementById('rnNotes').value = '';
+    document.getElementById('rnRepeat').value = 'yearly';
+    document.getElementById('rnScope').value = 'business';
+    document.getElementById('rnAddBtn').textContent = 'Add';
+    document.getElementById('rnCancelBtn').style.display = 'none';
+  }
+
+  function renderRenewals(){
+    const list = document.getElementById('rnList');
+    if (!list) return;
+    const catSel = document.getElementById('rnCat');
+    if (catSel && !catSel.options.length){
+      Object.keys(RENEWAL_CATS).forEach(function(k){ const o = document.createElement('option'); o.value = k; o.textContent = RENEWAL_CATS[k]; catSel.appendChild(o); });
+    }
+    const all = (data.renewals || []);
+    const open = all.filter(function(r){ return !r.done; });
+    const shown = open.filter(function(r){
+      if (renewalFilter === 'soon') return !!renewalLevel_(r);
+      if (renewalFilter === 'business') return r.scope === 'business';
+      if (renewalFilter === 'personal') return r.scope === 'personal';
+      return true;
+    }).sort(function(a, b){ return (a.due || '9999-99-99') < (b.due || '9999-99-99') ? -1 : 1; });
+    const need = open.filter(function(r){ return !!renewalLevel_(r); }).length;
+    const sum = document.getElementById('rnSummary');
+    if (sum){
+      const next30 = open.filter(function(r){ return r.due && r.due >= todayIso_() && r.due <= addDaysIso(todayIso_(), 30); })
+        .reduce(function(s, r){ return s + (Number(r.cost) || 0); }, 0);
+      sum.textContent = open.length + ' tracked · ' + need + ' need attention' + (next30 ? ' · ' + fmtGBP(next30) + ' due in 30 days' : '');
+    }
+    list.innerHTML = '';
+    if (!open.length){ list.innerHTML = '<div class="empty-note">Nothing tracked yet. Add your insurance, drone permissions, domains, subscriptions and the like above, and the Hub will warn you before each is due.</div>'; return; }
+    if (!shown.length){ list.innerHTML = '<div class="empty-note">Nothing matches this filter.</div>'; return; }
+    shown.forEach(function(r){
+      const lvl = renewalLevel_(r);
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      row.style.cursor = 'pointer';
+      row.innerHTML = '<div class="body"><div class="txt"><span class="rnName"></span></div><div class="due"></div></div>' +
+        '<button class="btn btn-ghost rnDone" style="width:auto;padding:4px 10px;font-size:13px;" title="Done: moves the date forward">Renewed</button>' +
+        '<button class="del" title="Delete">✕</button>';
+      row.querySelector('.rnName').textContent = r.name + '  ·  ' + (RENEWAL_CATS[r.category] || '') + '  ·  ' + (r.scope === 'personal' ? 'Personal' : 'Business');
+      const due = row.querySelector('.due');
+      due.textContent = (r.due ? (r.due + ' (' + renewalDaysText_(r) + ')') : 'No date set') + '  ·  ' + (RENEWAL_REPEATS[r.repeat] || '') + (r.cost ? '  ·  ' + fmtGBP(r.cost) : '') + (r.notes ? '  ·  ' + r.notes : '');
+      if (lvl) due.classList.add(lvl);
+      row.addEventListener('click', function(){
+        renewalEditId = r.id;
+        document.getElementById('rnName').value = r.name;
+        document.getElementById('rnCat').value = r.category;
+        document.getElementById('rnScope').value = r.scope;
+        document.getElementById('rnDue').value = r.due;
+        document.getElementById('rnRepeat').value = r.repeat;
+        document.getElementById('rnCost').value = r.cost || '';
+        document.getElementById('rnRemind').value = r.remindDays || '';
+        document.getElementById('rnNotes').value = r.notes;
+        document.getElementById('rnAddBtn').textContent = 'Save changes';
+        document.getElementById('rnCancelBtn').style.display = '';
+        document.getElementById('rnName').focus();
+      });
+      row.querySelector('.rnDone').addEventListener('click', function(e){
+        e.stopPropagation();
+        const months = renewalMonthsFor_(r.repeat);
+        r.lastRenewed = todayIso_();
+        if (!months || !r.due){ r.done = true; }
+        else {
+          let next = addMonthsIso(r.due, months), guard = 0;
+          while (next <= todayIso_() && guard++ < 600) next = addMonthsIso(next, months);
+          r.due = next;
+        }
+        markDirty(); renderRenewals(); renderHome(); toast(r.done ? 'Marked done.' : 'Renewed. Next due ' + r.due + '.');
+      });
+      row.querySelector('.del').addEventListener('click', function(e){
+        e.stopPropagation();
+        if (!confirm('Delete "' + r.name + '"?')) return;
+        data.renewals = data.renewals.filter(function(x){ return x.id !== r.id; });
+        if (renewalEditId === r.id) renewalFormReset_();
+        markDirty(); renderRenewals(); renderHome();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  (function initRenewals(){
+    const add = document.getElementById('rnAddBtn');
+    if (!add) return;
+    add.addEventListener('click', function(){
+      const name = document.getElementById('rnName').value.trim();
+      const due = document.getElementById('rnDue').value;
+      if (!name){ toast('Give it a name first.'); return; }
+      if (!due){ toast('Pick the next due date.'); return; }
+      const fields = {
+        name: name.slice(0, 200), category: document.getElementById('rnCat').value || 'other',
+        scope: document.getElementById('rnScope').value === 'personal' ? 'personal' : 'business',
+        due: due, repeat: document.getElementById('rnRepeat').value || 'yearly',
+        cost: Number(document.getElementById('rnCost').value) || 0,
+        remindDays: Math.min(365, Math.max(1, Math.round(Number(document.getElementById('rnRemind').value)) || 30)),
+        notes: document.getElementById('rnNotes').value.trim().slice(0, 1000)
+      };
+      const existing = renewalEditId ? data.renewals.find(function(x){ return x.id === renewalEditId; }) : null;
+      if (existing) Object.assign(existing, fields);
+      else data.renewals.push(Object.assign({ id: randomId(), done: false, lastRenewed: '' }, fields));
+      renewalFormReset_();
+      markDirty(); renderRenewals(); renderHome();
+    });
+    document.getElementById('rnCancelBtn').addEventListener('click', renewalFormReset_);
+    document.querySelectorAll('#rnFilter button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('#rnFilter button').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active'); renewalFilter = b.dataset.f; renderRenewals();
+      });
+    });
+  })();
+
+  // ---------------------------------------------------------------- Today + Money (Dashboard)
+  function renderTodayCard_(){
+    const wrap = document.getElementById('dashTodayList');
+    if (!wrap) return;
+    const today = todayIso_();
+    const rows = [];
+    (data.events || []).filter(function(e){ return e.date === today && e.kind !== 'task-due'; }).forEach(function(e){
+      rows.push({ level: '', title: e.title, sub: 'On the calendar today', when: 'Today', panel: 'cal' });
+    });
+    (data.tasks || []).filter(function(t){ return !t.done && t.due === today; }).forEach(function(t){
+      rows.push({ level: 'soon', title: t.text, sub: 'Task due today', when: 'Today', panel: 'tasks' });
+    });
+    const overdueTasks = (data.tasks || []).filter(function(t){ return dateUrgency(t.due, t.done) === 'overdue'; }).length;
+    if (overdueTasks) rows.push({ level: 'overdue', title: overdueTasks + ' overdue task' + (overdueTasks === 1 ? '' : 's'), sub: 'Open the Tasks tab to clear them', when: 'Overdue', panel: 'tasks' });
+    renewalsAttentionItems_().filter(function(i){ return i.date <= addDaysIso(today, 14); }).forEach(function(i){
+      rows.push({ level: i.level, title: i.title, sub: i.sub, when: i.level === 'overdue' ? 'Overdue' : i.date, panel: 'renewals' });
+    });
+    try {
+      const snap = zohoSnapshotCache;
+      if (snap && snap.recentUnpaidInvoices){
+        const od = snap.recentUnpaidInvoices.filter(function(i){ return Number(i.balance) > 0 && i.dueDate && i.dueDate < today; });
+        if (od.length){
+          const tot = od.reduce(function(s, i){ return s + Number(i.balance); }, 0);
+          rows.push({ level: 'overdue', title: od.length + ' overdue invoice' + (od.length === 1 ? '' : 's') + ' (' + fmtGBP(tot) + ')',
+            sub: od.slice(0, 3).map(function(i){ return (i.customerName || 'Invoice') + ' ' + (i.number || ''); }).join(', '), when: 'Chase', panel: 'invoices' });
+        }
+      }
+    } catch (e){ /* Zoho not synced yet */ }
+    wrap.innerHTML = '';
+    if (!rows.length){ wrap.innerHTML = '<div class="empty-note">Nothing scheduled today, and nothing overdue. A clear day.</div>'; return; }
+    rows.forEach(function(item){
+      const row = document.createElement('div');
+      row.className = 'attention-row' + (item.level ? ' lvl-' + item.level : '');
+      row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div><div class="sub"></div></div><div class="when"></div>';
+      row.querySelector('.txt').textContent = item.title;
+      row.querySelector('.sub').textContent = item.sub;
+      row.querySelector('.when').textContent = item.when;
+      row.addEventListener('click', function(){ jumpToPanel_(item.panel); });
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderMoneyCard_(){
+    const wrap = document.getElementById('dashMoneyTiles');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const note = document.getElementById('dashMoneyNote');
+    const tiles = [];
+    const today = todayIso_(), wk = in7Iso_();
+    const snap = zohoSnapshotCache;
+    if (data.zohoConnection && snap){
+      const unpaid = (snap.recentUnpaidInvoices || []).filter(function(i){ return Number(i.balance) > 0; });
+      const sumOf = function(a){ return a.reduce(function(s, i){ return s + Number(i.balance); }, 0); };
+      const od = unpaid.filter(function(i){ return i.dueDate && i.dueDate < today; });
+      const soonInv = unpaid.filter(function(i){ return i.dueDate && i.dueDate >= today && i.dueDate <= wk; });
+      tiles.push({ num: fmtGBP(Number(snap.totalOutstanding) || sumOf(unpaid)), label: 'Owed to you', sub: unpaid.length + ' unpaid invoice' + (unpaid.length === 1 ? '' : 's'), bg: 'var(--info-soft)', fg: 'var(--info)', panel: 'invoices' });
+      tiles.push({ num: fmtGBP(sumOf(od)), label: 'Overdue', sub: od.length ? od.length + ' to chase' : 'nothing late', bg: od.length ? 'var(--warn-soft)' : 'var(--good-soft)', fg: od.length ? 'var(--warn)' : 'var(--good)', panel: 'invoices' });
+      tiles.push({ num: fmtGBP(sumOf(soonInv)), label: 'Due in 7 days', sub: soonInv.length + ' invoice' + (soonInv.length === 1 ? '' : 's'), bg: 'var(--soon-soft)', fg: 'var(--soon)', panel: 'invoices' });
+      try {
+        const feeds = zohoBankState_().feeds || [];
+        if (feeds.length){
+          const bal = feeds.reduce(function(s, a){ return s + (Number(a.bankBalance) || Number(a.balance) || 0); }, 0);
+          tiles.push({ num: fmtGBP(bal), label: 'In the bank', sub: feeds.length + ' account' + (feeds.length === 1 ? '' : 's') + ' in Zoho', bg: 'var(--good-soft)', fg: 'var(--good)', panel: 'finance' });
+        }
+      } catch (e){ /* no bank info yet */ }
+      if (note) note.textContent = snap.syncedAt ? 'From the last Zoho sync, ' + new Date(snap.syncedAt).toLocaleString() + '. Shows the 15 most recent unpaid invoices.' : '';
+    } else if (note){
+      note.textContent = data.zohoConnection ? 'Press Sync now on the Zoho Books card below to load your figures.' : 'Connect Zoho Books (card at the bottom of this page) to see what you are owed and what is in the bank.';
+    }
+    const upcoming = (data.renewals || []).filter(function(r){ return !r.done && r.due && r.due >= today && r.due <= addDaysIso(today, 30); });
+    tiles.push({ num: fmtGBP(upcoming.reduce(function(s, r){ return s + (Number(r.cost) || 0); }, 0)), label: 'Renewals, 30 days', sub: upcoming.length + ' coming up', bg: '#f1eaf8', fg: 'var(--sec-website)', panel: 'renewals' });
+    tiles.forEach(function(t){
+      const el = document.createElement('div');
+      el.className = 'stat-tile';
+      el.style.background = t.bg; el.style.color = t.fg;
+      el.innerHTML = '<div class="stat-num"></div><div class="stat-label"></div><div class="stat-sub"></div>';
+      el.querySelector('.stat-num').textContent = t.num;
+      el.querySelector('.stat-label').textContent = t.label;
+      el.querySelector('.stat-sub').textContent = t.sub;
+      el.addEventListener('click', function(){ jumpToPanel_(t.panel); });
+      wrap.appendChild(el);
+    });
+  }
+
+  // ---------------------------------------------------------------- Quick add
+  function openQuickAdd_(){
+    const today = todayIso_();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal">' +
+        '<h3>Quick add</h3>' +
+        '<p>Put something in without hunting for the right tab.</p>' +
+        '<div class="field"><label>What is it?</label><select id="qaKind"><option value="task">Task</option><option value="event">Calendar event</option><option value="renewal">Renewal or reminder</option></select></div>' +
+        '<div class="field"><label>Title</label><input type="text" id="qaTitle" placeholder="e.g. Ring the insurer"></div>' +
+        '<div class="field"><label id="qaDateLabel">Due date</label><input type="date" id="qaDate" value="' + today + '"></div>' +
+        '<div class="field" id="qaRepeatWrap" style="display:none;"><label>Repeats</label><select id="qaRepeat"><option value="yearly">Yearly</option><option value="monthly">Monthly</option><option value="quarterly">Every 3 months</option><option value="none">One-off</option></select></div>' +
+        '<div id="qaMsg"></div>' +
+        '<div class="row"><button class="btn btn-ghost" id="qaCancel">Cancel</button><button class="btn btn-primary" id="qaOk">Add</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const q = function(s){ return backdrop.querySelector(s); };
+    const kindEl = q('#qaKind');
+    kindEl.addEventListener('change', function(){
+      q('#qaRepeatWrap').style.display = kindEl.value === 'renewal' ? '' : 'none';
+      q('#qaDateLabel').textContent = kindEl.value === 'event' ? 'Date' : (kindEl.value === 'renewal' ? 'Next due date' : 'Due date');
+    });
+    q('#qaCancel').addEventListener('click', function(){ backdrop.remove(); });
+    q('#qaTitle').focus();
+    q('#qaTitle').addEventListener('keydown', function(e){ if (e.key === 'Enter') q('#qaOk').click(); });
+    q('#qaOk').addEventListener('click', function(){
+      const title = q('#qaTitle').value.trim();
+      const date = q('#qaDate').value;
+      if (!title){ q('#qaMsg').innerHTML = '<div class="msg error">Add a title.</div>'; return; }
+      const kind = kindEl.value;
+      if (kind === 'task'){
+        const entry = { id: randomId(), text: title, done: false, due: date || '', clientId: '', repeat: '' };
+        data.tasks.push(entry); syncTaskEvent(entry);
+        renderTasks(); renderCalendar();
+      } else if (kind === 'event'){
+        if (!date){ q('#qaMsg').innerHTML = '<div class="msg error">Pick a date.</div>'; return; }
+        data.events.push({ id: randomId(), date: date, title: title, notes: '' });
+        renderCalendar();
+      } else {
+        if (!date){ q('#qaMsg').innerHTML = '<div class="msg error">Pick the next due date.</div>'; return; }
+        data.renewals.push({ id: randomId(), name: title.slice(0, 200), category: 'other', scope: 'business', due: date, repeat: q('#qaRepeat').value || 'yearly', cost: 0, remindDays: 30, notes: '', done: false, lastRenewed: '' });
+        renderRenewals();
+      }
+      markDirty(); renderHome(); backdrop.remove();
+      toast('Added.');
+    });
+  }
+  (function(){
+    const b = document.getElementById('quickAddBtn');
+    if (b) b.addEventListener('click', openQuickAdd_);
+  })();
 
   // ---------------------------------------------------------------- subscriptions / prepayments
   // Computes the amortisation schedule (total ÷ months, rounded to the penny, remainder
