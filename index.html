@@ -4436,6 +4436,46 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Replaces whatever item rows the template currently has (leftovers from the last real
   // invoice it was reused from) with one row per selected session, cloning the first
   // existing item row as a style anchor so fonts/borders match the rest of the sheet.
+  // Word-wrap estimate used to size item rows. Google Sheets keeps the row height stored in the
+  // file (it does not auto-fit on import), so a long description in a one-line row was cut off
+  // on the PDF (found 12 Oct 2026 comparing receipt 26001 against its invoice). The Description
+  // cell is ~13.2cm wide, about 76 characters of 10pt text per line; rounding the estimate up is
+  // safe (a slightly tall row), rounding down would clip.
+  function odsWrapLineCount_(text, perLine){
+    const paras = String(text || '').split(/\r?\n/);
+    let lines = 0;
+    paras.forEach(function(para){
+      const words = para.split(/\s+/).filter(Boolean);
+      if (!words.length){ lines += 1; return; }
+      let cur = 0, n = 1;
+      words.forEach(function(w){
+        const need = cur ? cur + 1 + w.length : w.length;
+        if (cur && need > perLine){ n++; cur = w.length; }
+        else cur = need;
+        while (cur > perLine){ n++; cur -= perLine; }
+      });
+      lines += n;
+    });
+    return Math.max(1, lines);
+  }
+  function odsSetRowHeight_(xmlDoc, row, heightCm, name){
+    const base = row.getAttributeNS(ODF_NS.table, 'style-name');
+    const styleName = odsCloneStyleVariant(xmlDoc, base, 'table-row', name, function(clone){
+      const props = clone.getElementsByTagNameNS(ODF_NS.style, 'table-row-properties')[0];
+      if (props){
+        props.setAttributeNS(ODF_NS.style, 'style:row-height', heightCm + 'cm');
+        props.setAttributeNS(ODF_NS.style, 'style:use-optimal-row-height', 'false');
+      }
+    });
+    row.setAttributeNS(ODF_NS.table, 'table:style-name', styleName);
+  }
+  function odsFitRowToText_(xmlDoc, row, text){
+    const n = odsWrapLineCount_(text, 76);
+    // 0.4cm per 10pt line plus a little padding; one line stays at the template's own height.
+    const h = Math.max(0.452, Math.round((0.4 * n + 0.05) * 1000) / 1000);
+    odsSetRowHeight_(xmlDoc, row, h, 'roFit' + String(h).replace('.', '_'));
+  }
+
   function odsRebuildInvoiceItems(xmlDoc, table, items){
     const header = odsFindItemHeader(table);
     if (!header) throw new Error('Could not find the invoice’s item table (a "Description" header row).');
@@ -4525,6 +4565,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // "£110.00"). Nothing downstream needs this cell to be numeric: the invoice total
       // is computed in JS from the same item amounts, not summed by the spreadsheet.
       odsSetCellText(xmlDoc, amtCell, fmtGBP(item.amount));
+      if (item.description) odsFitRowToText_(xmlDoc, newRow, item.description);
       parent.insertBefore(newRow, insertBefore);
     });
   }
@@ -5375,7 +5416,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     rows.forEach(function(row, i){
       cellsOf(row).forEach(function(c){
-        setIf(c, 'invoice', 'RECEIPT');
+        // The INVOICE heading is pushed right by 11 leading spaces (an ODF text:s element), which
+        // plain text replacement drops; put the same 11 back so RECEIPT sits where INVOICE does.
+        if ((c.textContent || '').trim().toLowerCase() === 'invoice'){
+          odsSetCellText(xmlDoc, c, 'RECEIPT');
+          const para = c.getElementsByTagNameNS(ODF_NS.text, 'p')[0];
+          const sp = xmlDoc.createElementNS(ODF_NS.text, 'text:s');
+          sp.setAttributeNS(ODF_NS.text, 'text:c', '11');
+          para.insertBefore(sp, para.firstChild);
+        }
         setIf(c, 'invoice number:', 'Receipt for invoice:');
         setIf(c, 'invoice date:', 'Date paid:');
         setIf(c, 'total:', 'TOTAL PAID:');
@@ -8209,8 +8258,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.13';
+  const HUB_VERSION = '2026.10.16';
   const HUB_CHANGELOG = [
+    { v: '2026.10.16', date: '12 Oct 2026', items: [
+      'Receipts fixed after comparing one against its invoice: long descriptions are no longer cut off, the receipt carries the client address (the Make receipt box asks for it if the Hub has none), and the RECEIPT heading sits where INVOICE does. Paper size and layout are otherwise unchanged.' ] },
     { v: '2026.10.13', date: '13 Oct 2026', items: [
       'ImageScape emails now use one signature only: the rich one you paste in Sending settings. The separate plain box is gone, and a draft will not be made until a signature is saved.' ] },
     { v: '2026.10.12', date: '12 Oct 2026', items: [
@@ -14638,17 +14689,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<h3>Make receipt for ' + escapeHtml(String(num)) + '</h3>' +
         '<div class="sub" style="margin:-4px 0 10px;">Zoho shows this invoice as paid. This makes a RECEIPT (.ods and PDF) with the same number, saved in a <strong>Paid</strong> folder next to the invoice, then opens the email with it attached. The invoice itself moves into Paid when you create that email draft.</div>' +
         '<div class="field"><label>Date payment was received</label><input type="date" id="rcDate"></div>' +
+        '<div class="field"><label>Client postal address (one line each)</label><textarea id="rcAddress" rows="4" placeholder="Unit 4, The Docks&#10;Gloucester Quays&#10;Gloucester&#10;GL2 2EQ"></textarea></div>' +
         '<div id="rcStatus" class="sub" style="min-height:18px;"></div>' +
         '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="rcCancel">Cancel</button><button class="btn btn-primary" id="rcGo">Make receipt</button></div>' +
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#rcDate').value = lastPay || todayIso_();
+    backdrop.querySelector('#rcAddress').value = client.address || '';
     backdrop.querySelector('#rcCancel').addEventListener('click', function(){ backdrop.remove(); });
     backdrop.querySelector('#rcGo').addEventListener('click', async function(){
       const goBtn = backdrop.querySelector('#rcGo');
       const st = backdrop.querySelector('#rcStatus');
       const paidIso = backdrop.querySelector('#rcDate').value;
       if (!paidIso){ st.textContent = 'Pick the date the payment arrived.'; return; }
+      // The receipt carries the same "To:" address block as the invoice, so it needs one.
+      const rcAddress = backdrop.querySelector('#rcAddress').value.trim();
+      if (!rcAddress){ st.textContent = 'Add the client\u2019s postal address first, it goes on the receipt like it does on the invoice.'; return; }
+      if (!client.address){ client.address = rcAddress; markDirty(); }
       goBtn.disabled = true;
       const act = activityBegin('Making receipt ' + num, ['Signing in to Google', 'Finding the Paid folder', 'Building the receipt', 'Converting to PDF and saving', 'Finishing']);
       try {
@@ -14665,7 +14722,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         act.step(3);
         const result = await generateImageScapeDoc({
           kind: 'receipt', number: String(num), dateIso: paidIso, fileBase: fileBase,
-          client: { name: client.company || client.name, address: client.address || '' },
+          client: { name: client.company || client.name, address: rcAddress },
           items: items, folderId: folderId
         });
         q.receiptDate = paidIso;
