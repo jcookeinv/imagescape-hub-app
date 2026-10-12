@@ -521,6 +521,8 @@
   .finance-form-col input,.finance-form-col textarea{width:100%;padding:9px 11px;border:1px solid var(--border);
     border-radius:8px;font-size:15.5px;font-family:inherit;margin-bottom:6px;}
   .finance-form-col textarea{min-height:64px;resize:vertical;}
+  /* A hint explains the box ABOVE it: sit close under that box (the -2px cancels most of the box's 6px bottom margin) and leave a clear gap before the next box. */
+  .finance-form-col .hint{margin:-2px 0 16px;}
   .finance-form-label{font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;
     letter-spacing:.04em;margin-bottom:8px;}
   .finance-checkbox{display:flex;align-items:center;gap:6px;font-size:15px;margin:4px 0 8px;}
@@ -8057,15 +8059,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  let dirtyCheckTimer_ = null;
+  function showDirtyUi_(on){
+    document.getElementById('dirtyDot').style.display = on ? 'inline-block' : 'none';
+    document.getElementById('saveBtn').classList.toggle('save-pending', !!on);
+    const bar = document.getElementById('unsavedBar');
+    if (bar) bar.style.display = on ? 'flex' : 'none';
+  }
+  // Something may have changed: remember that, but only show the "unsaved changes" bar if the
+  // data really differs from what was last loaded or saved. A process that ends with nothing
+  // changed (same values written back) shows nothing. Any doubt keeps the bar showing.
   function markDirty(){
     if (offlineReadOnly) return; // belt-and-braces: the UI lock should already prevent whatever triggered this
     dirty = true;
-    document.getElementById('dirtyDot').style.display = 'inline-block';
-    document.getElementById('saveBtn').classList.add('save-pending');
-    const bar = document.getElementById('unsavedBar');
-    if (bar) bar.style.display = 'flex';
+    if (dirtyCheckTimer_) clearTimeout(dirtyCheckTimer_);
+    dirtyCheckTimer_ = setTimeout(function(){
+      dirtyCheckTimer_ = null;
+      if (!dirty) return;
+      let same = false;
+      try { same = (baseJson_ !== null && baseJson_ !== undefined && JSON.stringify(data) === baseJson_); } catch (e){ same = false; }
+      if (same){ dirty = false; showDirtyUi_(false); }
+      else showDirtyUi_(true);
+    }, 150);
   }
   function markClean(){
+    if (dirtyCheckTimer_){ clearTimeout(dirtyCheckTimer_); dirtyCheckTimer_ = null; }
     dirty = false;
     document.getElementById('dirtyDot').style.display = 'none';
     document.getElementById('saveBtn').classList.remove('save-pending');
@@ -8338,8 +8356,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.26';
+  const HUB_VERSION = '2026.10.29';
   const HUB_CHANGELOG = [
+    { v: '2026.10.29', date: '12 Oct 2026', items: [
+      'Make receipt: if the invoice is already inside a folder called Paid, the receipt now goes into that same Paid folder. Before, each new receipt made another Paid folder inside the Paid folder, so receipts ended up buried two or three levels down.' ] },
+    { v: '2026.10.28', date: '12 Oct 2026', items: [
+      'Tax tab (and the Subscriptions form): the small explanation under each box now sits close under the box it describes, with a clear gap before the next box, so it is obvious which box each note belongs to.' ] },
+    { v: '2026.10.27', date: '12 Oct 2026', items: [
+      'The "You have unsaved changes" bar (and the dot on Save) now only appears when something has really changed. If a process finishes with nothing different to save, nothing is shown.' ] },
     { v: '2026.10.26', date: '12 Oct 2026', items: [
       'Make receipt: the wording of each line item now shows in boxes you can edit before the receipt is made (it is taken from the quote in the Hub, not from Zoho). A change is also saved back onto the quote line.' ] },
     { v: '2026.10.25', date: '12 Oct 2026', items: [
@@ -14742,6 +14766,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function ensurePaidFolder_(parentId){
     const esc = function(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+    // If the invoice already sits in a folder called Paid, that IS the Paid folder. Never nest another Paid inside it.
+    try {
+      const pr = await driveApiFetch('/files/' + encodeURIComponent(parentId) + '?fields=name&supportsAllDrives=true');
+      if (pr.ok){ const pb = await pr.json(); if (pb && /^paid$/i.test(String(pb.name || '').trim())) return parentId; }
+    } catch (e){ /* fall through to the normal look-up */ }
     const dq = "'" + esc(parentId) + "' in parents and name = 'Paid' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     const r = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
     if (!r.ok) throw new Error('Could not look for the Paid folder in Drive (status ' + r.status + ').');
@@ -14787,7 +14816,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const idList = Object.keys(ids);
     if (!idList.length) throw Object.assign(new Error('Could not find the invoice files in Drive to move.'), { nothingFound: true });
     let moved = 0;
-    for (let i = 0; i < idList.length; i++){
+    if (paidId === found.folderId){ moved = idList.length; } // already inside the Paid folder, nothing to move
+    else for (let i = 0; i < idList.length; i++){
       const mr = await driveApiFetch('/files/' + encodeURIComponent(idList[i]) + '?addParents=' + encodeURIComponent(paidId) + '&removeParents=' + encodeURIComponent(found.folderId) + '&supportsAllDrives=true&fields=id', { method: 'PATCH' });
       if (mr.ok) moved++;
     }
