@@ -4452,18 +4452,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // on the PDF (found 12 Oct 2026 comparing receipt 26001 against its invoice). The Description
   // cell is ~13.2cm wide, about 91 characters of 10pt text per line in practice; 84 leaves a margin, and rounding the estimate up is
   // safe (a slightly tall row), rounding down would clip.
-  function odsWrapLineCount_(text, perLine){
+  // Arial/Helvetica advance widths (per 1000 units) for ASCII 32 to 126. Wrapping is measured in real
+  // text width, not characters, so a row is sized to the lines Sheets will actually print. A character
+  // count over-estimated and left a visible gap under long items (Jon, 12 Oct 2026, receipt 26001).
+  const ODS_ARIAL_W_ = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  function odsTextWidthPt_(str, sizePt){
+    let w = 0;
+    for (let i = 0; i < str.length; i++){
+      const c = str.charCodeAt(i);
+      w += (c >= 32 && c <= 126) ? ODS_ARIAL_W_[c - 32] : 556;
+    }
+    return w * sizePt / 1000;
+  }
+  // Greedy word wrap of the Description cell. Measured on the real PDF the cell holds about 409pt of 10pt
+  // text per line; 405 leaves a small margin so a line is never under-counted (a clipped row is worse
+  // than a slightly tall one).
+  function odsWrapLineCount_(text, widthPt){
     const paras = String(text || '').split(/\r?\n/);
     let lines = 0;
     paras.forEach(function(para){
       const words = para.split(/\s+/).filter(Boolean);
       if (!words.length){ lines += 1; return; }
-      let cur = 0, n = 1;
+      let cur = '', n = 1;
       words.forEach(function(w){
-        const need = cur ? cur + 1 + w.length : w.length;
-        if (cur && need > perLine){ n++; cur = w.length; }
-        else cur = need;
-        while (cur > perLine){ n++; cur -= perLine; }
+        const trial = cur ? cur + ' ' + w : w;
+        if (cur && odsTextWidthPt_(trial, 10) > widthPt){ n++; cur = w; }
+        else cur = trial;
+        while (odsTextWidthPt_(cur, 10) > widthPt){ n++; cur = cur.slice(Math.max(1, Math.floor(cur.length * widthPt / odsTextWidthPt_(cur, 10)))); }
       });
       lines += n;
     });
@@ -4481,9 +4496,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     row.setAttributeNS(ODF_NS.table, 'table:style-name', styleName);
   }
   function odsFitRowToText_(xmlDoc, row, text){
-    const n = odsWrapLineCount_(text, 84);
-    // 0.4cm per 10pt line plus a little padding; one line stays at the template's own height.
-    const h = Math.max(0.452, Math.round((0.4 * n + 0.05) * 1000) / 1000);
+    const n = odsWrapLineCount_(text, 405);
+    // 10pt Arial prints 0.403cm per line (invoice 26001: 4 lines = 1.612cm); a hair of padding. One line stays at the template's own height.
+    const h = Math.max(0.452, Math.round((0.403 * n + 0.03) * 1000) / 1000);
     odsSetRowHeight_(xmlDoc, row, h, 'roFit' + String(h).replace('.', '_'));
   }
 
@@ -8323,8 +8338,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.21';
+  const HUB_VERSION = '2026.10.22';
   const HUB_CHANGELOG = [
+    { v: '2026.10.22', date: '12 Oct 2026', items: [
+      'Invoices and receipts: each line item row is now sized to exactly the lines of text it holds, so there is no extra gap under a long item before the spacer line (as on invoice 26001).' ] },
     { v: '2026.10.21', date: '12 Oct 2026', items: [
       'Invoices and receipts: line items are laid out exactly as on invoice 26001. A thin shaded spacer line with a rule under it sits between each pair of items, and nothing extra is added after the last item.' ] },
     { v: '2026.10.20', date: '12 Oct 2026', items: [
