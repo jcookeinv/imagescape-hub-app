@@ -442,6 +442,17 @@
   .zoho-snapshot{margin-top:14px;padding:14px;background:#f8f9fb;border-radius:10px;font-size:15px;}
   .zoho-snapshot .zoho-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);}
   .zoho-snapshot .zoho-row:last-child{border-bottom:none;}
+  /* Invoice ledger: fixed columns so the status and the receipt buttons line up row to row. */
+  #invLedger .zoho-row.inv-ledger-row{display:grid;grid-template-columns:minmax(0,1fr) 64px 112px 150px;column-gap:8px;align-items:center;}
+  #invLedger .inv-ledger-row .btn{width:100%;margin:0;padding:4px 6px;font-size:12px;white-space:nowrap;}
+  #invLedger .inv-ledger-row .inv-cell-hint{font-size:12px;}
+  @media (max-width:640px){
+    #invLedger .zoho-row.inv-ledger-row{grid-template-columns:64px minmax(0,1fr);row-gap:6px;}
+    #invLedger .inv-ledger-row .inv-ledger-left{grid-column:1 / -1;}
+    #invLedger .inv-ledger-row > span:empty{display:none;}
+    #invLedger .inv-ledger-row > span:nth-child(4){grid-column:2;}
+    #invLedger .inv-ledger-row .btn{padding:6px 8px;}
+  }
   .cd-lastcontact{font-size:14px;color:var(--muted);margin:-2px 0 10px;}
   .cd-lastcontact strong{color:var(--navy);}
   .cd-tl-row{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:14.5px;align-items:flex-start;}
@@ -5461,6 +5472,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // spacer to a few rows; extra item lines then just push the block down a little. The print
   // area (fixed at row 50 in the template) is stretched to cover however many rows there end
   // up being, so nothing falls outside it.
+  // The first column (A) is a narrow blank gutter, but the template shades it on the header bar, the
+  // item rows and the total bar. Sheets prints column A even though the template's print range starts
+  // at B, so the colour stuck out to the left of the text margin (Jon, 12 Oct 2026). Clear the style on
+  // column A's cell in every row so the bars start where the text starts.
+  function odsClearGutterFill_(table){
+    Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row')).forEach(function(row){
+      const cells = odsTableCells(row);
+      const first = cells[0];
+      if (!first || first.localName !== 'table-cell') return;
+      const sn = first.getAttributeNS(ODF_NS.table, 'style-name');
+      if (!sn || !/^(stHdrFirst|stItemBlankEnd|stTotalBlank|ce\d+)$/.test(sn)) return;
+      const cell = odsGetCellAt(row, 0);
+      cell.removeAttributeNS(ODF_NS.table, 'style-name');
+    });
+  }
+
   function odsTightenInvoiceLayout_(table, spacerRows, kind){
     const rowsOf = function(){ return Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row')); };
     const repOf = function(r){ return parseInt(r.getAttributeNS(ODF_NS.table, 'number-rows-repeated') || '1', 10); };
@@ -5577,6 +5604,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     odsSetTotal(xmlDoc, table, total, header.amtIdx);
 
     if (kind === 'receipt') odsTurnInvoiceIntoReceipt_(xmlDoc, table, ddmmyy(opts.dateIso));
+    if (kind !== 'quote') odsClearGutterFill_(table);
     odsTightenInvoiceLayout_(table, kind === 'quote' ? 2 : 3, kind);
     const savedBlob = await odsSaveContentXml(zip, xmlDoc);
 
@@ -8286,8 +8314,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.17';
+  const HUB_VERSION = '2026.10.18';
   const HUB_CHANGELOG = [
+    { v: '2026.10.18', date: '12 Oct 2026', items: [
+      'Invoice and receipt PDFs: the navy header bar, the shaded item rows and the total bar no longer stick out to the left of the text margin.',
+      'Invoices tab: the Matches/Differs label and the Make receipt and Move to Paid buttons now line up in columns on every row.' ] },
     { v: '2026.10.17', date: '12 Oct 2026', items: [
       'Make receipt now predicts the day the payment arrived: from a payment already recorded in the Hub, otherwise from a matching deposit in the Zoho bank feed (same amount, payer name matches the client). It says where the date came from, and you can still change it.',
       'On invoices and receipts the registered address now sits at the bottom of the page instead of straight under the last block.' ] },
@@ -14912,37 +14943,41 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const paid = (q.zohoPayments || []).reduce(function(sum, p){ return sum + (Number(p.amount) || 0); }, 0);
         const matches = q.imageScapeInvoiceRef && q.zohoInvoiceNumber && String(q.imageScapeInvoiceRef).toLowerCase() === String(q.zohoInvoiceNumber).toLowerCase();
         const row = document.createElement('div');
-        row.className = 'zoho-row clickable-card';
-        row.style.cssText = 'align-items:center;cursor:pointer;';
+        row.className = 'zoho-row clickable-card inv-ledger-row';
+        row.style.cssText = 'cursor:pointer;';
         const left = document.createElement('span');
+        left.className = 'inv-ledger-left';
         left.textContent = (q.zohoInvoiceNumber || q.imageScapeInvoiceRef || '(no number)') + ' — ' + (clientName(q.clientId) || 'Client removed') +
           ' (' + fmtGBP(totals.total) + (paid > 0 ? (', ' + fmtGBP(paid) + ' paid') : '') + ')';
         row.appendChild(left);
         const badge = document.createElement('span');
-        badge.style.cssText = 'flex-shrink:0;font-weight:700;' + (matches ? 'color:var(--good);' : 'color:var(--warn);');
+        badge.style.cssText = 'font-weight:700;' + (matches ? 'color:var(--good);' : 'color:var(--warn);');
         badge.textContent = matches ? 'Matches' : 'Differs';
         row.appendChild(badge);
+        // Always two more cells (empty when there is nothing to show) so every row has the same columns.
+        const cellA = document.createElement('span');
+        const cellB = document.createElement('span');
+        row.appendChild(cellA);
+        row.appendChild(cellB);
         if (quoteInvoicePaid_(q)){
           const rb = document.createElement('button');
           rb.className = 'btn btn-primary';
-          rb.style.cssText = 'width:auto;padding:4px 10px;font-size:12px;flex-shrink:0;margin-left:8px;';
           rb.textContent = q.receiptDate ? 'Receipt again' : 'Make receipt';
           rb.addEventListener('click', function(e){ e.stopPropagation(); openReceiptModal_(q); });
-          row.appendChild(rb);
+          cellA.appendChild(rb);
           if (q.receiptDate && !q.invoiceMovedToPaidAt){
             const mb = document.createElement('button');
             mb.className = 'btn btn-ghost';
-            mb.style.cssText = 'width:auto;padding:4px 10px;font-size:12px;flex-shrink:0;margin-left:6px;';
             mb.textContent = 'Move invoice to Paid';
             mb.addEventListener('click', async function(e){
               e.stopPropagation(); mb.disabled = true;
               try { const r = await moveInvoiceToPaid_(q); toast('Moved ' + r.moved + ' invoice file(s) into the Paid folder.'); renderInvoiceQueue(); }
               catch (err){ toast(err.message || 'Could not move the invoice.'); mb.disabled = false; }
             });
-            row.appendChild(mb);
+            cellB.appendChild(mb);
           } else if (q.invoiceMovedToPaidAt){
-            const ok = document.createElement('span'); ok.className = 'hint'; ok.style.cssText = 'flex-shrink:0;margin-left:6px;'; ok.textContent = 'In Paid';
-            row.appendChild(ok);
+            const ok = document.createElement('span'); ok.className = 'hint inv-cell-hint'; ok.textContent = 'In Paid';
+            cellB.appendChild(ok);
           }
         }
         row.addEventListener('click', function(){ openQuoteEditor(q.id); });
