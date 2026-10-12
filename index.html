@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline'; connect-src *; img-src * data: blob:; frame-src https://accounts.google.com https://apis.google.com blob:;">
-<title>ImageScape Studios — Hub</title>
+<title>ImageScape Studios | The Hub</title>
 <!--
   ImageScape Studios Management Hub — a small static app (no build step, no
   server-side code of its own) meant to be hosted on GitHub Pages from a
@@ -998,7 +998,7 @@
 <div id="unlockScreen" class="center-screen" style="display:none;">
   <div class="auth-card">
     <div class="brand"><span class="mark"></span><span>ImageScape Studios</span></div>
-    <h1>Hub</h1>
+    <h1>The Hub</h1>
     <p class="lead">Enter the password to decrypt this file. Nothing below this point is readable without it.</p>
     <div id="unlockMsg"></div>
     <div class="field">
@@ -1019,7 +1019,7 @@
   <header class="hub-header">
     <div class="brand ro-allow" id="homeBrand" role="button" tabindex="0" title="Back to Home">
       <span class="mark"></span>
-      <div><strong>ImageScape Studios</strong><span>Hub</span></div>
+      <div><strong>ImageScape Studios</strong><span>The Hub</span></div>
     </div>
     <div class="ctx-switch ro-allow" id="ctxSwitch">
       <button type="button" class="active" data-ctx="imagescape">ImageScape</button>
@@ -1133,7 +1133,7 @@
         <div id="dashTrashList"></div>
       </div>
       <div class="card" id="healthCard">
-        <div class="dash-section-head"><h2>Hub health and about</h2>
+        <div class="dash-section-head"><h2>The Hub: health and about</h2>
           <button type="button" class="btn btn-ghost" id="healthRunBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Run health check</button>
         </div>
         <div class="sub">A monthly check that Drive, Zoho, your backups and your data are all in order, in plain English. <span id="healthSummary"></span></div>
@@ -2186,8 +2186,8 @@ function doPost(e) {
       group: 'External Apps & Links',
       collapsed: false,
       items: [
-        { id:'github-hub-app', name:'ImageScape Studios Hub (GitHub Pages)', desc:'Opens the live, password-protected Hub app in a new tab — this app, deployed. Linked here purely for one-click access to the deployed copy, added 15 Aug 2026.', kind:'link', url:'https://jcookeinv.github.io/imagescape-hub-app/', icon:'⇗' },
-        { id:'offline-hub-viewer', name:'Hub Offline Backup Viewer', desc:'Emergency, fully-offline companion to the Hub app above — makes no network requests at all. Loads a local vault.json backup (a manual download from the private data repo) and decrypts it right here with the same password as the main Hub. Deliberately read-only, no add/edit/delete controls anywhere — for looking something up when GitHub isn’t reachable, not a second copy of the truth. Added 15 Aug 2026.', payload:'tool_offline_viewer', kind:'tool', icon:'⇗' },
+        { id:'github-hub-app', name:'The Hub (GitHub Pages)', desc:'Opens the live, password-protected Hub app in a new tab — this app, deployed. Linked here purely for one-click access to the deployed copy, added 15 Aug 2026.', kind:'link', url:'https://jcookeinv.github.io/imagescape-hub-app/', icon:'⇗' },
+        { id:'offline-hub-viewer', name:'The Hub Offline Backup Viewer', desc:'Emergency, fully-offline companion to the Hub app above — makes no network requests at all. Loads a local vault.json backup (a manual download from the private data repo) and decrypts it right here with the same password as the main Hub. Deliberately read-only, no add/edit/delete controls anywhere — for looking something up when GitHub isn’t reachable, not a second copy of the truth. Added 15 Aug 2026.', payload:'tool_offline_viewer', kind:'tool', icon:'⇗' },
       ],
     },
     {
@@ -4529,7 +4529,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const insertBefore = itemRows[itemRows.length - 1].nextSibling;
     itemRows.forEach(function(row){ parent.removeChild(row); });
 
-    items.forEach(function(item){
+    items.forEach(function(item, idx){
+      // A thin shaded strip with the same bottom rule as the item rows goes between every pair of
+      // items, so each line is clearly separated from the next (the principle Jon used by hand on
+      // invoice 26001, applied the same way to every item, 12 Oct 2026).
+      if (idx > 0){
+        const spacer = anchor.cloneNode(true);
+        Array.prototype.slice.call(spacer.getElementsByTagNameNS(ODF_NS.table, 'table-cell')).forEach(function(c){ odsSetCellText(xmlDoc, c, ''); });
+        odsSetRowHeight_(xmlDoc, spacer, 0.3, 'roSpacer');
+        parent.insertBefore(spacer, insertBefore);
+      }
       const newRow = anchor.cloneNode(true);
       const dateCell = odsGetCellAt(newRow, header.dateIdx);
       const amtCell = odsGetCellAt(newRow, header.amtIdx);
@@ -8314,8 +8323,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.18';
+  const HUB_VERSION = '2026.10.19';
   const HUB_CHANGELOG = [
+    { v: '2026.10.19', date: '12 Oct 2026', items: [
+      'Invoices and receipts: a thin shaded strip with a rule under it now sits between every pair of line items, so each line is clearly separated, as on invoice 26001.',
+      'The app is now called The Hub: the sign-in page, the header, the browser tab title and the health check use the new name.' ] },
     { v: '2026.10.18', date: '12 Oct 2026', items: [
       'Invoice and receipt PDFs: the navy header bar, the shaded item rows and the total bar no longer stick out to the left of the text margin.',
       'Invoices tab: the Matches/Differs label and the Make receipt and Move to Paid buttons now line up in columns on every row.' ] },
@@ -8353,7 +8365,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function renderAbout_(){
     const ver = document.getElementById('aboutVersion');
-    if (ver) ver.textContent = 'Hub version ' + HUB_VERSION;
+    if (ver) ver.textContent = 'The Hub, version ' + HUB_VERSION;
     const wrap = document.getElementById('aboutLog');
     if (!wrap) return;
     wrap.innerHTML = '';
@@ -8377,7 +8389,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const entry = HUB_CHANGELOG[0];
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
-    backdrop.innerHTML = '<div class="modal" style="max-width:520px;"><h3>Hub updated</h3><p>Version ' + HUB_VERSION + '. What is new:</p><ul id="wnList" style="margin:0 0 6px 18px;padding:0;line-height:1.5;"></ul><div class="row"><button class="btn btn-primary" id="wnOk">Got it</button></div></div>';
+    backdrop.innerHTML = '<div class="modal" style="max-width:520px;"><h3>The Hub updated</h3><p>Version ' + HUB_VERSION + '. What is new:</p><ul id="wnList" style="margin:0 0 6px 18px;padding:0;line-height:1.5;"></ul><div class="row"><button class="btn btn-primary" id="wnOk">Got it</button></div></div>';
     document.body.appendChild(backdrop);
     entry.items.forEach(function(t){ const li = document.createElement('li'); li.textContent = t; backdrop.querySelector('#wnList').appendChild(li); });
     backdrop.querySelector('#wnOk').addEventListener('click', function(){ backdrop.remove(); });
@@ -8412,7 +8424,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const wrap = document.getElementById('healthResults');
     if (!data || !wrap) return;
     if (btn){ btn.disabled = true; btn.textContent = 'Checking…'; }
-    const act = activityBegin('Hub health check', ['Google Drive', 'Zoho and backups', 'Your data', 'This browser']);
+    const act = activityBegin('The Hub health check', ['Google Drive', 'Zoho and backups', 'Your data', 'This browser']);
     const res = [];
     const add = function(level, title, detail){ res.push({ level: level, title: title, detail: detail || '' }); };
     try {
@@ -8468,7 +8480,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e){ /* never let this stop the check */ }
       act.step(3);
       // 4 browser
-      try { if (!(window.crypto && crypto.subtle)) throw new Error('no crypto'); add('ok', 'This browser can encrypt and save', 'Hub version ' + HUB_VERSION + ', data format ' + APP_SCHEMA_VERSION + '.'); }
+      try { if (!(window.crypto && crypto.subtle)) throw new Error('no crypto'); add('ok', 'This browser can encrypt and save', 'The Hub, version ' + HUB_VERSION + ', data format ' + APP_SCHEMA_VERSION + '.'); }
       catch (e){ add('bad', 'This browser cannot do the encryption the Hub needs', 'Use an up-to-date Chrome, Safari, Edge or Firefox over https.'); }
       let lsOk = true; try { localStorage.setItem('hubprobe', '1'); localStorage.removeItem('hubprobe'); } catch (e){ lsOk = false; }
       if (!lsOk) add('warn', 'This browser blocks site storage', 'The Hub still works but forgets small settings each visit. Allow site data for this site.');
@@ -8502,7 +8514,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const last = data && data.healthCheckLastRun;
     const due = !last || (Date.parse(last + 'T00:00:00') < Date.now() - 35 * 86400000);
     if (!due) return null;
-    return { level: 'soon', date: todayIso_(), title: last ? 'Monthly Hub health check is due' : 'Run the Hub health check', when: 'Hub', panel: 'home',
+    return { level: 'soon', date: todayIso_(), title: last ? 'Monthly Hub health check is due' : 'Run the Hub health check', when: 'The Hub', panel: 'home',
       sub: 'Takes a few seconds: tests Drive, Zoho, backups and your data, and says plainly what to fix. Press Run health check near the bottom of the Dashboard.' };
   }
 
