@@ -8338,8 +8338,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.24';
+  const HUB_VERSION = '2026.10.26';
   const HUB_CHANGELOG = [
+    { v: '2026.10.26', date: '12 Oct 2026', items: [
+      'Make receipt: the wording of each line item now shows in boxes you can edit before the receipt is made (it is taken from the quote in the Hub, not from Zoho). A change is also saved back onto the quote line.' ] },
+    { v: '2026.10.25', date: '12 Oct 2026', items: [
+      'Invoices tab: if Move invoice to Paid cannot find the invoice files (for example you already moved them by hand), it now asks whether to mark the invoice as already in Paid, or to cancel and leave it as it is.' ] },
     { v: '2026.10.24', date: '12 Oct 2026', items: [
       'Retainers: a new Edit button on each retainer changes what it is for (the wording on the invoice line), the amount and the day of the month. It applies to invoices raised from then on.' ] },
     { v: '2026.10.23', date: '12 Oct 2026', items: [
@@ -14765,7 +14769,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function moveInvoiceToPaid_(q){
     const num = q.imageScapeInvoiceRef || q.zohoInvoiceNumber;
     const found = await invoiceFolderIdFor_(q);
-    if (!found.folderId) throw new Error('No Drive folder known for invoice ' + num + ', so it was not moved.');
+    if (!found.folderId) throw Object.assign(new Error('No Drive folder known for invoice ' + num + ', so it was not moved.'), { nothingFound: true });
     const paidId = await ensurePaidFolder_(found.folderId);
     const esc = function(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
     const ids = {};
@@ -14781,7 +14785,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const lr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,name)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
     if (lr.ok){ const lb = await lr.json(); (lb.files || []).forEach(function(f){ ids[f.id] = true; }); }
     const idList = Object.keys(ids);
-    if (!idList.length) throw new Error('Could not find the invoice files in Drive to move.');
+    if (!idList.length) throw Object.assign(new Error('Could not find the invoice files in Drive to move.'), { nothingFound: true });
     let moved = 0;
     for (let i = 0; i < idList.length; i++){
       const mr = await driveApiFetch('/files/' + encodeURIComponent(idList[i]) + '?addParents=' + encodeURIComponent(paidId) + '&removeParents=' + encodeURIComponent(found.folderId) + '&supportsAllDrives=true&fields=id', { method: 'PATCH' });
@@ -14832,11 +14836,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         '<div class="sub" style="margin:-4px 0 10px;">Zoho shows this invoice as paid. This makes a RECEIPT (.ods and PDF) with the same number, saved in a <strong>Paid</strong> folder next to the invoice, then opens the email with it attached. The invoice itself moves into Paid when you create that email draft.</div>' +
         '<div class="field"><label>Date payment was received</label><input type="date" id="rcDate"><div class="hint" id="rcGuess"></div></div>' +
         '<div class="field"><label>Client postal address (one line each)</label><textarea id="rcAddress" rows="4" placeholder="Unit 4, The Docks&#10;Gloucester Quays&#10;Gloucester&#10;GL2 2EQ"></textarea></div>' +
+        '<div class="field"><label>Wording on the receipt (one box per line item)</label><div id="rcItems"></div><div class="hint">Taken from the quote in the Hub, not from Zoho. Change it here if it should read differently; the quote line is updated to match.</div></div>' +
         '<div id="rcStatus" class="sub" style="min-height:18px;"></div>' +
         '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="rcCancel">Cancel</button><button class="btn btn-primary" id="rcGo">Make receipt</button></div>' +
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#rcDate').value = lastPay || todayIso_();
+    const rcItemsWrap = backdrop.querySelector('#rcItems');
+    const rcInputs = [];
+    docItemsForQuote_(q).slice(0, (q.lineItems || []).length).forEach(function(it, i){
+      const inp = document.createElement('textarea'); inp.rows = 2; inp.style.cssText = 'width:100%;margin-bottom:6px;';
+      inp.value = it.description; rcItemsWrap.appendChild(inp); rcInputs.push({ el: inp, start: it.description });
+    });
     backdrop.querySelector('#rcGuess').textContent = guess.date ? ('Filled in from ' + guess.why + '. Check it is right.') : 'No payment found to predict from, so this is today. Change it to the day the money arrived.';
     backdrop.querySelector('#rcAddress').value = client.address || '';
     backdrop.querySelector('#rcCancel').addEventListener('click', function(){ backdrop.remove(); });
@@ -14861,6 +14872,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         act.step(2);
         const fileBase = docFileBase_(num, client.company || client.name, paidIso, 'Receipt');
         const items = docItemsForQuote_(q);
+        rcInputs.forEach(function(r, i){
+          const v = r.el.value.trim();
+          if (v && v !== r.start && items[i]){
+            items[i].description = v;
+            const li = q.lineItems[i]; if (li){ li.label = v; li.description = ''; }
+            markDirty();
+          }
+        });
         st.textContent = 'Making the receipt and saving it…';
         act.step(3);
         const result = await generateImageScapeDoc({
@@ -15027,7 +15046,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             mb.addEventListener('click', async function(e){
               e.stopPropagation(); mb.disabled = true;
               try { const r = await moveInvoiceToPaid_(q); toast('Moved ' + r.moved + ' invoice file(s) into the Paid folder.'); renderInvoiceQueue(); }
-              catch (err){ toast(err.message || 'Could not move the invoice.'); mb.disabled = false; }
+              catch (err){
+                if (err && err.nothingFound){
+                  // Nothing to move: the files may already be in Paid (moved by hand). Let Jon say so, or back out.
+                  if (confirm('The Hub could not find the invoice files to move. They may already be in the Paid folder.\n\nOK = mark invoice ' + (q.imageScapeInvoiceRef || q.zohoInvoiceNumber || '') + ' as already in Paid.\nCancel = leave it as it is.')){
+                    q.invoiceMovedToPaidAt = new Date().toISOString(); q.invoiceMarkedInPaidByHand = true; markDirty();
+                    toast('Marked as in Paid.'); renderInvoiceQueue();
+                  } else { toast('Left as it was.'); mb.disabled = false; }
+                } else { toast(err.message || 'Could not move the invoice.'); mb.disabled = false; }
+              }
             });
             cellB.appendChild(mb);
           } else if (q.invoiceMovedToPaidAt){
