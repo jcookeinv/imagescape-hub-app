@@ -5479,6 +5479,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       for (let i = tIdx + 1; tIdx >= 0 && i < rows.length && i <= tIdx + 3; i++){ if (shrink(rows[i])) break; }
     }
     rows = rowsOf();
+    // Registered-address footer sits at the foot of the page, not straight under the last block
+    // (Jon, 12 Oct 2026). Measured on a real Sheets PDF of the invoice: the sheet prints at about
+    // 24.7pt per cm of row height on a Letter page, which leaves roughly 27.6cm of rows before the
+    // bottom margin. Aim the footer's top at 25.8cm so a little rounding cannot push it onto page 2.
+    // Only invoices and receipts: the quote template has different column widths, so a different
+    // print scale that has not been measured.
+    if (kind !== 'quote'){
+      const doc = table.ownerDocument;
+      const heights = {};
+      Array.prototype.slice.call(doc.getElementsByTagNameNS(ODF_NS.style, 'style')).forEach(function(st){
+        if (st.getAttributeNS(ODF_NS.style, 'family') !== 'table-row') return;
+        const rp = st.getElementsByTagNameNS(ODF_NS.style, 'table-row-properties')[0];
+        const hv = rp && parseFloat(rp.getAttributeNS(ODF_NS.style, 'row-height'));
+        if (hv) heights[st.getAttributeNS(ODF_NS.style, 'name')] = hv;
+      });
+      const heightOf = function(r){ return heights[r.getAttributeNS(ODF_NS.table, 'style-name')] || 0.452; };
+      const reg = rows.findIndex(function(r){ return (r.textContent || '').toLowerCase().indexOf('registered address') >= 0; });
+      if (reg > 0){
+        let top = 0;
+        for (let i = 0; i < reg; i++) top += heightOf(rows[i]) * repOf(rows[i]);
+        const filler = rows[reg - 1];
+        const extra = Math.floor((25.8 - top) / heightOf(filler));
+        if (extra > 0 && !(filler.textContent || '').trim()){
+          filler.setAttributeNS(ODF_NS.table, 'table:number-rows-repeated', String(repOf(filler) + extra));
+        }
+      }
+      rows = rowsOf();
+    }
     // Rows used = everything down to the footer (the template ends with a huge blank run).
     const regIdx = rows.findIndex(function(r){ return (r.textContent || '').toLowerCase().indexOf('registered address') >= 0; });
     let used = 0;
@@ -8258,8 +8286,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.16';
+  const HUB_VERSION = '2026.10.17';
   const HUB_CHANGELOG = [
+    { v: '2026.10.17', date: '12 Oct 2026', items: [
+      'Make receipt now predicts the day the payment arrived: from a payment already recorded in the Hub, otherwise from a matching deposit in the Zoho bank feed (same amount, payer name matches the client). It says where the date came from, and you can still change it.',
+      'On invoices and receipts the registered address now sits at the bottom of the page instead of straight under the last block.' ] },
     { v: '2026.10.16', date: '12 Oct 2026', items: [
       'Receipts fixed after comparing one against its invoice: long descriptions are no longer cut off, the receipt carries the client address (the Make receipt box asks for it if the Hub has none), and the RECEIPT heading sits where INVOICE does. Paper size and layout are otherwise unchanged.' ] },
     { v: '2026.10.13', date: '13 Oct 2026', items: [
@@ -14676,25 +14707,51 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return { moved: moved, paidId: paidId };
   }
 
+  // Best guess at the day a client's payment arrived, for the Make receipt box. Order of trust:
+  // a payment already recorded against this invoice in the Hub, then a deposit in the synced Zoho
+  // bank feed for the invoice total from a payer whose name shares a word with the client, on or
+  // after the invoice date (the earliest such one), else nothing (the box falls back to today).
+  function paymentDateGuess_(q, client){
+    const recorded = (q.zohoPayments || []).map(function(p){ return p.date || ''; }).filter(Boolean).sort().pop();
+    if (recorded) return { date: recorded, why: 'the payment recorded in the Hub' };
+    const bank = zohoBankState_();
+    if (!bank.known || !bank.txns.length) return { date: '', why: '' };
+    const total = computeQuoteTotals(q).total;
+    const stop = { limited: 1, ltd: 1, studio: 1, studios: 1, and: 1, the: 1 };
+    const words = function(t){ return String(t || '').toLowerCase().replace(/[^a-z]+/g, ' ').split(' ').filter(function(w){ return w.length >= 4 && !stop[w]; }); };
+    const cw = words((client && (client.company || '')) + ' ' + (client && client.name || ''));
+    const from = q.imageScapeInvoiceDate || '';
+    const hits = bank.txns.filter(function(t){
+      if (String(t.direction).toLowerCase() !== 'debit') return false;
+      if (Math.abs((Number(t.amount) || 0) - total) >= 0.005) return false;
+      if (from && String(t.date || '') < from) return false;
+      const tw = words((t.payee || '') + ' ' + (t.description || '') + ' ' + (t.reference || ''));
+      return tw.some(function(w){ return cw.indexOf(w) !== -1; });
+    }).sort(function(a, b){ return String(a.date) < String(b.date) ? -1 : (String(a.date) > String(b.date) ? 1 : 0); });
+    return hits.length ? { date: String(hits[0].date), why: 'a ' + fmtGBP(total) + ' deposit from ' + (hits[0].payee || 'the client') + ' in your bank feed' } : { date: '', why: '' };
+  }
+
   function openReceiptModal_(q){
     const client = q.clientId ? data.clients.find(function(x){ return x.id === q.clientId; }) : null;
     if (!client){ toast('This invoice has no client.'); return; }
     const num = q.imageScapeInvoiceRef || q.zohoInvoiceNumber;
     if (!num){ toast('This quote has no invoice number yet.'); return; }
-    const lastPay = (q.zohoPayments || []).map(function(p){ return p.date || ''; }).filter(Boolean).sort().pop() || '';
+    const guess = paymentDateGuess_(q, client);
+    const lastPay = guess.date;
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
     backdrop.innerHTML =
       '<div class="modal" style="max-width:480px;">' +
         '<h3>Make receipt for ' + escapeHtml(String(num)) + '</h3>' +
         '<div class="sub" style="margin:-4px 0 10px;">Zoho shows this invoice as paid. This makes a RECEIPT (.ods and PDF) with the same number, saved in a <strong>Paid</strong> folder next to the invoice, then opens the email with it attached. The invoice itself moves into Paid when you create that email draft.</div>' +
-        '<div class="field"><label>Date payment was received</label><input type="date" id="rcDate"></div>' +
+        '<div class="field"><label>Date payment was received</label><input type="date" id="rcDate"><div class="hint" id="rcGuess"></div></div>' +
         '<div class="field"><label>Client postal address (one line each)</label><textarea id="rcAddress" rows="4" placeholder="Unit 4, The Docks&#10;Gloucester Quays&#10;Gloucester&#10;GL2 2EQ"></textarea></div>' +
         '<div id="rcStatus" class="sub" style="min-height:18px;"></div>' +
         '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="rcCancel">Cancel</button><button class="btn btn-primary" id="rcGo">Make receipt</button></div>' +
       '</div>';
     document.body.appendChild(backdrop);
     backdrop.querySelector('#rcDate').value = lastPay || todayIso_();
+    backdrop.querySelector('#rcGuess').textContent = guess.date ? ('Filled in from ' + guess.why + '. Check it is right.') : 'No payment found to predict from, so this is today. Change it to the day the money arrived.';
     backdrop.querySelector('#rcAddress').value = client.address || '';
     backdrop.querySelector('#rcCancel').addEventListener('click', function(){ backdrop.remove(); });
     backdrop.querySelector('#rcGo').addEventListener('click', async function(){
