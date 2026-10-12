@@ -8338,8 +8338,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.22';
+  const HUB_VERSION = '2026.10.24';
   const HUB_CHANGELOG = [
+    { v: '2026.10.24', date: '12 Oct 2026', items: [
+      'Retainers: a new Edit button on each retainer changes what it is for (the wording on the invoice line), the amount and the day of the month. It applies to invoices raised from then on.' ] },
+    { v: '2026.10.23', date: '12 Oct 2026', items: [
+      'Payments recorded in Zoho from the bank feed now use Zoho\'s own Bank Transfer payment mode, instead of creating a separate "banktransfer" mode.' ] },
     { v: '2026.10.22', date: '12 Oct 2026', items: [
       'Invoices and receipts: each line item row is now sized to exactly the lines of text it holds, so there is no extra gap under a long item before the spacer line (as on invoice 26001).' ] },
     { v: '2026.10.21', date: '12 Oct 2026', items: [
@@ -14469,7 +14473,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         btn.disabled = pending;
         btn.addEventListener('click', function(){
           if (!confirm('Record ' + fmtGBP(amt) + ' received on ' + t.date + ' against invoice ' + inv.number + ' (' + (inv.customerName || '') + ') in Zoho?\n\nThe payment goes into the bank account the money arrived in.' + ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? ' The Hub also asks Zoho to match the bank line. If Zoho refuses you are told, and it is one click in Zoho Banking.' : ' You then match it to the bank line in Zoho Banking.'))) return;
-          zohoFireWrite('recordPayment', { invoiceId: inv.invoiceId, amount: amt, date: t.date, paymentMode: 'banktransfer', accountId: t.accountId, referenceNumber: t.reference || '', matchLineId: ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? t.id : '') },
+          zohoFireWrite('recordPayment', { invoiceId: inv.invoiceId, amount: amt, date: t.date, paymentMode: 'Bank Transfer', accountId: t.accountId, referenceNumber: t.reference || '', matchLineId: ((Number(snap.scriptVersion) || 1) >= ZOHO_V4 ? t.id : '') },
             { txnId: t.id, label: 'Invoice ' + inv.number + ' (' + fmtGBP(amt) + ')', date: t.date });
           toast('Sending to Zoho. Check the action log on the Dashboard shortly.');
           renderBankFeed();
@@ -14633,7 +14637,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!wrap || !data) return;
     wrap.innerHTML = '';
     if (!data.retainers.length){ wrap.innerHTML = '<div class="empty-note">No retainers yet.</div>'; return; }
-    const cnt = document.createElement('div'); cnt.className = 'hint'; cnt.textContent = data.retainers.length + ' retainer' + (data.retainers.length === 1 ? '' : 's') + ' on file. Each has Pause, End retainer and Remove below its months.'; wrap.appendChild(cnt);
+    const cnt = document.createElement('div'); cnt.className = 'hint'; cnt.textContent = data.retainers.length + ' retainer' + (data.retainers.length === 1 ? '' : 's') + ' on file. Each has Pause, End retainer, Edit and Remove below its months.'; wrap.appendChild(cnt);
     data.retainers.forEach(function(r){
       const c = data.clients.find(function(x){ return x.id === r.clientId; });
       const card = document.createElement('div'); card.className = 'snapshot-card';
@@ -14676,6 +14680,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         r.endYm = t; markDirty(); renderRetainers(); renderHome();
       });
       act.appendChild(en);
+      const ed = document.createElement('button'); ed.className = 'snap-csv-btn'; ed.style.marginLeft = '8px'; ed.textContent = 'Edit';
+      ed.title = 'Change what it is for, the amount or the day of the month. Applies to invoices raised from now on; invoices already raised are not changed.';
+      ed.addEventListener('click', function(){
+        const d = prompt('What it is for (this is the wording on the invoice line):', r.description || '');
+        if (d === null) return;
+        const a = prompt('Amount in pounds:', String(r.amount));
+        if (a === null) return;
+        const dy = prompt('Day of the month to bill (1 to 28):', String(r.dayOfMonth));
+        if (dy === null) return;
+        const amt = Number(a);
+        if (!(amt > 0)){ toast('Amount must be more than 0, nothing changed.'); return; }
+        const day = parseInt(dy, 10);
+        if (!(day >= 1 && day <= 28)){ toast('Day must be between 1 and 28, nothing changed.'); return; }
+        r.description = d.trim() || 'Monthly retainer'; r.amount = amt; r.dayOfMonth = day;
+        markDirty(); renderRetainers(); renderHome();
+        toast('Retainer updated. Invoices already raised are not changed.');
+      });
+      act.appendChild(ed);
       const rm = document.createElement('button'); rm.className = 'snap-csv-btn'; rm.style.marginLeft = '8px'; rm.textContent = 'Remove';
       rm.title = 'Delete this retainer from the list. Invoices already raised stay as they are.';
       rm.addEventListener('click', function(){ head.querySelector('.snap-del').click(); });
