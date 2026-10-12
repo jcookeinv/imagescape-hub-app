@@ -4529,22 +4529,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const insertBefore = itemRows[itemRows.length - 1].nextSibling;
     itemRows.forEach(function(row){ parent.removeChild(row); });
 
-    // Each ImageScape line item reads as: the text, one blank shaded line of normal height, then a single
-    // separator rule (Jon, 12 Oct 2026). The item row itself carries no rule; the blank line under it does,
-    // including after the last item so the block always closes the same way before TOTAL.
-    const noRuleCells = function(row){
-      Array.prototype.slice.call(row.childNodes).forEach(function(cell, i){
-        if (cell.nodeType !== 1 || i === 0) return;
-        const sn = cell.getAttributeNS(ODF_NS.table, 'style-name');
-        if (!sn) return;
-        const v = odsCloneStyleVariant(xmlDoc, sn, 'table-cell', sn + '_nr', function(clone){
-          const props = clone.getElementsByTagNameNS(ODF_NS.style, 'table-cell-properties')[0];
-          if (props) props.setAttributeNS(ODF_NS.fo, 'fo:border-bottom', 'none');
-        });
-        cell.setAttributeNS(ODF_NS.table, 'table:style-name', v);
-      });
-    };
-    items.forEach(function(item){
+    // Same principle as invoice 26001 (Jon, 12 Oct 2026): between every pair of line items sits a thin
+    // shaded spacer line with a separator rule under it. Nothing is added after the last item; its own
+    // rule closes the block and the usual blank row follows before TOTAL.
+    items.forEach(function(item, idx){
+      if (withSeparators && idx > 0){
+        const spacer = anchor.cloneNode(true);
+        Array.prototype.slice.call(spacer.getElementsByTagNameNS(ODF_NS.table, 'table-cell')).forEach(function(c){ odsSetCellText(xmlDoc, c, ''); });
+        odsSetRowHeight_(xmlDoc, spacer, 0.3, 'roSpacer');
+        parent.insertBefore(spacer, insertBefore);
+      }
       const newRow = anchor.cloneNode(true);
       const dateCell = odsGetCellAt(newRow, header.dateIdx);
       const amtCell = odsGetCellAt(newRow, header.amtIdx);
@@ -4592,16 +4586,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // is computed in JS from the same item amounts, not summed by the spreadsheet.
       odsSetCellText(xmlDoc, amtCell, fmtGBP(item.amount));
       if (item.description) odsFitRowToText_(xmlDoc, newRow, item.description);
-      if (withSeparators){
-        const spacer = anchor.cloneNode(true);
-        Array.prototype.slice.call(spacer.getElementsByTagNameNS(ODF_NS.table, 'table-cell')).forEach(function(c){ odsSetCellText(xmlDoc, c, ''); });
-        odsSetRowHeight_(xmlDoc, spacer, 0.452, 'roSpacer');
-        noRuleCells(newRow);
-        parent.insertBefore(newRow, insertBefore);
-        parent.insertBefore(spacer, insertBefore);
-      } else {
-        parent.insertBefore(newRow, insertBefore);
-      }
+      parent.insertBefore(newRow, insertBefore);
     });
   }
 
@@ -8338,10 +8323,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.20';
+  const HUB_VERSION = '2026.10.21';
   const HUB_CHANGELOG = [
+    { v: '2026.10.21', date: '12 Oct 2026', items: [
+      'Invoices and receipts: line items are laid out exactly as on invoice 26001. A thin shaded spacer line with a rule under it sits between each pair of items, and nothing extra is added after the last item.' ] },
     { v: '2026.10.20', date: '12 Oct 2026', items: [
-      'Invoices and receipts: every line item, including the last, is now followed by one blank shaded line and a single separator rule. There is no longer a rule directly under the item text.' ] },
+      'Superseded by 2026.10.21 (spacing now matches invoice 26001 exactly).' ] },
     { v: '2026.10.19', date: '12 Oct 2026', items: [
       'Invoices and receipts: a thin shaded strip with a rule under it now sits between every pair of line items, so each line is clearly separated, as on invoice 26001.',
       'The app is now called The Hub: the sign-in page, the header, the browser tab title and the health check use the new name.' ] },
