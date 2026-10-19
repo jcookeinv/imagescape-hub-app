@@ -1811,7 +1811,7 @@ function doPost(e) {
 
       <div class="card" style="margin-top:16px;" id="invPaidCard">
         <h2>Mark an invoice paid</h2>
-        <div class="sub">Pulls every invoice from the Invoices tab that isn't already marked PAID, so a payment date can be confirmed without opening the spreadsheet by hand. Updates only that row's Status and Date Paid columns — nothing else on the tab is touched.</div>
+        <div class="sub">Pulls every invoice from the Invoices tab that isn't already marked PAID, so a payment date can be confirmed without opening the spreadsheet by hand. Updates only that row's Status and Date Paid columns — nothing else on the tab is touched. The invoice's .ods and PDF then move into a "Paid" folder inside the client's invoice folder in Drive.</div>
         <div class="row"><button class="btn btn-ghost" id="invPaidRefreshBtn" style="width:auto;">Load unpaid invoices</button></div>
         <div id="invPaidMsg"></div>
         <div id="invPaidList" style="margin-top:10px;"></div>
@@ -5068,7 +5068,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const dueCell = odsGetCellAt(newRow, 5);
     dueCell.removeAttributeNS(ODF_NS.table, 'formula');
     odsSetCellDate(xmlDoc, dueCell, entry.dueDateIso, ddmmyy(entry.dueDateIso));
-    if (entry.datePaidIso) odsSetCellDate(xmlDoc, odsGetCellAt(newRow, 6), entry.datePaidIso, ddmmyy(entry.datePaidIso));
+    if (entry.datePaidIso){
+      const paidCellNew = odsGetCellAt(newRow, 6);
+      odsSetCellDate(xmlDoc, paidCellNew, entry.datePaidIso, ddmmyy(entry.datePaidIso));
+      odsCopyCellStyle_(odsGetCellAt(newRow, 4), paidCellNew);
+    }
     else odsSetCellText(xmlDoc, odsGetCellAt(newRow, 6), '');
     odsSetCellText(xmlDoc, odsGetCellAt(newRow, 7), entry.destinationAccount || '');
     odsSetCellText(xmlDoc, odsGetCellAt(newRow, 8), entry.notes || '');
@@ -5149,9 +5153,47 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (!targetRow) throw new Error('Could not find invoice ' + id + ' on the Invoices tab anymore — it may have changed on the sheet itself since this list was loaded.');
     odsSetCellText(xmlDoc, odsGetCellAt(targetRow, 3), 'PAID');
-    odsSetCellDate(xmlDoc, odsGetCellAt(targetRow, 6), datePaidIso, ddmmyy(datePaidIso));
+    const paidCell = odsGetCellAt(targetRow, 6);
+    odsSetCellDate(xmlDoc, paidCell, datePaidIso, ddmmyy(datePaidIso));
+    odsCopyCellStyle_(odsGetCellAt(targetRow, 4), paidCell);
+    // Tidy: any other Date Paid already holding a date but in a different (date-and-time)
+    // style gets the plain date style too. Only the style changes, never a value.
+    for (let r2 = header.rowIndex + 1; r2 < rows.length; r2++){
+      if (rows[r2] === targetRow) continue;
+      if (!odsPeekCellText(rows[r2], 0)) continue; // spacer/marker rows are left alone
+      const paidIso2 = odsPeekCellDateValue(rows[r2], 6);
+      if (!paidIso2 || !odsPeekCellDateValue(rows[r2], 4)) continue; // only rows with both dates
+      const pc = odsGetCellAt(rows[r2], 6), ic = odsGetCellAt(rows[r2], 4);
+      odsCopyCellStyle_(ic, pc);
+      odsSetCellDate(xmlDoc, pc, paidIso2, ddmmyy(paidIso2)); // same date, shown without the time
+    }
     const blob = await odsSaveContentXml(dl.zip, xmlDoc);
     await saveTaxSpreadsheetAsNewVersion(blob);
+  }
+
+  // Self-employed: once an invoice is confirmed paid, its .ods and PDF (saved as <id>.ods and
+  // <id>.pdf in the client's invoice folder) move into a "Paid" folder inside that same client
+  // folder. Reuses ensurePaidFolder_, so an existing Paid folder is reused and a file already
+  // sitting in one is left alone. Never throws for "nothing found" - the caller reports it.
+  async function moveSoleTraderInvoiceFilesToPaid_(invoiceId){
+    const esc = function(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+    const id = String(invoiceId || '').trim();
+    if (!id) return { moved: 0, found: 0, already: 0 };
+    const q = "trashed = false and (name = '" + esc(id + '.pdf') + "' or name = '" + esc(id + '.ods') + "')";
+    const r = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,parents)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
+    if (!r.ok) throw new Error('Could not look for the invoice files in Drive (status ' + r.status + ').');
+    const files = ((await r.json()).files || []).filter(function(f){ return f.parents && f.parents[0]; });
+    const paidByParent = {};
+    let moved = 0, already = 0;
+    for (const f of files){
+      const parent = f.parents[0];
+      if (!paidByParent[parent]) paidByParent[parent] = await ensurePaidFolder_(parent);
+      const paidId = paidByParent[parent];
+      if (paidId === parent){ already++; continue; } // already inside a Paid folder
+      const mr = await driveApiFetch('/files/' + encodeURIComponent(f.id) + '?addParents=' + encodeURIComponent(paidId) + '&removeParents=' + encodeURIComponent(parent) + '&supportsAllDrives=true&fields=id', { method: 'PATCH' });
+      if (mr.ok) moved++;
+    }
+    return { moved: moved, found: files.length, already: already };
   }
 
   async function renderInvoicePaidList(){
@@ -5167,7 +5209,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let rows;
     try { rows = await listInvoiceLedgerRows(); }
     catch (e){ msg.innerHTML = '<div class="msg error">' + escapeHtml(e.message || 'Could not read the Invoices tab.') + '</div>'; return; }
-    const unpaid = rows.filter(function(r){ return (r.status || '').trim().toUpperCase() !== 'PAID'; });
+    // "TBD" rows are placeholder markers in the spreadsheet, not real invoices: never list them.
+    const isTbd_ = function(v){ return /^\s*tbd\b/i.test(String(v || '')); };
+    const unpaid = rows.filter(function(r){ return (r.status || '').trim().toUpperCase() !== 'PAID' && !isTbd_(r.id) && !isTbd_(r.status); });
     if (!unpaid.length){
       listWrap.innerHTML = '<div class="empty-note">Nothing unpaid on the Invoices tab.</div>';
       return;
@@ -5175,28 +5219,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     unpaid.forEach(function(r){
       const row = document.createElement('div');
       row.className = 'zoho-row';
-      row.style.cssText = 'align-items:center;flex-wrap:wrap;gap:8px;';
+      row.style.cssText = 'align-items:center;flex-wrap:wrap;gap:8px 18px;';
       const left = document.createElement('span');
+      left.style.cssText = 'flex:1 1 260px;min-width:0;';
       left.textContent = r.id + ' — ' + (r.client || '(no client)') + ' (' + (r.amount != null ? fmtGBP(r.amount) : '?') + ') · ' +
         (r.status || '?') + (r.dueDateIso ? (' · due ' + r.dueDateIso) : '');
       row.appendChild(left);
       const dateInput = document.createElement('input');
       dateInput.type = 'date';
       dateInput.value = todayIso_();
-      dateInput.style.cssText = 'width:auto;flex-shrink:0;';
+      dateInput.style.cssText = 'width:auto;flex-shrink:0;margin-left:auto;';
       row.appendChild(dateInput);
       const btn = document.createElement('button');
       btn.className = 'btn btn-primary';
-      btn.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;flex-shrink:0;';
+      btn.style.cssText = 'width:auto;padding:5px 14px;font-size:12.5px;flex-shrink:0;margin-left:10px;';
       btn.textContent = 'Mark paid';
       btn.addEventListener('click', async function(){
         const datePaidIso = dateInput.value;
         if (!datePaidIso){ msg.innerHTML = '<div class="msg error">Pick a payment date first.</div>'; return; }
-        if (!confirm('Mark ' + r.id + ' (' + (r.client || '') + ', ' + (r.amount != null ? fmtGBP(r.amount) : '?') + ') as PAID on ' + datePaidIso + '? This writes straight to the Invoices tab.')) return;
+        if (!confirm('Mark ' + r.id + ' (' + (r.client || '') + ', ' + (r.amount != null ? fmtGBP(r.amount) : '?') + ') as PAID on ' + datePaidIso + '? This writes straight to the Invoices tab, then moves its .ods and PDF into a Paid folder in the client\u2019s Drive folder.')) return;
         btn.disabled = true; btn.textContent = 'Saving…';
         try {
           await markInvoiceLedgerRowPaid(r.id, datePaidIso);
-          toast(r.id + ' marked paid.');
+          let fileNote = '';
+          try {
+            const mv = await moveSoleTraderInvoiceFilesToPaid_(r.id);
+            if (mv.moved) fileNote = ' ' + mv.moved + ' file' + (mv.moved === 1 ? '' : 's') + ' moved into Paid.';
+            else if (mv.already) fileNote = ' Files were already in Paid.';
+            else fileNote = ' No invoice files found in Drive to move.';
+          } catch (me){
+            fileNote = ' Marked paid, but the files were not moved: ' + (me && me.message ? me.message : 'Drive error') + '.';
+          }
+          toast(r.id + ' marked paid.' + fileNote);
           renderInvoicePaidList();
         } catch (e){
           msg.innerHTML = '<div class="msg error">' + escapeHtml(e.message || 'Could not update that row.') + '</div>';
@@ -6743,6 +6797,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (cell.getAttribute('calcext:value-type')) cell.setAttribute('calcext:value-type', 'date');
   }
 
+  // Date cells written by the Hub take the cell style of the row's Inv date cell (plain
+  // dd/mm/yy). Without this the Date Paid cell keeps its blank General style, and Sheets/Excel
+  // then show the stored date with a time on the end (02/10/26 00:00).
+  function odsCopyCellStyle_(fromCell, toCell){
+    const st = fromCell && fromCell.getAttributeNS(ODF_NS.table, 'style-name');
+    if (st) toCell.setAttributeNS(ODF_NS.table, 'table:style-name', st);
+  }
+
   function odsCellDateValue(cell){
     if (cell.getAttributeNS(ODF_NS.office, 'value-type') !== 'date') return null;
     const v = cell.getAttributeNS(ODF_NS.office, 'date-value');
@@ -6891,6 +6953,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const parentsBody = await parentsRes.json();
     const folderId = parentsBody.parents && parentsBody.parents[0];
     if (!folderId) throw new Error('Could not determine which Drive folder to save the new version into.');
+
+    // Quick successive saves (e.g. confirming three payments in a row) reuse the file the Hub
+    // just made instead of adding another copy: if the linked file is one of the Hub's own
+    // dated versions and was last saved under 10 minutes ago, its contents are replaced in
+    // place. Anything older, or a file the Hub did not make, still gets a new dated version.
+    try {
+      const linkedRes = await driveApiFetch('/files/' + data.soleTraderTaxFile.fileId + '?fields=id,name,modifiedTime,trashed');
+      if (linkedRes.ok){
+        const linked = await linkedRes.json();
+        const ageMs = Date.now() - new Date(linked.modifiedTime || 0).getTime();
+        if (!linked.trashed && /^Tax return \d{4}-\d{2}-\d{2}( \d{2}-\d{2})?\.ods$/.test(linked.name || '') && ageMs >= 0 && ageMs < 10 * 60 * 1000){
+          const upd = await driveUploadFetch('/files/' + data.soleTraderTaxFile.fileId + '?uploadType=media&fields=id,name', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/vnd.oasis.opendocument.spreadsheet' },
+            body: blob
+          });
+          if (upd.ok){
+            const updated = await upd.json();
+            data.soleTraderTaxFile = { fileId: updated.id, fileName: updated.name || linked.name };
+            markDirty();
+            renderSoleTraderSheetStatus();
+            return updated;
+          }
+          // In-place update refused: fall through and save a new dated version as before.
+        }
+      }
+    } catch (e){ /* fall through to the normal new-version save */ }
 
     const today = new Date();
     const todayIso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
@@ -8359,8 +8448,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.30';
+  const HUB_VERSION = '2026.10.34';
   const HUB_CHANGELOG = [
+    { v: '2026.10.34', date: '19 Oct 2026', items: [
+      'Tax spreadsheet: several changes made close together (for example confirming three payments in a row) now update the same dated file in Drive instead of making a new copy each time. A new dated copy is only made when the last save was more than 10 minutes ago.' ] },
+    { v: '2026.10.33', date: '19 Oct 2026', items: [
+      'Tax spreadsheet, Invoices tab: a Date Paid written by the Hub now uses the same plain dd/mm/yy format as Inv date, so it no longer shows a time (00:00) on the end. Marking an invoice paid also tidies any older Date Paid that had picked up the time format.' ] },
+    { v: '2026.10.32', date: '19 Oct 2026', items: [
+      'Self-employed Invoices tab, Mark an invoice paid: the date box and Mark paid button now sit clear of the invoice details and of each other, and spreadsheet rows marked TBD are no longer listed as unpaid invoices.' ] },
+    { v: '2026.10.31', date: '19 Oct 2026', items: [
+      'Self-employed Invoices tab: marking an invoice paid now also moves its .ods and PDF into a Paid folder inside the client\'s invoice folder in Drive (an existing Paid folder is reused, files already in Paid are left alone). If the files cannot be found or moved, the invoice is still marked paid and the message says so.' ] },
     { v: '2026.10.30', date: '13 Oct 2026', items: [
       'Payment terms are now 14 days. The quote and invoice templates say "Within 14 days of invoice date" and "balance due within 14 days", and the payment days setting (Email settings) now starts at 14. A saved 30 is changed to 14 once; after that, whatever you set is kept.' ] },
     { v: '2026.10.29', date: '12 Oct 2026', items: [
