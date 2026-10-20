@@ -247,6 +247,21 @@
     .modal-backdrop{padding:10px;align-items:flex-end;}
     .modal{max-width:100% !important;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;}
     .unsaved-bar{padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));}
+    /* Phone width fixes, 20 Oct 2026: long client names made the dropdowns as wide as their longest option,
+       which stretched the whole page sideways and pushed the right margin out of line. Everything below
+       is allowed to shrink to the screen and wrap instead. */
+    select,input,textarea,button{max-width:100%;}
+    .task-add > *{min-width:0;}
+    .task-add select,.task-add input[type=text],.task-add input[type=number],.task-add input[type=date]{flex:1 1 100%;width:100% !important;min-width:0 !important;box-sizing:border-box;}
+    .task-add .btn{flex:1 1 100%;}
+    .task-filter-row{gap:8px;}
+    .show-completed{flex-wrap:wrap;flex-shrink:1;min-width:0;max-width:100%;}
+    .zoho-snapshot .zoho-row:not(.inv-ledger-row){flex-wrap:wrap;gap:6px 10px;}
+    .zoho-snapshot .zoho-row > *{min-width:0;overflow-wrap:anywhere;}
+    #stClientJourney{min-width:0 !important;flex:1 1 100% !important;}
+    input[type=file]{width:100%;min-width:0;box-sizing:border-box;}
+    .finance-form > *,.finance-form-col{min-width:0;}
+    .finance-form-col input,.finance-form-col textarea,.finance-form-col select{box-sizing:border-box;max-width:100%;}
   }
 
   /* Section colours: every menu group has its own colour, shown on its top button, its
@@ -8448,8 +8463,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.34';
+  const HUB_VERSION = '2026.10.35';
   const HUB_CHANGELOG = [
+    { v: '2026.10.35', date: '20 Oct 2026', items: [
+      'Phone layout: the Tasks page and several others (Documents, Galleries, Paperwork, Invoices, Email Templates, Finance) no longer stretch sideways. Long client names in the dropdowns now fit the screen, and Show completed, the form fields and the Raise invoice button stay inside the card. Checked on every page at 390, 360 and 320 pixels wide.' ] },
     { v: '2026.10.34', date: '19 Oct 2026', items: [
       'Tax spreadsheet: several changes made close together (for example confirming three payments in a row) now update the same dated file in Drive instead of making a new copy each time. A new dated copy is only made when the last save was more than 10 minutes ago.' ] },
     { v: '2026.10.33', date: '19 Oct 2026', items: [
