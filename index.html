@@ -1904,6 +1904,7 @@ function doPost(e) {
         <h2>Quotes</h2>
         <div class="sub">Build a quote from your rate presets below — pick a client (optional), add line items, get a total (VAT added automatically if you're VAT registered, per the Tax tab).</div>
         <button class="btn btn-primary" id="quoteNewBtn" style="width:auto;margin-bottom:14px;">+ New quote</button>
+        <button class="btn btn-ghost" id="quoteImportBtn" style="width:auto;margin-bottom:14px;margin-left:8px;">Import existing quote</button>
         <div class="link-grid" id="quoteGrid"></div>
       </div>
 
@@ -4638,7 +4639,72 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // their own style (via odsCloneStyleVariant) - keeping the same bold text and
   // shading, just able to hold a full paragraph the way the Invoice template's
   // single-row items already do.
+  // Quote items, laid out the way Q26001 is (the gold standard for this document): every line item
+  // is its own closed box - a bold heading row with the amount, the description wrapped onto grey
+  // lines beneath it, then a closing row with the bottom border - with a thin gap between boxes, so
+  // it is obvious where each item finishes. The first box takes the template's shaded look and the
+  // rest its white look, as in Q26001. All the row and cell styles are cloned from the template's own
+  // Q26001 rows, so nothing new is invented. If the template's item area is not the expected shape
+  // (for example a hand-edited template), this falls back to the older one-row-per-item layout.
+  const ODS_QUOTE_DESC_WIDTH_PT_ = 438; // 9pt Arial; Q26001's longest line measures about 460pt in the real cell
+  function odsWrapDescLines_(text){
+    const out = [];
+    String(text || '').split(/\r?\n/).forEach(function(para){
+      const words = para.split(/\s+/).filter(Boolean);
+      if (!words.length) return;
+      let cur = '';
+      words.forEach(function(w){
+        const trial = cur ? cur + ' ' + w : w;
+        if (cur && odsTextWidthPt_(trial, 9) > ODS_QUOTE_DESC_WIDTH_PT_){ out.push(cur); cur = w; }
+        else cur = trial;
+      });
+      if (cur) out.push(cur);
+    });
+    return out;
+  }
   function odsRebuildQuoteItems(xmlDoc, table, items){
+    const header = odsFindItemHeader(table);
+    if (!header) throw new Error('Could not find the quote’s item table (a "Description" header row).');
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const base = header.rowIndex + 1;
+    let totalIdx = -1;
+    for (let r = base; r < rows.length; r++){ if (odsRowHasLabelPrefix(rows[r], ['total'])){ totalIdx = r; break; } }
+    if (totalIdx !== base + 14) return odsRebuildQuoteItemsLegacy_(xmlDoc, table, items);
+
+    const proto = function(i){ return rows[base + i].cloneNode(true); };
+    const shadedHead = proto(0), shadedBody = proto(1), shadedLast = proto(3), gap = proto(4);
+    const whiteHead = proto(5), whiteBody = proto(6), whiteLast = proto(9), endGap = proto(13);
+    // The white box's closing row needs the bottom-border amount style the template keeps on its last row.
+    const closeAmtStyle = odsGetCellAt(rows[base + 11], header.amtIdx).getAttributeNS(ODF_NS.table, 'style-name');
+    odsGetCellAt(whiteLast, header.amtIdx).setAttributeNS(ODF_NS.table, 'table:style-name', closeAmtStyle);
+
+    const total = rows[totalIdx];
+    const parent = total.parentNode;
+    for (let r = base; r < totalIdx; r++) parent.removeChild(rows[r]);
+
+    items.forEach(function(item, idx){
+      const shaded = idx === 0;
+      const head = (shaded ? shadedHead : whiteHead).cloneNode(true);
+      const label = (item.label != null && String(item.label).trim()) ? String(item.label).trim() : String(item.description || '').trim();
+      const detail = item.label != null ? String(item.detail || '').trim() : '';
+      odsSetCellText(xmlDoc, odsGetCellAt(head, header.descIdx), label || '(no description)');
+      odsSetCellText(xmlDoc, odsGetCellAt(head, header.amtIdx), fmtGBP(item.amount));
+      parent.insertBefore(head, total);
+      odsWrapDescLines_(detail).forEach(function(line){
+        const body = (shaded ? shadedBody : whiteBody).cloneNode(true);
+        odsSetCellText(xmlDoc, odsGetCellAt(body, header.descIdx), line);
+        odsSetCellText(xmlDoc, odsGetCellAt(body, header.amtIdx), '');
+        parent.insertBefore(body, total);
+      });
+      const last = (shaded ? shadedLast : whiteLast).cloneNode(true);
+      odsSetCellText(xmlDoc, odsGetCellAt(last, header.descIdx), '');
+      odsSetCellText(xmlDoc, odsGetCellAt(last, header.amtIdx), '');
+      parent.insertBefore(last, total);
+      parent.insertBefore((idx === items.length - 1 ? endGap : gap).cloneNode(true), total);
+    });
+  }
+
+  function odsRebuildQuoteItemsLegacy_(xmlDoc, table, items){
     const header = odsFindItemHeader(table);
     if (!header) throw new Error('Could not find the quote’s item table (a "Description" header row).');
     const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
@@ -5647,12 +5713,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function docItemsForQuote_(q){
     const items = (q.lineItems || []).map(function(li){
       const description = ((li.label || '').trim() + (li.description ? (': ' + String(li.description).trim()) : '')) || li.description || li.label || '(no description)';
-      return { description: description, amount: lineAmt_(li) };
+      return { description: description, label: (li.label || '').trim() || (li.description || '').trim(), detail: (li.label || '').trim() ? String(li.description || '').trim() : '', amount: lineAmt_(li) };
     });
     const t = computeQuoteTotals(q);
-    if (t.discount) items.push({ description: 'Discount (' + discountPct_(q) + '%)', amount: -t.discount });
-    if (t.vat) items.push({ description: 'VAT (20%)', amount: t.vat });
+    if (t.discount) items.push({ description: 'Discount (' + discountPct_(q) + '%)', label: 'Discount (' + discountPct_(q) + '%)', detail: '', amount: -t.discount });
+    if (t.vat) items.push({ description: 'VAT (20%)', label: 'VAT (20%)', detail: '', amount: t.vat });
     return items;
+  }
+  // Quote date the way Q26001 shows it ("18 June 2026"), but the date cell is only about 2.0cm wide and a
+  // number cannot spill left into the "Date:" label, so a long month ("20 October 2026") ran past the
+  // header rule. Use the full month when it fits and a three-letter month ("20 Oct 2026") when it does not.
+  function quoteDateLabel_(iso){
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const parts = String(iso).split('-');
+    const mi = parseInt(parts[1], 10) - 1;
+    if (!(mi >= 0 && mi < 12)) return ddmmyy(iso);
+    const day = String(parseInt(parts[2], 10));
+    const full = day + ' ' + months[mi] + ' ' + parts[0];
+    return odsTextWidthPt_(full, 9) <= 55 ? full : (day + ' ' + months[mi].slice(0, 3) + ' ' + parts[0]);
   }
   async function generateImageScapeDoc(opts){
     const kind = opts.kind;
@@ -5675,7 +5753,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // Plain text, not a typed date - same Sheets PDF-export recalculation risk as the
       // sole-trader invoice's own date fields (fixed 20 Sep 2026); applying the same fix
       // here defensively since it's the identical shared code path.
-      odsSetLabelledValue(xmlDoc, table, 'Date:', dateLabel);
+      odsSetLabelledValue(xmlDoc, table, 'Date:', quoteDateLabel_(opts.dateIso));
       addrResult = odsSetAddressBlock(xmlDoc, table, 'Prepared for:', opts.client.name, addressLines);
       odsRebuildQuoteItems(xmlDoc, table, opts.items);
     } else {
@@ -13739,7 +13817,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const grid = document.getElementById('quoteGrid');
     grid.innerHTML = '';
     if (!data.quotes.length){
-      grid.innerHTML = '<div class="empty-note">No quotes yet — click "+ New quote".</div>';
+      grid.innerHTML = '<div class="empty-note">No quotes yet — click "+ New quote", or "Import existing quote" for one made outside the Hub.</div>';
       if (document.getElementById('dashStats')) renderHome();
       return;
     }
@@ -13807,6 +13885,321 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     markDirty(); renderQuotes();
     openQuoteEditor(q.id);
   });
+
+  // ---------------------------------------------------------------------------------
+  // Import an existing quote (added 20 Oct 2026). A quote can be made outside the Hub
+  // (Q26001 was, and so was Q26003); the Hub only counts quotes it holds, so until one
+  // is imported nextQuoteRef_ can suggest its number again. This reads a quote .ods laid
+  // out like the ImageScape quote template (reference, date, "Prepared for" block, then
+  // Description | Amount rows down to TOTAL), shows what it found for checking and
+  // editing, and files it as an ordinary quote. Nothing is generated, uploaded or sent
+  // to Zoho, and the original file is not changed.
+  // ---------------------------------------------------------------------------------
+  function importQuoteMoney_(text){
+    const t = String(text || '').replace(/[£,\s]/g, '');
+    if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+    return r2_(parseFloat(t));
+  }
+  function importQuoteRowCells_(row){
+    const out = [];
+    let idx = 0;
+    odsTableCells(row).forEach(function(c){
+      const repAttr = c.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+      const rep = repAttr ? parseInt(repAttr, 10) : 1;
+      const txt = (c.textContent || '').replace(/\s+/g, ' ').trim();
+      if (txt || odsCellDateValue(c)) out.push({ idx: idx, text: txt, date: odsCellDateValue(c) });
+      idx += rep;
+    });
+    return out;
+  }
+  function importQuoteDateFromText_(text){
+    const words = /^(\d{1,2})\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})$/.exec(String(text || '').trim());
+    if (words){
+      const mi = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(words[2].slice(0, 3).toLowerCase());
+      if (mi >= 0) return words[3] + '-' + String(mi + 1).padStart(2, '0') + '-' + String(words[1]).padStart(2, '0');
+    }
+    const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(String(text || '').trim());
+    if (!m) return '';
+    const y = m[3].length === 2 ? '20' + m[3] : m[3];
+    return y + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
+  }
+  async function parseImageScapeQuoteOds_(buf, fileName){
+    const zip = await JSZip.loadAsync(buf);
+    const xmlDoc = await odsLoadContentXml(zip);
+    const table = xmlDoc.getElementsByTagNameNS(ODF_NS.table, 'table')[0];
+    if (!table) throw new Error('That spreadsheet has no sheet in it.');
+    const rows = Array.prototype.slice.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'));
+    const res = { ref: '', dateIso: '', clientLines: [], items: [], discountPct: 0, total: null, warnings: [] };
+
+    rows.forEach(function(row){
+      const cells = importQuoteRowCells_(row);
+      for (let i = 0; i < cells.length; i++){
+        const lc = cells[i].text.toLowerCase();
+        const next = cells[i + 1];
+        if (!res.ref && /^quote ref/.test(lc) && next) res.ref = next.text.replace(/\s+/g, ' ').trim();
+        if (!res.dateIso && /^date\b/.test(lc) && next) res.dateIso = next.date || importQuoteDateFromText_(next.text);
+      }
+    });
+    if (!res.ref){
+      const m = /Q\d{5,}(?:\s*V\d+)?/i.exec(table.getAttributeNS(ODF_NS.table, 'name') || '') || /Q\d{5,}(?:\s*V\d+)?/i.exec(fileName || '');
+      if (m) res.ref = m[0];
+    }
+    // Keep a version suffix (Q26003 V1) as part of the reference; V2 of the same quote is a separate record.
+    const refParts = /^(Q\d{5,})(?:\s*(V\d+))?/i.exec(res.ref || '');
+    if (refParts) res.ref = refParts[1].toUpperCase() + (refParts[2] ? ' ' + refParts[2].toUpperCase() : '');
+
+    // "Prepared for:" block: the lines under it until the first blank row.
+    for (let r = 0; r < rows.length; r++){
+      const cells = importQuoteRowCells_(rows[r]);
+      if (cells.length && /^(prepared for|to)\s*:?$/i.test(cells[0].text)){
+        for (let k = r + 1; k < rows.length; k++){
+          const c2 = importQuoteRowCells_(rows[k]);
+          if (!c2.length) break;
+          const t = c2[0].text;
+          if (/^description$/i.test(t)) break;
+          if (/^\[.*\]$/.test(t)) continue;
+          res.clientLines.push(t);
+        }
+        break;
+      }
+    }
+
+    // Item table: groups of rows separated by blank rows. First line of a group is its
+    // heading, further lines are its wording, and the amount (if any) sits on one of them.
+    const header = odsFindItemHeader(table);
+    if (!header) throw new Error('Could not find a "Description / Amount" table in that file. It may not be an ImageScape quote.');
+    let group = null;
+    function closeGroup(){
+      if (!group) return;
+      const lines = group.lines;
+      let label = lines[0] || '';
+      let description = lines.slice(1).join(' ');
+      if (lines.length === 1){
+        const m = /^(.{1,70}?):\s+(.+)$/.exec(label);
+        if (m){ label = m[1]; description = m[2]; }
+      }
+      label = label.replace(/:\s*$/, '');
+      const amount = group.amount == null ? 0 : group.amount;
+      const disc = /^discount\s*\((\d+(?:\.\d+)?)%\)/i.exec(label);
+      if (disc){ res.discountPct = parseFloat(disc[1]); }
+      else if (/^vat\b/i.test(label)){ res.warnings.push('A VAT line (' + fmtGBP(amount) + ') in the file was left out. The Hub adds VAT itself from the Tax tab.'); }
+      else if (group.amount == null && res.items.length){
+        // Wording with no price of its own (for example "Still photographs: ...") belongs to the
+        // priced line above it, so the lines still add up to the file's TOTAL and nothing is lost.
+        const prev = res.items[res.items.length - 1];
+        prev.description = (prev.description ? prev.description + ' ' : '') + lines.join(' ');
+      }
+      else res.items.push({ label: label, description: description, amount: amount });
+      group = null;
+    }
+    for (let r = header.rowIndex + 1; r < rows.length; r++){
+      const row = rows[r];
+      if (odsRowHasLabelPrefix(row, ['total'])){
+        res.total = importQuoteMoney_(odsPeekCellText(row, header.amtIdx));
+        break;
+      }
+      const desc = odsPeekCellText(row, header.descIdx);
+      const amt = importQuoteMoney_(odsPeekCellText(row, header.amtIdx));
+      if (!desc && amt == null){ closeGroup(); continue; }
+      if (!group) group = { lines: [], amount: null };
+      if (desc) group.lines.push(desc);
+      if (amt != null) group.amount = (group.amount || 0) + amt;
+    }
+    closeGroup();
+    if (!res.items.length) res.warnings.push('No line items were found. Add them below.');
+    return res;
+  }
+  function findClientForImport_(lines){
+    const norm = function(s){ return String(s || '').toLowerCase().replace(/^fao\s+/, '').replace(/[^a-z0-9]+/g, ' ').trim(); };
+    const wanted = lines.map(norm).filter(Boolean);
+    if (!wanted.length) return null;
+    return (data.clients || []).find(function(c){
+      const names = [c.company, c.name].map(norm).filter(Boolean);
+      return wanted.some(function(w){ return names.indexOf(w) !== -1; });
+    }) || null;
+  }
+  function importedQuoteRefClash_(ref){
+    const parts = function(t){
+      const m = /^(Q\d{5,})(?:\s*(V\d+))?/i.exec(String(t || '').trim());
+      return m ? { tok: m[1].toUpperCase(), ver: (m[2] || '').toUpperCase() } : { tok: String(t || '').trim().toUpperCase(), ver: '' };
+    };
+    const want = parts(ref);
+    if (!want.tok) return null;
+    return data.quotes.find(function(q){
+      return [q.title, q.imageScapeRef].some(function(t){
+        const have = parts(t);
+        return have.tok === want.tok && (!have.ver || !want.ver || have.ver === want.ver);
+      });
+    }) || null;
+  }
+
+  function openImportQuoteModal_(){
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="modal" id="iqModal" style="max-width:660px;max-height:90vh;overflow:auto;">' +
+        '<h3>Import an existing quote</h3>' +
+        '<div class="sub" style="margin:-4px 0 12px;">For a quote made outside the Hub. Choose its .ods file and the Hub reads the reference, date, client and lines for you to check, or fill the boxes in by hand. Nothing is generated, uploaded or sent to Zoho, and the file is not changed.</div>' +
+        '<div class="field"><label>Quote file (.ods)</label><input type="file" id="iqFile" accept=".ods,application/vnd.oasis.opendocument.spreadsheet"></div>' +
+        '<div id="iqMsg" style="font-size:13px;margin:-6px 0 10px;"></div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+          '<div class="field" style="flex:1;min-width:150px;"><label>Quote number</label><input type="text" id="iqRef" placeholder="Q26003"></div>' +
+          '<div class="field" style="flex:1;min-width:150px;"><label>Quote date</label><input type="date" id="iqDate"></div>' +
+          '<div class="field" style="flex:1;min-width:150px;"><label>Status</label><select id="iqStatus"></select></div>' +
+        '</div>' +
+        '<div class="field"><label>Client</label><select id="iqClient"></select></div>' +
+        '<div id="iqNewClient" style="display:none;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:-4px 0 14px;">' +
+          '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">A new client record will be created from the "Prepared for" block. Edit it here first if needed.</div>' +
+          '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+            '<div class="field" style="flex:1;min-width:180px;margin-bottom:8px;"><label>Company</label><input type="text" id="iqNcCompany"></div>' +
+            '<div class="field" style="flex:1;min-width:180px;margin-bottom:8px;"><label>Contact name</label><input type="text" id="iqNcName"></div>' +
+          '</div>' +
+          '<div class="field" style="margin-bottom:0;"><label>Postal address</label><textarea id="iqNcAddress" rows="2" style="width:100%;font-family:inherit;font-size:14px;"></textarea></div>' +
+        '</div>' +
+        '<h3 style="margin-top:6px;font-size:14px;">Line items</h3>' +
+        '<div id="iqItems"></div>' +
+        '<button class="btn btn-ghost" id="iqAddLine" style="width:auto;margin-top:6px;">+ Blank line</button>' +
+        '<div id="iqTotal" style="margin-top:12px;font-weight:700;"></div>' +
+        '<div id="iqWarn" style="font-size:12.5px;margin-top:6px;color:var(--warn);"></div>' +
+        '<div class="row" style="margin-top:16px;"><button class="btn btn-ghost" id="iqCancel">Cancel</button><button class="btn btn-primary" id="iqGo">Import quote</button></div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+    const $ = function(sel){ return backdrop.querySelector(sel); };
+    let fileName = '';
+    let fileDiscountPct = 0;
+    let fileTotal = null;
+
+    $('#iqStatus').innerHTML = Object.keys(QUOTE_STATUS_LABELS).map(function(k){ return '<option value="' + k + '">' + QUOTE_STATUS_LABELS[k] + '</option>'; }).join('');
+    $('#iqStatus').value = 'sent';
+    $('#iqDate').value = todayIso_();
+    function fillClients(selected){
+      const opts = ['<option value="">No client</option>', '<option value="__new__">Create a new client from the file</option>'];
+      (data.clients || []).slice().sort(function(a, b){ return clientName(a.id).localeCompare(clientName(b.id)); }).forEach(function(c){
+        opts.push('<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c.id)) + '</option>');
+      });
+      $('#iqClient').innerHTML = opts.join('');
+      $('#iqClient').value = selected || '';
+      syncNewClient();
+    }
+    function syncNewClient(){ $('#iqNewClient').style.display = $('#iqClient').value === '__new__' ? 'block' : 'none'; }
+    $('#iqClient').addEventListener('change', syncNewClient);
+
+    function addLine(item){
+      const wrap = document.createElement('div');
+      wrap.className = 'iq-line';
+      wrap.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;';
+      wrap.innerHTML =
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+          '<input type="text" class="iq-label" placeholder="Heading" style="flex:1;min-width:0;">' +
+          '<input type="number" class="iq-amt" step="0.01" placeholder="0.00" style="width:110px;">' +
+          '<button class="btn btn-ghost iq-del" title="Remove line" style="width:auto;padding:6px 10px;">✕</button>' +
+        '</div>' +
+        '<textarea class="iq-desc" rows="2" placeholder="Wording (optional)" style="width:100%;margin-top:6px;font-family:inherit;font-size:13.5px;"></textarea>';
+      wrap.querySelector('.iq-label').value = item.label || '';
+      wrap.querySelector('.iq-desc').value = item.description || '';
+      wrap.querySelector('.iq-amt').value = item.amount ? Number(item.amount).toFixed(2) : '';
+      wrap.querySelector('.iq-del').addEventListener('click', function(){ wrap.remove(); recalc(); });
+      wrap.querySelector('.iq-amt').addEventListener('input', recalc);
+      $('#iqItems').appendChild(wrap);
+    }
+    function readLines(){
+      return Array.prototype.map.call(backdrop.querySelectorAll('.iq-line'), function(w){
+        return { label: w.querySelector('.iq-label').value.trim(), description: w.querySelector('.iq-desc').value.trim(), amount: r2_(parseFloat(w.querySelector('.iq-amt').value) || 0) };
+      }).filter(function(x){ return x.label || x.description || x.amount; });
+    }
+    function recalc(){
+      const lines = readLines();
+      const sub = r2_(lines.reduce(function(s, l){ return s + l.amount; }, 0));
+      const after = r2_(sub - sub * fileDiscountPct / 100);
+      let txt = 'Total in the Hub: ' + fmtGBP(after) + (fileDiscountPct ? ' (after ' + fileDiscountPct + '% discount)' : '');
+      const warn = [];
+      if (fileTotal != null && Math.abs(fileTotal - after) > 0.005) warn.push('The file’s own TOTAL is ' + fmtGBP(fileTotal) + ', which differs from the lines above.');
+      const clash = importedQuoteRefClash_($('#iqRef').value);
+      if (clash) warn.push($('#iqRef').value.trim() + ' is already in the Hub as "' + (clash.title || 'another quote') + '". Change the number or cancel.');
+      $('#iqTotal').textContent = txt;
+      $('#iqWarn').innerHTML = warn.concat(backdrop._extraWarnings || []).map(escapeHtml).join('<br>');
+    }
+    $('#iqRef').addEventListener('input', recalc);
+    $('#iqAddLine').addEventListener('click', function(){ addLine({}); });
+    $('#iqCancel').addEventListener('click', function(){ backdrop.remove(); });
+
+    fillClients('');
+    addLine({});
+    recalc();
+
+    $('#iqFile').addEventListener('change', async function(){
+      const f = this.files && this.files[0];
+      if (!f) return;
+      const msg = $('#iqMsg');
+      msg.style.color = 'var(--muted)';
+      msg.textContent = 'Reading ' + f.name + '…';
+      try {
+        const res = await parseImageScapeQuoteOds_(await f.arrayBuffer(), f.name);
+        fileName = f.name;
+        fileDiscountPct = res.discountPct || 0;
+        fileTotal = res.total;
+        $('#iqRef').value = res.ref || '';
+        if (res.dateIso) $('#iqDate').value = res.dateIso;
+        $('#iqItems').innerHTML = '';
+        res.items.forEach(addLine);
+        if (!res.items.length) addLine({});
+        const match = findClientForImport_(res.clientLines);
+        fillClients(match ? match.id : (res.clientLines.length ? '__new__' : ''));
+        if (!match && res.clientLines.length){
+          const first = res.clientLines[0];
+          const fao = res.clientLines.slice(1).find(function(l){ return /^fao\s+/i.test(l); });
+          const addr = res.clientLines.slice(1).filter(function(l){ return !/^fao\s+/i.test(l); }).join('\n');
+          $('#iqNcCompany').value = first.replace(/^fao\s+/i, '');
+          $('#iqNcName').value = fao ? fao.replace(/^fao\s+/i, '') : first.replace(/^fao\s+/i, '');
+          $('#iqNcAddress').value = addr;
+        }
+        backdrop._extraWarnings = res.warnings;
+        msg.style.color = 'var(--good)';
+        msg.textContent = 'Read ' + res.items.length + ' line' + (res.items.length === 1 ? '' : 's') + (match ? ' and matched the client "' + clientName(match.id) + '"' : '') + '. Check it below, then import.';
+        recalc();
+      } catch (err){
+        msg.style.color = 'var(--warn)';
+        msg.textContent = /zip|central directory/i.test((err && err.message) || '') ? 'That does not look like an .ods spreadsheet. Choose the quote\u2019s .ods file (not the PDF), or fill the boxes in by hand.' : ((err && err.message) || 'Could not read that file.');
+      }
+    });
+
+    $('#iqGo').addEventListener('click', function(){
+      const ref = $('#iqRef').value.trim();
+      if (!ref){ toast('Type the quote number.'); return; }
+      const clash = importedQuoteRefClash_(ref);
+      if (clash){ toast(ref + ' is already in the Hub as "' + (clash.title || 'another quote') + '".'); return; }
+      const dateIso = $('#iqDate').value;
+      if (!dateIso){ toast('Pick the quote date.'); return; }
+      const lines = readLines();
+      if (!lines.length){ toast('Add at least one line.'); return; }
+      let clientId = $('#iqClient').value;
+      let createdClient = false;
+      if (clientId === '__new__'){
+        const company = $('#iqNcCompany').value.trim();
+        const name = $('#iqNcName').value.trim() || company;
+        if (!name){ toast('Give the new client a company or contact name, or choose No client.'); return; }
+        const c = { id: randomId(), name: name, company: company === name ? '' : company, email: '', phone: '', status: 'active', notes: 'From imported quote ' + ref, zohoContactId: '', address: $('#iqNcAddress').value.trim(), createdAt: todayIso_() };
+        data.clients.push(c);
+        clientId = c.id; createdClient = true;
+      }
+      const q = {
+        id: randomId(), title: ref, clientId: clientId || '', status: $('#iqStatus').value || 'sent',
+        lineItems: lines.map(function(l){ return { id: randomId(), label: l.label || l.description.slice(0, 60), qty: 1, rate: l.amount, description: l.label ? l.description : '' }; }),
+        costs: [], discountPct: fileDiscountPct || 0, notes: '',
+        createdAt: new Date(dateIso + 'T12:00:00').toISOString(), quoteDate: dateIso,
+        imageScapeRef: ref, imageScapeQuoteDate: dateIso,
+        importedFrom: fileName || 'entered by hand'
+      };
+      data.quotes.push(q);
+      markDirty();
+      if (createdClient && typeof renderClients === 'function') renderClients();
+      renderQuotes();
+      backdrop.remove();
+      toast('Imported ' + ref + ' (' + fmtGBP(computeQuoteTotals(q).total) + '). The next new quote will now be numbered after it.');
+      openQuoteEditor(q.id);
+    });
+  }
+  document.getElementById('quoteImportBtn').addEventListener('click', openImportQuoteModal_);
 
   function openQuoteEditor(id){
     const q = data.quotes.find(function(x){ return x.id === id; });
