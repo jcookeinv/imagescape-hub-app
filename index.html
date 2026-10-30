@@ -5129,6 +5129,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // deliberate simplification: this row's Due date is correct the moment it's written, it
   // just won't recalculate itself if the Inv date cell is later hand-edited on the sheet,
   // unlike the older formula-driven rows above it.
+  // The older rows' Due formulas (and the ledger total) hold fixed row numbers, so this
+  // function also renumbers them for the row it adds - see odsShiftInvoiceRefs_ below.
   function odsInsertInvoiceLedgerRow(xmlDoc, invoicesTable, entry){
     const header = odsFindInvoicesLedgerHeader(invoicesTable);
     if (!header) throw new Error('Could not find the Invoices tab’s ledger header row (Id / Client / Amount (£) / ...).');
@@ -5159,7 +5161,110 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     odsSetCellText(xmlDoc, odsGetCellAt(newRow, 7), entry.destinationAccount || '');
     odsSetCellText(xmlDoc, odsGetCellAt(newRow, 8), entry.notes || '');
 
+    // Spreadsheet formulas hold plain row numbers in the file (e.g. [.E21]+30). Inserting
+    // a row here is a raw edit, so nothing renumbers them for us: every older Due formula
+    // and the total at the foot of the ledger kept pointing at where their row USED to be,
+    // and the next recalculation (LibreOffice, Google Sheets) showed each row the Due date
+    // of a row further up, one more row out for every invoice added. So shift every
+    // reference at or below the insertion point down by one first, as a spreadsheet would.
+    const insertRowNum = odsRowNumberMap_(invoicesTable).get(anchor);
+    if (insertRowNum) odsShiftInvoiceRefs_(xmlDoc, invoicesTable, insertRowNum);
     invoicesTable.insertBefore(newRow, anchor);
+    // And put right any Due formula already pointing at the wrong row (a file that was
+    // thrown out of line by an earlier Hub version).
+    odsRepairInvoiceDueFormulas_(xmlDoc, invoicesTable);
+  }
+
+  // ---- Invoices tab: keep formulas lined up with their rows ---------------------------
+  // 1-based row numbers as the spreadsheet counts them (repeated rows included).
+  function odsRowNumberMap_(table){
+    const map = new Map();
+    let n = 0;
+    Array.prototype.forEach.call(table.getElementsByTagNameNS(ODF_NS.table, 'table-row'), function(row){
+      const rep = parseInt(row.getAttributeNS(ODF_NS.table, 'number-rows-repeated') || '1', 10) || 1;
+      map.set(row, n + 1);
+      n += rep;
+    });
+    return map;
+  }
+
+  // Moves row numbers in references to the Invoices tab down by one for a row inserted at
+  // insertRow. Handles [.E17], [.C25:.C65], absolute ($) refs and [$Invoices.C5:.C9]. A
+  // range that starts exactly at the insertion row grows to take in the new row (the
+  // ledger is newest-first, so a "from the top" total should include it); a range wholly
+  // above is untouched; one wholly below slides down.
+  function odsShiftRowRefsInFormula_(formula, insertRow, formulaIsOnInvoicesTab){
+    const re = /\[((?:\$?(?:'[^']*'|[A-Za-z0-9_]+))?)\.(\$?[A-Z]{1,3})(\$?)(\d+)(?::((?:\$?(?:'[^']*'|[A-Za-z0-9_]+))?)\.(\$?[A-Z]{1,3})(\$?)(\d+))?\]/g;
+    return formula.replace(re, function(m, sh1, c1, d1, r1, sh2, c2, d2, r2){
+      const sheet = sh1 ? sh1.replace(/^\$/, '').replace(/^'|'$/g, '') : (formulaIsOnInvoicesTab ? 'Invoices' : null);
+      if (sheet !== 'Invoices') return m;
+      const a = parseInt(r1, 10);
+      if (r2 === undefined) return '[' + sh1 + '.' + c1 + d1 + (a >= insertRow ? a + 1 : a) + ']';
+      const b = parseInt(r2, 10);
+      let na = a, nb = b;
+      if (insertRow < a){ na = a + 1; nb = b + 1; }
+      else if (insertRow <= b){ nb = b + 1; }
+      return '[' + sh1 + '.' + c1 + d1 + na + ':' + (sh2 || '') + '.' + c2 + d2 + nb + ']';
+    });
+  }
+
+  function odsShiftInvoiceRefs_(xmlDoc, invoicesTable, insertRow){
+    let changed = 0;
+    Array.prototype.forEach.call(xmlDoc.getElementsByTagNameNS(ODF_NS.table, 'table'), function(tbl){
+      const onInvoices = (tbl === invoicesTable);
+      Array.prototype.forEach.call(tbl.getElementsByTagNameNS(ODF_NS.table, 'table-cell'), function(cell){
+        const f = cell.getAttributeNS(ODF_NS.table, 'formula');
+        if (!f || f.indexOf('[') === -1) return;
+        const nf = odsShiftRowRefsInFormula_(f, insertRow, onInvoices);
+        if (nf !== f){ cell.setAttributeNS(ODF_NS.table, 'table:formula', nf); changed++; }
+      });
+    });
+    return changed;
+  }
+
+  function odsPeekCellEl_(row, colIdx){
+    const cells = odsTableCells(row);
+    let idx = 0;
+    for (let ci = 0; ci < cells.length; ci++){
+      const c = cells[ci];
+      const repAttr = c.getAttributeNS(ODF_NS.table, 'number-columns-repeated');
+      const rep = repAttr ? parseInt(repAttr, 10) : 1;
+      if (idx <= colIdx && colIdx < idx + rep) return rep === 1 ? c : null;
+      idx += rep;
+    }
+    return null;
+  }
+
+  function odsAddDaysIso_(iso, days){
+    const p = iso.split('-').map(Number);
+    return new Date(Date.UTC(p[0], p[1] - 1, p[2] + days)).toISOString().slice(0, 10);
+  }
+
+  // Any "Due" cell whose formula is Inv date + 30 but points at some OTHER row is pointed
+  // back at its own row, and its stored date is set to Inv date + 30 to match. Returns how
+  // many were put right. Plain-date Due cells (no formula) are left alone.
+  function odsRepairInvoiceDueFormulas_(xmlDoc, invoicesTable){
+    const header = odsFindInvoicesLedgerHeader(invoicesTable);
+    if (!header) return 0;
+    const nums = odsRowNumberMap_(invoicesTable);
+    let fixed = 0;
+    for (let r = header.rowIndex + 1; r < header.rows.length; r++){
+      const row = header.rows[r];
+      const dueCell = odsPeekCellEl_(row, 5);
+      if (!dueCell) continue;
+      const f = dueCell.getAttributeNS(ODF_NS.table, 'formula');
+      const m = f && /^of:=\[\.E(\d+)\]\+30$/.exec(f);
+      const rowNum = nums.get(row);
+      if (!m || !rowNum || parseInt(m[1], 10) === rowNum) continue;
+      dueCell.setAttributeNS(ODF_NS.table, 'table:formula', 'of:=[.E' + rowNum + ']+30');
+      const inv = odsPeekCellDateValue(row, 4);
+      if (inv){
+        const due = odsAddDaysIso_(inv, 30);
+        if (odsCellDateValue(dueCell) !== due) odsSetCellDate(xmlDoc, dueCell, due, ddmmyy(due));
+      }
+      fixed++;
+    }
+    return fixed;
   }
 
   // Full write flow, mirroring writeSoleTraderExpenseEntries above: download fresh (so the
@@ -8561,8 +8666,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.35';
+  const HUB_VERSION = '2026.10.36';
   const HUB_CHANGELOG = [
+    { v: '2026.10.36', date: '28 Oct 2026', items: [
+      'Tax spreadsheet, Invoices tab: adding a new invoice row no longer throws the Due dates out of line. The older rows\' Due formulas and the total at the bottom kept pointing at their old row numbers, so after a recalculation in LibreOffice or Google Sheets each Due date showed the one belonging to a row further up. The Hub now moves those references down with the rows when it adds an invoice, and puts any Due formula that already points at the wrong row back onto its own row.' ] },
     { v: '2026.10.35', date: '20 Oct 2026', items: [
       'Phone layout: the Tasks page and several others (Documents, Galleries, Paperwork, Invoices, Email Templates, Finance) no longer stretch sideways. Long client names in the dropdowns now fit the screen, and Show completed, the form fields and the Raise invoice button stay inside the card. Checked on every page at 390, 360 and 320 pixels wide.' ] },
     { v: '2026.10.34', date: '19 Oct 2026', items: [
