@@ -457,6 +457,37 @@
   .zoho-snapshot{margin-top:14px;padding:14px;background:#f8f9fb;border-radius:10px;font-size:15px;}
   .zoho-snapshot .zoho-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);}
   .zoho-snapshot .zoho-row:last-child{border-bottom:none;}
+  /* Invoicing flow tree (Invoices tab): left bar and pill colour carry the state, never colour alone. */
+  .flow-next{border:1px solid var(--border);border-left:6px solid var(--good);border-radius:10px;padding:12px 14px;margin:12px 0 10px;background:var(--good-soft);}
+  .flow-next.attn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .flow-next-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  .flow-next-title{font-size:16px;font-weight:700;margin:2px 0 8px;line-height:1.35;}
+  .flow-btn{display:inline-flex;width:auto;padding:5px 12px;font-size:12.5px;margin-top:6px;text-decoration:none;}
+  .flow-counts{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 10px;font-size:13px;color:var(--muted);}
+  .flow-count b{display:inline-block;min-width:22px;text-align:center;border-radius:999px;padding:0 6px;margin-right:2px;}
+  .flow-count.attn b{background:var(--warn-soft);color:var(--warn);}
+  .flow-count.watch b{background:var(--soon-soft);color:var(--soon);}
+  .flow-count.unk b{background:var(--info-soft);color:var(--info);}
+  .flow-count.done b{background:var(--good-soft);color:var(--good);}
+  ul.flow-tree,ul.flow-tree ul{list-style:none;margin:0;padding:0;}
+  ul.flow-tree ul{margin-left:14px;padding-left:14px;border-left:2px solid var(--border);}
+  ul.flow-tree li{margin:0;}
+  .flow-node{background:var(--card);border:1px solid var(--border);border-left:5px solid var(--muted);border-radius:8px;padding:8px 12px;margin:0 0 8px;}
+  .flow-node.flow-root{background:#f8f9fb;}
+  .flow-node.done{border-left-color:var(--good);}
+  .flow-node.watch{border-left-color:var(--soon);}
+  .flow-node.unk{border-left-color:var(--info);}
+  .flow-node.later{border-left-color:var(--border);}
+  .flow-node.attn{border-left-color:var(--warn);background:var(--warn-soft);}
+  .flow-head{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;}
+  .flow-step{font-size:12px;color:var(--muted);min-width:14px;}
+  .flow-pill{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:1px 8px;border-radius:999px;background:var(--bg);color:var(--muted);margin-left:auto;}
+  .flow-node.attn .flow-pill{background:var(--warn);color:#fff;}
+  .flow-node.watch .flow-pill{background:var(--soon-soft);color:var(--soon);}
+  .flow-node.done .flow-pill{background:var(--good-soft);color:var(--good);}
+  .flow-node.unk .flow-pill{background:var(--info-soft);color:var(--info);}
+  .flow-text{font-size:13.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
+  .flow-node.attn .flow-text{color:var(--ink);}
   /* Invoice ledger: fixed columns so the status and the receipt buttons line up row to row. */
   #invLedger .zoho-row.inv-ledger-row{display:grid;grid-template-columns:minmax(0,1fr) 64px 112px 150px;column-gap:8px;align-items:center;}
   #invLedger .inv-ledger-row .btn{width:100%;margin:0;padding:4px 6px;font-size:12px;white-space:nowrap;}
@@ -1937,7 +1968,13 @@ function doPost(e) {
          small change on the Apps Script (Code.gs) side to take effect; see the note under
          "Already sent to Zoho" below until that's done. -->
     <div class="panel" id="panel-invoices">
-      <div class="card">
+      <div class="card" id="invFlowCard">
+        <h2>Invoicing flow</h2>
+        <div class="sub">Where every invoice, retainer and bank line has got to, read live from your quotes and Zoho. Red needs you next, amber is waiting or coming up, green is done, grey has not been reached yet or the Hub cannot see it. It only reads; its buttons take you to the place where the step is done.</div>
+        <div id="invFlowTree"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
         <h2>Invoices</h2>
         <div class="sub">Raises an ImageScape-branded invoice (.ods + PDF, same template as "Generate invoice document" on a quote) and sends a matching record to Zoho Books in one step, so Zoho stays the financial record without you ever touching its own invoice template. A quote needs a client and at least one line item before it can be invoiced.</div>
         <div class="zoho-snapshot" id="invQueueReady"></div>
@@ -15592,7 +15629,287 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  // ---------------------------------------------------------------- invoicing flow tree
+  // A read-only map of where every invoice, retainer and bank line has got to, built fresh from what the Hub
+  // already holds (quotes, the Zoho snapshot, the bank feed, retainers). It changes nothing: its buttons only
+  // open the screen where the next step is done. Red = needs you now, amber = waiting or coming up,
+  // green = done, grey = not reached yet or not visible to the Hub.
+  let invFlowOnlyAttn_ = false;
+  const INV_FLOW_RANK_ = { attn: 4, watch: 3, unk: 2, later: 1, done: 0 };
+  function invFlowNode_(state, title, text, action, children, step){
+    return { state: state, title: title, text: text || '', action: action || null, children: children || [], step: step || '' };
+  }
+  function invFlowWorst_(nodes){
+    let w = 'done';
+    nodes.forEach(function(n){ if (INV_FLOW_RANK_[n.state] > INV_FLOW_RANK_[w]) w = n.state; });
+    return w;
+  }
+  function invFlowDate_(iso){
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!m) return String(iso || '');
+    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return Number(m[3]) + ' ' + names[Number(m[2]) - 1];
+  }
+  function invFlowScroll_(id){
+    return function(){ const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  }
+  function invFlowModel_(){
+    const today = todayIso_();
+    const snap = zohoSnapshotCache;
+    const bank = zohoBankState_();
+    const bankingLink = { label: 'Open Zoho Banking', href: ZOHO_BANKING_URL };
+    const claimed = {};
+    const groups = [];
+
+    // ---- 1. invoices in progress
+    const inProgress = [];
+    const finished = [];
+    const live = data.quotes.filter(function(q){ return q.imageScapeInvoiceRef || q.zohoInvoiceId; })
+      .slice().sort(function(a, b){ return (b.imageScapeInvoiceDate || '').localeCompare(a.imageScapeInvoiceDate || ''); });
+    live.forEach(function(q){
+      const client = q.clientId ? data.clients.find(function(x){ return x.id === q.clientId; }) : null;
+      const inv = quoteZohoInvoice_(q);
+      const number = q.zohoInvoiceNumber || q.imageScapeInvoiceRef || '(no number)';
+      const total = inv ? Number(inv.total) : computeQuoteTotals(q).total;
+      const paid = !!(inv && inv.status === 'paid');
+      const steps = [];
+      steps.push(invFlowNode_('done', 'Invoice document made', q.imageScapeInvoiceRef ? ('Number ' + q.imageScapeInvoiceRef + '.') : '', null, null, '1'));
+      if (q.zohoInvoiceId){
+        steps.push(invFlowNode_('done', 'In Zoho', 'Zoho invoice ' + (q.zohoInvoiceNumber || '') + '.', null, null, '2'));
+      } else if (client && client.zohoContactId){
+        steps.push(invFlowNode_('attn', 'Not in Zoho yet', 'The document exists but Zoho has no matching invoice.', { label: 'Go to Send to Zoho', fn: invFlowScroll_('invQueuePending') }, null, '2'));
+      } else {
+        steps.push(invFlowNode_('attn', 'Not in Zoho yet', 'The client is not linked to a Zoho contact. Link them on the Clients tab, then send it.', { label: 'Open the quote', fn: function(){ openQuoteEditor(q.id); } }, null, '2'));
+      }
+      if (!q.zohoInvoiceId){
+        steps.push(invFlowNode_('later', 'Paid in Zoho', 'Follows once it is in Zoho.', null, null, '3'));
+      } else if (!inv){
+        steps.push(invFlowNode_('unk', 'Paid in Zoho', 'This invoice is not in the latest Zoho sync. Press Sync now on the Dashboard.', null, null, '3'));
+      } else if (paid){
+        steps.push(invFlowNode_('done', 'Paid in Zoho', fmtGBP(total) + ' paid.', null, null, '3'));
+      } else if (inv.status === 'draft'){
+        steps.push(invFlowNode_('attn', 'Paid in Zoho', 'Still a draft in Zoho. Open the quote and Mark as sent in Zoho.', { label: 'Open the quote', fn: function(){ openQuoteEditor(q.id); } }, null, '3'));
+      } else if (inv.status === 'overdue' || (inv.dueDate && inv.dueDate < today && Number(inv.balance) > 0)){
+        steps.push(invFlowNode_('attn', 'Paid in Zoho', 'Overdue: ' + fmtGBP(inv.balance) + ' was due ' + invFlowDate_(inv.dueDate) + '.', { label: 'Open the quote', fn: function(){ openQuoteEditor(q.id); } }, null, '3'));
+      } else {
+        steps.push(invFlowNode_('watch', 'Paid in Zoho', 'Waiting for payment' + (inv.dueDate ? ', due ' + invFlowDate_(inv.dueDate) : '') + '.', null, null, '3'));
+      }
+      if (!paid){
+        steps.push(invFlowNode_('later', 'Bank line matched', 'Follows once it is paid.', null, null, '4'));
+      } else if (!bank.known){
+        steps.push(invFlowNode_('unk', 'Bank line matched', 'The Hub cannot see the bank feed, so check Zoho Banking yourself.', bankingLink, null, '4'));
+      } else {
+        const cands = bank.txns.filter(function(t){
+          return String(t.direction).toLowerCase() === 'debit' && !bankTxnDone_(t) && !claimed[t.id] && Math.abs((Number(t.amount) || 0) - total) < 0.005;
+        });
+        if (cands.length){
+          const t = cands[0];
+          claimed[t.id] = true;
+          steps.push(invFlowNode_('attn', 'Bank line matched',
+            fmtGBP(t.amount) + ' from ' + (t.payee || t.description || 'the bank') + ' on ' + invFlowDate_(t.date) + ' is still waiting in Zoho Banking. Match it to the payment on ' + number + '.',
+            bankingLink, null, '4'));
+        } else {
+          steps.push(invFlowNode_('done', 'Bank line matched', 'No unmatched ' + fmtGBP(total) + ' line in the recent feed.', null, null, '4'));
+        }
+      }
+      if (!paid){
+        steps.push(invFlowNode_('later', 'Receipt made', 'Follows once it is paid.', null, null, '5'));
+      } else if (q.receiptDate){
+        steps.push(invFlowNode_('done', 'Receipt made', 'Dated ' + invFlowDate_(q.receiptDate) + '.', null, null, '5'));
+      } else {
+        steps.push(invFlowNode_('attn', 'Receipt made', 'Paid, but no receipt yet.', { label: 'Make receipt', fn: function(){ openReceiptModal_(q); } }, null, '5'));
+      }
+      if (!q.receiptDate){
+        steps.push(invFlowNode_('later', 'Filed in Paid', 'Follows the receipt.', null, null, '6'));
+      } else if (q.invoiceMovedToPaidAt){
+        steps.push(invFlowNode_('done', 'Filed in Paid', 'Invoice files are in the Paid folder.', null, null, '6'));
+      } else {
+        steps.push(invFlowNode_('attn', 'Filed in Paid', 'Receipt made, invoice files not moved into Paid yet.', { label: 'Go to the invoice list', fn: invFlowScroll_('invLedger') }, null, '6'));
+      }
+      steps.forEach(function(st){ st.ctx = number; });
+      const state = invFlowWorst_(steps);
+      const label = number + ' ' + (clientName(q.clientId) || 'Client removed') + ' ' + fmtGBP(total);
+      if (state === 'done') finished.push(label);
+      else inProgress.push(invFlowNode_(state, label, '', null, steps));
+    });
+    const ready = data.quotes.filter(function(q){
+      return q.clientId && q.lineItems.length && !q.imageScapeInvoiceRef && !q.retainerId && q.status === 'accepted';
+    });
+    const invKids = [];
+    ready.forEach(function(q){
+      invKids.push(invFlowNode_('attn', 'Accepted, no invoice yet: ' + (q.title || 'Untitled quote'), (clientName(q.clientId) || '') + ', ' + fmtGBP(computeQuoteTotals(q).total) + '.', { label: 'Open the quote', fn: function(){ openQuoteEditor(q.id); } }));
+    });
+    inProgress.forEach(function(n){ invKids.push(n); });
+    if (finished.length) invKids.push(invFlowNode_('done', 'Finished and filed (' + finished.length + ')', finished.slice(0, 6).join(', ') + (finished.length > 6 ? ', and ' + (finished.length - 6) + ' more' : '') + '.'));
+    if (!invKids.length) invKids.push(invFlowNode_('done', 'No invoices in progress', ''));
+    groups.push(invFlowNode_(invFlowWorst_(invKids), 'Invoices', 'From quote to filed receipt.', null, invKids));
+
+    // ---- 2. retainers
+    const retKids = [];
+    (data.retainers || []).forEach(function(r){
+      const c = data.clients.find(function(x){ return x.id === r.clientId; });
+      const name = (c ? c.name : 'No client') + ': ' + r.description + ' (' + fmtGBP(r.amount) + ' a month)';
+      if (!r.active){ retKids.push(invFlowNode_('later', name, 'Paused.')); return; }
+      const kids = [];
+      retainerMonths_(r).forEach(function(mo){
+        if (mo.due <= today && !retainerMonthState_(r, mo).raised){
+          kids.push(invFlowNode_('attn', 'Month ' + mo.ym + ' not raised', 'Due ' + invFlowDate_(mo.due) + '.', { label: 'Raise invoice', fn: function(){ raiseRetainerInvoice_(r, mo); } }));
+        }
+      });
+      const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+      let nextYm = today.slice(0, 7);
+      let nextDue = nextYm + '-' + String(r.dayOfMonth).padStart(2, '0');
+      if (nextDue <= today){ nextYm = m === 12 ? ((y + 1) + '-01') : (y + '-' + String(m + 1).padStart(2, '0')); nextDue = nextYm + '-' + String(r.dayOfMonth).padStart(2, '0'); }
+      if (r.endYm && r.endYm < nextYm){
+        if (!kids.length) kids.push(invFlowNode_('done', 'Ended', 'Last month was ' + r.endYm + '.'));
+      } else {
+        const days = Math.round((new Date(nextDue + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+        kids.push(invFlowNode_('watch', 'Next invoice due ' + invFlowDate_(nextDue), 'In ' + days + ' day' + (days === 1 ? '' : 's') + '.'));
+      }
+      retKids.push(invFlowNode_(invFlowWorst_(kids), name, '', null, kids));
+    });
+    if (!retKids.length) retKids.push(invFlowNode_('later', 'No retainers set up', ''));
+    groups.push(invFlowNode_(invFlowWorst_(retKids), 'Retainers', 'Standing monthly invoices.', null, retKids));
+
+    // ---- 3. bank feed
+    const bankKids = [];
+    if (!data.zohoConnection){
+      bankKids.push(invFlowNode_('unk', 'Zoho not connected', 'Connect Zoho Books on the Dashboard to see the bank feed.'));
+    } else if (!snap){
+      bankKids.push(invFlowNode_('unk', 'Nothing synced yet', 'Press Sync now on the Zoho Books card on the Dashboard.'));
+    } else if (bank.error){
+      bankKids.push(invFlowNode_('attn', 'Zoho would not show the bank feed', bank.error));
+    } else if (!bank.known){
+      bankKids.push(invFlowNode_('unk', 'Bank feed not readable', 'The Zoho Apps Script needs updating to version ' + ZOHO_BANK_SCRIPT_VERSION + '.'));
+    } else {
+      const claimedCount = Object.keys(claimed).length;
+      bank.feeds.forEach(function(a){
+        const kids = [];
+        if (typeof a.consentRemainingDays === 'number'){
+          if (a.consentExpired) kids.push(invFlowNode_('attn', 'Bank consent expired', 'Renew it in Zoho Banking or the feed stops.', bankingLink));
+          else if (a.consentRemainingDays <= 7) kids.push(invFlowNode_('attn', 'Bank consent ends soon', a.consentRemainingDays + ' day' + (a.consentRemainingDays === 1 ? '' : 's') + ' left.', bankingLink));
+          else kids.push(invFlowNode_('done', 'Bank consent', a.consentRemainingDays + ' days left.'));
+        }
+        const waiting = Number(a.uncategorized) || 0;
+        const extra = Math.max(0, waiting - claimedCount);
+        if (extra > 0) kids.push(invFlowNode_('attn', extra + ' line' + (extra === 1 ? '' : 's') + ' waiting to be matched', 'Open Zoho Banking, then Uncategorised, and match or categorise each one.', bankingLink));
+        else if (waiting > 0) kids.push(invFlowNode_('watch', waiting + ' line' + (waiting === 1 ? '' : 's') + ' waiting', 'Covered by the invoice steps above.'));
+        else kids.push(invFlowNode_('done', 'Nothing waiting to be matched', ''));
+        if (a.feedsLastRefresh) kids.push(invFlowNode_('done', 'Feed last refreshed', String(a.feedsLastRefresh)));
+        bankKids.push(invFlowNode_(invFlowWorst_(kids), a.name + ', Zoho balance ' + fmtGBP(a.balance), '', null, kids));
+      });
+      bankRefundPairs_(bank.txns).forEach(function(pr){
+        bankKids.push(invFlowNode_('attn', 'Overpayment paid back: ' + fmtGBP(pr.inn.amount), (pr.inn.payee || pr.inn.description || 'Same name') + ', in ' + invFlowDate_(pr.inn.date) + ', out ' + invFlowDate_(pr.out.date) + '. Record it in Zoho.', { label: 'Go to the bank feed', fn: invFlowScroll_('invBankFeed') }));
+      });
+      if (!bankKids.length) bankKids.push(invFlowNode_('unk', 'No bank account found', ''));
+    }
+    groups.push(invFlowNode_(invFlowWorst_(bankKids), 'Bank feed', 'Money in, as Zoho sees it.', null, bankKids));
+
+    // ---- 4. the Zoho link itself
+    const zKids = [];
+    if (!data.zohoConnection){
+      zKids.push(invFlowNode_('attn', 'Zoho Books is not connected', 'Connect it on the Zoho Books card on the Dashboard.'));
+    } else if (!snap || !snap.syncedAt){
+      zKids.push(invFlowNode_('attn', 'No Zoho data yet', 'Press Sync now on the Zoho Books card.'));
+    } else {
+      const ageH = (Date.now() - Date.parse(snap.syncedAt)) / 3600000;
+      if (isNaN(ageH) || ageH > 72) zKids.push(invFlowNode_('attn', 'Zoho has not synced for days', 'Press Sync now and check the Apps Script trigger.'));
+      else if (ageH > 26) zKids.push(invFlowNode_('watch', 'Zoho last synced ' + Math.round(ageH) + ' hours ago', 'Press Sync now.'));
+      else zKids.push(invFlowNode_('done', 'Zoho is syncing', 'Last sync ' + String(snap.syncedAt).slice(0, 16).replace('T', ' ') + ' UTC.'));
+      if ((Number(snap.scriptVersion) || 1) < ZOHO_BANK_SCRIPT_VERSION) zKids.push(invFlowNode_('watch', 'Apps Script out of date', 'Paste the latest Code.gs and deploy a new version.'));
+      const pend = (data.zohoPending || []).length;
+      if (pend) zKids.push(invFlowNode_('watch', pend + ' action' + (pend === 1 ? '' : 's') + ' sent to Zoho, not confirmed', 'They clear on the next sync.'));
+    }
+    groups.push(invFlowNode_(invFlowWorst_(zKids), 'Zoho link', 'Whether the Hub can see Zoho.', null, zKids));
+    return groups;
+  }
+  function invFlowFirstAttn_(nodes){
+    for (let i = 0; i < nodes.length; i++){
+      const n = nodes[i];
+      if (n.children && n.children.length){
+        const hit = invFlowFirstAttn_(n.children);
+        if (hit) return hit;
+      } else if (n.state === 'attn') return n;
+    }
+    return null;
+  }
+  function invFlowCount_(nodes, counts){
+    nodes.forEach(function(n){
+      if (n.children && n.children.length) invFlowCount_(n.children, counts);
+      else counts[n.state] = (counts[n.state] || 0) + 1;
+    });
+    return counts;
+  }
+  function renderInvoiceFlow_(){
+    const wrap = document.getElementById('invFlowTree');
+    if (!wrap || !data) return;
+    let groups;
+    try { groups = invFlowModel_(); }
+    catch (e){ wrap.innerHTML = ''; const n = document.createElement('div'); n.className = 'empty-note'; n.textContent = 'Could not build the flow tree: ' + (e && e.message ? e.message : 'unknown error'); wrap.appendChild(n); return; }
+    wrap.innerHTML = '';
+    const counts = invFlowCount_(groups, {});
+    const first = invFlowFirstAttn_(groups);
+    const next = document.createElement('div');
+    next.className = 'flow-next ' + (first ? 'attn' : 'ok');
+    const nh = document.createElement('div'); nh.className = 'flow-next-label'; nh.textContent = first ? 'Next up' : 'All clear';
+    const nt = document.createElement('div'); nt.className = 'flow-next-title'; nt.textContent = first ? ((first.ctx ? 'Invoice ' + first.ctx + ': ' : '') + first.title + (first.text ? '. ' + first.text : '')) : 'Nothing needs you right now.';
+    next.appendChild(nh); next.appendChild(nt);
+    if (first && first.action) next.appendChild(invFlowButton_(first.action));
+    wrap.appendChild(next);
+    const sum = document.createElement('div'); sum.className = 'flow-counts';
+    [['attn', 'need you'], ['watch', 'waiting or coming up'], ['unk', 'not visible'], ['done', 'done']].forEach(function(p){
+      const s = document.createElement('span'); s.className = 'flow-count ' + p[0];
+      const b = document.createElement('b'); b.textContent = String(counts[p[0]] || 0);
+      s.appendChild(b); s.appendChild(document.createTextNode(' ' + p[1]));
+      sum.appendChild(s);
+    });
+    wrap.appendChild(sum);
+    const tog = document.createElement('button');
+    tog.type = 'button'; tog.className = 'btn btn-ghost flow-toggle';
+    tog.style.cssText = 'width:auto;padding:5px 12px;font-size:12.5px;margin:0 0 10px;';
+    tog.textContent = invFlowOnlyAttn_ ? 'Show the whole tree' : 'Show only what needs you';
+    tog.addEventListener('click', function(){ invFlowOnlyAttn_ = !invFlowOnlyAttn_; renderInvoiceFlow_(); });
+    wrap.appendChild(tog);
+    const ul = document.createElement('ul'); ul.className = 'flow-tree';
+    groups.forEach(function(g){ const li = invFlowRender_(g, 0); if (li) ul.appendChild(li); });
+    wrap.appendChild(ul);
+  }
+  function invFlowButton_(a){
+    if (a.href){
+      const l = document.createElement('a'); l.href = a.href; l.target = '_blank'; l.rel = 'noopener'; l.className = 'btn btn-primary flow-btn'; l.textContent = a.label;
+      return l;
+    }
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-primary flow-btn'; b.textContent = a.label;
+    b.addEventListener('click', a.fn);
+    return b;
+  }
+  function invFlowNeeds_(n){
+    if (n.state === 'attn') return true;
+    return (n.children || []).some(invFlowNeeds_);
+  }
+  function invFlowRender_(n, depth){
+    if (invFlowOnlyAttn_ && !invFlowNeeds_(n)) return null;
+    const li = document.createElement('li');
+    const box = document.createElement('div'); box.className = 'flow-node ' + n.state + (depth === 0 ? ' flow-root' : '');
+    const head = document.createElement('div'); head.className = 'flow-head';
+    if (n.step){ const s = document.createElement('span'); s.className = 'flow-step'; s.textContent = n.step; head.appendChild(s); }
+    const t = document.createElement('strong'); t.textContent = n.title; head.appendChild(t);
+    const labels = { attn: 'Needs you', watch: 'Waiting', done: 'Done', later: 'Not yet', unk: 'Not visible' };
+    const pill = document.createElement('span'); pill.className = 'flow-pill'; pill.textContent = labels[n.state] || ''; head.appendChild(pill);
+    box.appendChild(head);
+    if (n.text){ const p = document.createElement('div'); p.className = 'flow-text'; p.textContent = n.text; box.appendChild(p); }
+    if (n.action) box.appendChild(invFlowButton_(n.action));
+    li.appendChild(box);
+    if (n.children && n.children.length){
+      const ul = document.createElement('ul');
+      n.children.forEach(function(c){ const cl = invFlowRender_(c, depth + 1); if (cl) ul.appendChild(cl); });
+      if (ul.children.length) li.appendChild(ul);
+    }
+    return li;
+  }
+
   function renderInvoiceQueue(){
+    try { renderInvoiceFlow_(); } catch (e){ /* the tree must never block the invoice lists */ }
     try { renderBankFeed(); } catch (e){ /* never block the invoice lists */ }
     try { renderPnl(); } catch (e){ /* same */ }
     try { renderRetainers(); } catch (e){ /* same */ }
