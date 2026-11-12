@@ -5403,10 +5403,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const esc = function(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
     const id = String(invoiceId || '').trim();
     if (!id) return { moved: 0, found: 0, already: 0 };
-    const q = "trashed = false and (name = '" + esc(id + '.pdf') + "' or name = '" + esc(id + '.ods') + "')";
+    // The PDF may be the bare "<id>.pdf" (older files) or "Invoice <id> dd-mm-yy hh-mm.pdf".
+    const q = "trashed = false and (name = '" + esc(id + '.pdf') + "' or name = '" + esc(id + '.ods') + "' or name contains '" + esc('Invoice ' + id) + "')";
     const r = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,parents)&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true');
     if (!r.ok) throw new Error('Could not look for the invoice files in Drive (status ' + r.status + ').');
-    const files = ((await r.json()).files || []).filter(function(f){ return f.parents && f.parents[0]; });
+    const files = ((await r.json()).files || []).filter(function(f){
+      return f.parents && f.parents[0] && (f.name === id + '.ods' || soleTraderPdfMatches_(f.name, id));
+    });
     const paidByParent = {};
     let moved = 0, already = 0;
     for (const f of files){
@@ -5645,11 +5648,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // file already in the folder, so Drive silently accepted two identically-named
     // invoices. Checking here, before doing any of the template work, fails fast instead.
     const dupQ = "'" + opts.folderId.replace(/'/g, "\\'") + "' in parents and trashed = false and (name = '" +
-      opts.invoiceNumber.replace(/'/g, "\\'") + ".ods' or name = '" + opts.invoiceNumber.replace(/'/g, "\\'") + ".pdf')";
+      opts.invoiceNumber.replace(/'/g, "\\'") + ".ods' or name = '" + opts.invoiceNumber.replace(/'/g, "\\'") + ".pdf' or name contains 'Invoice " + opts.invoiceNumber.replace(/'/g, "\\'") + "')";
     const dupRes = await driveApiFetch('/files?q=' + encodeURIComponent(dupQ) + '&fields=files(id,name)&spaces=drive');
     if (dupRes.ok){
       const dupBody = await dupRes.json();
-      if (dupBody.files && dupBody.files.length){
+      const dupHits = (dupBody.files || []).filter(function(f){ return f.name === opts.invoiceNumber + '.ods' || soleTraderPdfMatches_(f.name, opts.invoiceNumber); });
+      if (dupHits.length){
         throw new Error('A file named "' + opts.invoiceNumber + '" already exists in this client’s Drive folder — this invoice number looks like it’s already been generated. Check the folder (and whether it needs adding to the Invoices tab) before generating again.');
       }
     }
@@ -5699,9 +5703,36 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // the time the PDF step ran). Same order generateImageScapeDoc already uses.
     const pdfBlob = await convertOdsBlobToPdf(pdfSourceBlob, opts.invoiceNumber + ' (temp conversion)');
     const odsUpload = await uploadNewDriveFile(savedBlob, opts.invoiceNumber + '.ods', 'application/vnd.oasis.opendocument.spreadsheet', opts.folderId);
-    const pdfUpload = await uploadNewDriveFile(pdfBlob, opts.invoiceNumber + '.pdf', 'application/pdf', opts.folderId);
+    const pdfUpload = await uploadNewDriveFile(pdfBlob, soleTraderPdfName_(opts.invoiceNumber, opts.invoiceDateIso), 'application/pdf', opts.folderId);
 
     return { odsFile: odsUpload, pdfFile: pdfUpload, pdfBlob: pdfBlob, total: total };
+  }
+
+  // Self-employed invoice PDFs are saved as "Invoice J26-0012 21-09-26 14-22.pdf": the
+  // invoice number, the invoice date as dd-mm-yy, then the UK clock time it was made as
+  // hh-mm (same style as the existing J26-0001 onwards files). The .ods keeps the bare
+  // "<number>.ods". Anything that looks a PDF up by name must use soleTraderPdfMatches_.
+  function soleTraderPdfName_(invoiceNumber, invoiceDateIso){
+    const p = String(invoiceDateIso || '').split('-');
+    const d = p.length === 3 ? (p[2] + '-' + p[1] + '-' + p[0].slice(2)) : '';
+    let t = '';
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+      const hh = parts.filter(function(x){ return x.type === 'hour'; })[0];
+      const mm = parts.filter(function(x){ return x.type === 'minute'; })[0];
+      if (hh && mm) t = hh.value + '-' + mm.value;
+    } catch (e){}
+    if (!d || !t) return invoiceNumber + '.pdf'; // never fail an invoice over a file name
+    return 'Invoice ' + invoiceNumber + ' ' + d + ' ' + t + '.pdf';
+  }
+
+  // True for the bare "<number>.pdf" (older files) and the "Invoice <number> dd-mm-yy hh-mm.pdf" style.
+  function soleTraderPdfMatches_(fileName, invoiceNumber){
+    const n = String(fileName || ''), id = String(invoiceNumber || '').trim();
+    if (!id) return false;
+    if (n === id + '.pdf') return true;
+    const pre = 'Invoice ' + id + ' ';
+    return n.indexOf(pre) === 0 && /\.pdf$/i.test(n);
   }
 
   // ---------------------------------------------------------------- ImageScape quote / invoice documents
