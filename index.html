@@ -1116,6 +1116,7 @@
     <button data-panel="renewals">Renewals</button>
     <button data-panel="meetings">Meeting Notes</button>
     <button data-panel="finance">Finance</button>
+    <button data-panel="equipment">Equipment</button>
     <button data-panel="emails">Email Templates</button>
     <button data-panel="tax">Tax</button>
   </nav>
@@ -1675,6 +1676,52 @@ function doPost(e) {
       </div>
     </div>
 
+    <div class="panel" id="panel-equipment">
+      <div class="card">
+        <h2>Equipment and depreciation</h2>
+        <div class="sub">The register of company kit, with straight line depreciation posted to Zoho as a monthly journal (debit Depreciation Expense, credit Accumulated depreciation) through the Apps Script bridge. Each month shows as in Zoho only when Zoho reports a journal with the same reference and date, so the Hub never claims something is posted that is not. "Depreciation already in Zoho" is what Zoho held before the Hub started scheduling; the Hub then schedules the months after that date.</div>
+        <div id="eqSummary" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <h2 id="eqFormTitle">Add equipment</h2>
+        <div class="finance-form">
+          <div class="finance-form-col">
+            <input type="text" id="eqName" placeholder="Name (e.g. DJI Mavic 4 Pro Fly More Combo)" maxlength="100">
+            <select id="eqAccount"></select>
+            <div class="hint">Zoho asset account the cost sits in</div>
+            <input type="date" id="eqPurchase" title="Purchase date">
+            <div class="hint">Purchase date</div>
+            <input type="number" id="eqCost" placeholder="Cost (£)" step="0.01" min="0">
+            <input type="number" id="eqResidual" placeholder="Residual value (£)" value="0" step="0.01" min="0">
+            <div class="hint">Residual value (£): what it should be worth at the end of its life. Depreciation is (cost minus residual) spread over the life.</div>
+            <input type="number" id="eqLife" placeholder="Life in months" value="60" min="1" max="240" step="1" list="eqLifeList">
+            <div class="hint">Life in months (60 = 5 years, straight line to nil)</div>
+            <datalist id="eqLifeList"><option value="12"><option value="24"><option value="36"><option value="48"><option value="60"></datalist>
+            <label class="finance-checkbox"><input type="checkbox" id="eqDepr" checked> Depreciate this item (untick for small items kept at cost)</label>
+            <input type="number" id="eqAccOpen" placeholder="Depreciation already in Zoho for this item (£)" step="0.01" min="0">
+            <input type="date" id="eqAccThrough" title="Depreciation already in Zoho runs up to">
+            <div class="hint">Month-end that depreciation runs up to. Leave both blank for a new item: depreciation then starts the month after purchase.</div>
+            <input type="text" id="eqSource" placeholder="Where it is in Zoho (expense or journal and its reference)" maxlength="200">
+            <input type="text" id="eqReference" placeholder="Journal reference (blank = Depreciation: name)" maxlength="100">
+            <div class="hint">This text becomes the journal Reference in Zoho. It must be different for each item.</div>
+            <select id="eqStatus">
+              <option value="in_use">In use, a company asset</option>
+              <option value="review">Needs review (no depreciation until confirmed)</option>
+              <option value="removed">No longer a company asset</option>
+            </select>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary" id="eqSaveBtn" style="width:auto;">Add equipment</button>
+              <button class="btn btn-ghost" id="eqCancelBtn" style="width:auto;display:none;">Cancel edit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Register</h2>
+        <div id="eqList"></div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-finance">
       <div class="card" id="finPnlCard">
         <h2>Profit and loss (live from Zoho)</h2>
@@ -2173,8 +2220,42 @@ function doPost(e) {
     </div>
 
     <div class="panel" id="panel-social">
-      <div class="card">
-        <h2>Website &amp; Socials</h2>
+      <div id="spRoot"></div>
+<style>
+  #spRoot .sp-top{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 14px;}
+  #spRoot .sp-vbtn{background:none;border:1px solid var(--border);color:var(--muted);padding:6px 13px;border-radius:8px;cursor:pointer;font:inherit;}
+  #spRoot .sp-vbtn.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  #spRoot .sp-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;}
+  #spRoot .sp-chip{border:1px solid var(--border);background:#fff;color:var(--muted);padding:3px 11px;border-radius:99px;cursor:pointer;font-size:12.5px;}
+  #spRoot .sp-chip.on{color:#fff;}
+  #spRoot .sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+  #spRoot .sp-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;}
+  #spRoot .sp-card:hover{border-color:var(--gold-deep);}
+  #spRoot .sp-card h4{margin:6px 0 3px;font-size:14px;}
+  #spRoot .sp-card p{margin:0;color:var(--muted);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  #spRoot .sp-tag{flex-shrink:0;white-space:nowrap;display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;color:#fff;font-weight:600;}
+  #spRoot .sp-st{font-size:11px;margin-left:6px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+  #spRoot .sp-st-published{color:var(--good);}#spRoot .sp-st-scheduled{color:var(--gold-deep);}#spRoot .sp-st-draft{color:var(--warn);}
+  #spRoot .sp-meta{font-size:12px;color:var(--muted);margin-top:6px;}
+  #spRoot .sp-empty{color:var(--muted);padding:26px;text-align:center;border:1px dashed var(--border);border-radius:10px;}
+  #spRoot .sp-two{display:grid;grid-template-columns:1fr 280px;gap:14px;}
+  @media(max-width:900px){#spRoot .sp-two{grid-template-columns:1fr;}}
+  #spRoot .sp-mh{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  #spRoot .sp-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  #spRoot .sp-dow{background:#f0f1f5;padding:5px;text-align:center;font-size:12px;color:var(--muted);}
+  #spRoot .sp-day{background:#fff;min-height:88px;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:3px;}
+  #spRoot .sp-day.out{background:#f7f8fa;opacity:.6;}#spRoot .sp-day.today{outline:2px solid var(--gold);outline-offset:-2px;}
+  #spRoot .sp-day small{color:var(--muted);font-size:11px;}
+  #spRoot .sp-pill{font-size:11px;padding:2px 6px;border-radius:5px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+  #spRoot .sp-pill-published{opacity:.5;}
+  #spRoot .sp-side{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px;align-self:start;}
+  #spRoot .sp-side h4{margin:0 0 8px;font-size:12px;color:var(--gold-deep);text-transform:uppercase;letter-spacing:.06em;}
+  #spRoot .sp-row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  #spRoot .sp-row:last-child{border:0;}#spRoot .sp-click{cursor:pointer;}
+  #spRoot .sp-ok{color:var(--good);}#spRoot .sp-warn{color:var(--soon);}#spRoot .sp-bad{color:var(--warn);}
+</style>
+      <div class="card" style="margin-top:14px;">
+        <h2>Website &amp; Socials links</h2>
         <div class="sub">Where the live site and social accounts actually are. Add, edit, or remove entries as accounts change — mark one "Not live yet" if it's planned but not public.</div>
         <div class="link-add">
           <input type="text" id="wsLabel" placeholder="Label (e.g. Facebook Page)">
@@ -2672,6 +2753,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return JSON.parse(new TextDecoder().decode(plainBuf));
   }
 
+  // Social planner data (13 Nov 2026). Seeded once from a snapshot of the public accounts; after that
+  // it is edited in the Website > Socials tab and travels in the vault with everything else.
+  function socialDefaults_(){ return {"accounts": [{"id": "instagram", "handle": "@imagescapestudios", "state": "active", "url": "https://www.instagram.com/imagescapestudios/", "followers": "119", "target": 3, "notes": "23 posts at snapshot (13 Nov 2026). Some older captions and collab tags still mention Skysight."}, {"id": "website", "handle": "imagescapestudios.uk", "state": "active", "url": "https://imagescapestudios.uk", "followers": "", "target": 0.5, "notes": "Single page site. No blog or news section yet. Location and project-type landing pages planned."}, {"id": "etsy", "handle": "ImageScapeStudios", "state": "new", "url": "https://www.etsy.com/shop/ImageScapeStudios", "followers": "0", "target": 1, "notes": "Shop opened 2025, no items listed at snapshot. Framed aerial and ground prints."}, {"id": "linkedin", "handle": "linkedin.com/in/imagescape", "state": "new", "url": "https://www.linkedin.com/in/imagescape", "followers": "", "target": 1, "notes": "Personal profile set up for ImageScape. Not yet snapshotted."}, {"id": "gbp", "handle": "ImageScape Studios Ltd (Beeston)", "state": "active", "url": "", "followers": "", "target": 0.5, "notes": "Single consolidated listing. Not yet snapshotted."}, {"id": "youtube", "handle": "imagescapestudiosltd", "state": "active", "url": "https://www.youtube.com/@imagescapestudiosltd", "followers": "", "target": 0.5, "notes": "Handle confirmed by Jon. Use Connections to pull the uploads in."}, {"id": "facebook", "handle": "New page to be created", "state": "to set up", "url": "", "followers": "", "target": 2, "notes": "New Facebook page planned."}], "posts": [{"id": "ig-De-ALicxAaD", "platform": "instagram", "status": "published", "kind": "reel / video", "date": "", "title": "OFFBEAT exhibition video, Beeston Library Gallery", "caption": "OFFBEAT, the 2026 Artist and Author in Residence project with @inspireculturenotts, celebrated in this short video of the exhibition at Beeston Library Gallery.", "url": "https://www.instagram.com/reel/De-ALicxAaD/", "pillar": "Community and events", "plan": "", "order": 1}, {"id": "ig-DXg_f9kjETf", "platform": "instagram", "status": "published", "kind": "reel / video", "date": "", "title": "Rising Festival 2027 client reaction to their video", "caption": "Collab reel posted by rising_festival_2027. Caption still refers to Skysight (old brand name).", "url": "https://www.instagram.com/reel/DXg_f9kjETf/", "pillar": "Community and events", "plan": "", "order": 2}, {"id": "ig-DXSPweODBLk", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "First pentaptych art piece", "caption": "Our very first pentaptych art piece. Printed and framed.", "url": "https://www.instagram.com/p/DXSPweODBLk/", "pillar": "Artwork and prints", "plan": "", "order": 3}, {"id": "ig-DXPyCErjBpJ", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "Drone shot from a trip to France", "caption": "One trip to France later, a welcome addition to our collection.", "url": "https://www.instagram.com/p/DXPyCErjBpJ/", "pillar": "Finished work", "plan": "", "order": 4}, {"id": "ig-DXABDgJDCmW", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "Pre night flight checks", "caption": "Pre night flight checks and a view to be captured, even before the motors spin up.", "url": "https://www.instagram.com/p/DXABDgJDCmW/", "pillar": "Behind the scenes", "plan": "", "order": 5}, {"id": "ig-DWwTD4lDHFq", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "Canal near the ImageScape office", "caption": "An idyllic canal not far from the ImageScape Studios office.", "url": "https://www.instagram.com/p/DWwTD4lDHFq/", "pillar": "Finished work", "plan": "", "order": 6}, {"id": "ig-DWUgwpwkeOi", "platform": "instagram", "status": "published", "kind": "reel / video", "date": "", "title": "Winter travels 2026 compilation", "caption": "With our Winter travels of 2026 at an end, a compilation to fondly remember them.", "url": "https://www.instagram.com/reel/DWUgwpwkeOi/", "pillar": "Finished work", "plan": "", "order": 7}, {"id": "ig-DUjEo6_DK_5", "platform": "instagram", "status": "published", "kind": "reel / video", "date": "", "title": "Event aftermovie (credits an old SkySight tag)", "caption": "Aftermovie reel crediting an account with the old SkySight style name.", "url": "https://www.instagram.com/reel/DUjEo6_DK_5/", "pillar": "Community and events", "plan": "", "order": 8}, {"id": "ig-DScn7WxjCAt", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "Balearic Sea watercolours", "caption": "The Balearic Sea showing off its collection of watercolours.", "url": "https://www.instagram.com/p/DScn7WxjCAt/", "pillar": "Finished work", "plan": "", "order": 9}, {"id": "ig-DSYSyqhDNKN", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "Black and white, down by the Docks", "caption": "A simple and charming black and white. Down by the Docks.", "url": "https://www.instagram.com/p/DSYSyqhDNKN/", "pillar": "Finished work", "plan": "", "order": 10}, {"id": "ig-DSLA10PkXgi", "platform": "instagram", "status": "published", "kind": "reel / video", "date": "", "title": "Simple joy in every stage of flying", "caption": "It is simple joy in every stage; the fun in flying, to seeing those moments.", "url": "https://www.instagram.com/reel/DSLA10PkXgi/", "pillar": "Behind the scenes", "plan": "", "order": 11}, {"id": "ig-DSDvUItDJVk", "platform": "instagram", "status": "published", "kind": "photo", "date": "", "title": "Lazy, hazy sun over a Midlands reservoir", "caption": "Lazy, hazy Sun in the Midlands, UK. Nearby reservoir.", "url": "https://www.instagram.com/p/DSDvUItDJVk/", "pillar": "Finished work", "plan": "", "order": 12}, {"id": "web-home", "platform": "website", "status": "published", "kind": "text post", "date": "", "title": "Homepage: Every story, seen from all sides", "caption": "Single page site covering the nine specialisms, who we are, FAQ and quote enquiry form.", "url": "https://imagescapestudios.uk/", "pillar": "Services", "plan": "", "order": 1}, {"id": "idea-blog-launch", "platform": "website", "status": "idea", "kind": "blog post", "date": "", "title": "First blog post: what a roof inspection survey involves", "caption": "Explain the process from planning to geotagged imagery, to bring in enquiries for Roof & Infrastructure.", "url": "", "pillar": "Tips and how-tos", "plan": ""}, {"id": "idea-etsy-first-listing", "platform": "etsy", "status": "idea", "kind": "listing", "date": "", "title": "List the first framed print on Etsy", "caption": "Choose one favourite aerial shot, write the listing and post it to Instagram on the same day.", "url": "", "pillar": "Artwork and prints", "plan": ""}, {"id": "idea-linkedin-intro", "platform": "linkedin", "status": "idea", "kind": "text post", "date": "", "title": "LinkedIn intro: imagery for property sales", "caption": "Introduce ImageScape as an imagery provider, with a recent property or event example.", "url": "", "pillar": "Services", "plan": ""}, {"id": "idea-fb-launch", "platform": "facebook", "status": "idea", "kind": "text post", "date": "", "title": "Facebook page launch post", "caption": "Announce the new page with the OFFBEAT exhibition video and a short intro to the services.", "url": "", "pillar": "Community and events", "plan": ""}, {"id": "idea-ig-bts", "platform": "instagram", "status": "idea", "kind": "reel / video", "date": "", "title": "Behind the scenes: setting up a night flight", "caption": "Short reel from the pre flight checks to the final frame.", "url": "", "pillar": "Behind the scenes", "plan": ""}], "yt": {"handle": "imagescapestudiosltd", "apiKey": "", "lastPull": ""}}; }
+  function normaliseSocial_(sv){
+    if (!sv || typeof sv !== 'object') sv = socialDefaults_();
+    sv.accounts = Array.isArray(sv.accounts) ? sv.accounts : [];
+    sv.posts = Array.isArray(sv.posts) ? sv.posts : [];
+    sv.yt = (sv.yt && typeof sv.yt === 'object') ? sv.yt : { handle: '', apiKey: '', lastPull: '' };
+    sv.accounts.forEach(function(a){ a.id = a.id || randomId(); a.handle = a.handle || ''; a.state = a.state || 'active'; a.url = a.url || ''; a.followers = a.followers || ''; a.target = Number(a.target) || 0; a.notes = a.notes || ''; });
+    sv.posts.forEach(function(q){ q.id = q.id || randomId(); q.platform = q.platform || 'instagram'; q.status = q.status || 'idea'; q.date = q.date || ''; q.title = q.title || ''; q.caption = q.caption || ''; q.kind = q.kind || ''; q.pillar = q.pillar || ''; q.url = q.url || ''; q.plan = q.plan || ''; });
+    return sv;
+  }
+
   // ---------------------------------------------------------------- default seed content
   // This app is now a generic, public, reusable shell (it never carries anyone's
   // actual data - that all lives in the private data repo), so unlike the old
@@ -2879,6 +2973,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Hub's own blog-posting feature and typically a different WP user/role. Added 16
     // Sep 2026 so this no longer has to be re-typed into the Ops Hub every page load.
     d.opsHubWpConnection = d.opsHubWpConnection || null;
+    d.social = normaliseSocial_(d.social);
     d.soleTraderClients = d.soleTraderClients || defaultSoleTraderClients();
     d.soleTraderClients.forEach(function(c){
       c.id = c.id || randomId();
@@ -3050,6 +3145,64 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       s.paidDate = s.paidDate || '';
       s.initInZoho = !!s.initInZoho;
       s.createdAt = s.createdAt || todayIso_();
+    });
+    // Equipment register. First load seeds the assets found in Zoho (Nov 2026); never re-seeded, so
+    // deleting a seeded item sticks. accDepOpening is what the 2025 year-end ledger depreciated; the
+    // Hub schedules from the end of October 2026, so nothing posts until the next month-end.
+    d.equipment = d.equipment || [];
+    if (!d.equipmentSeeded){
+      const S = function(id, name, accountKey, purchaseDate, cost, depreciate, accOpen, through, status, source, notes, removedDate){
+        return { id: id, name: name, accountKey: accountKey, purchaseDate: purchaseDate, cost: cost, residual: 0, lifeMonths: 60, depreciate: depreciate,
+          accDepOpening: accOpen, accDepThrough: through, status: status, removedDate: removedDate || '', zohoSource: source, notes: notes || '',
+          reference: ('Depreciation: ' + name).slice(0, 100), createdAt: '2026-11-13' };
+      };
+      d.equipment = d.equipment.concat([
+        S('eq-mavic4pro', 'DJI Mavic 4 Pro Fly More Combo (RC2)', 'drone', '2025-07-21', 2336.05, true, 436.05, '2026-10-31', 'in_use', 'Expense, Drone Safe Store, ref "DJI Mavic 4 Pro Fly More Combo (RC2)"', 'Opening depreciation is the 2025 year-end ledger figure (carry amount then 1900.00).'),
+        S('eq-mini4pro', 'DJI Mini 4 Pro Fly More Combo (RC2)', 'drone', '2024-12-03', 728.99, true, 128.99, '2026-10-31', 'in_use', 'Journal 6, "DJI Mini 4 Pro Fly More Combo (RC2)"', 'Opening depreciation is the 2025 year-end ledger figure (carry amount then 600.00).'),
+        S('eq-mini5pro', 'DJI Mini 5 Pro combo', 'drone', '2026-05-05', 809, true, 0, '', 'review', 'Expense, The Drone Hangar, ref "DJI Mini 5 pro combo"', 'Booked in Zoho DRONE. Check whether this is still a company asset (it may now be privately owned) before depreciating.'),
+        S('eq-prusa', 'Prusa Core One 3D printer, obXidian nozzle, sheet', 'computer', '2025-08-13', 1019.45, true, 115, '2026-10-31', 'in_use', 'Expense, 123-3D.co.uk, ref "Prusa Core One 3D printer, obXidian nozzle,sheet", in Computer hardware', 'Opening depreciation is the 2025 year-end ledger figure (assembly cost written off).'),
+        S('eq-macstudio', 'Apple Mac Studio workstation (M1 Max)', 'computer', '2025-03-18', 875, true, 175, '2025-12-31', 'removed', 'Journal 11 "Apple Mac Studio workstation"; reversed by journal 70 on 2026-05-18 (670.75)', 'Taken out of the company in May 2026. Kept for the record, no depreciation scheduled.', '2026-05-18'),
+        S('eq-m1max', 'M1 Max A2485', 'computer', '2026-05-03', 854.99, true, 0, '2026-10-31', 'in_use', 'Journal 66 "M1 Max A2485"', 'Hub depreciation starts Nov 2026. To backfill May to Oct 2026, set the "already in Zoho up to" date to 2026-04-30 and the amount to 0.'),
+        S('eq-brother', 'Brother HL-L2447DW printer', 'computer', '2025-05-04', 119, true, 39, '2026-10-31', 'in_use', 'Journal 19 "Brother HL-L2447DW printer"', 'Opening depreciation is the 2025 year-end ledger figure (carry amount then 80.00).'),
+        S('eq-fileserver', 'Company file server (Raspberry Pi 5, NVMe, SD, lead)', 'computer', '2024-11-25', 232.38, true, 42.38, '2026-10-31', 'in_use', 'Journals 1 to 4 (RPi 5 126.30, 2x1TB NVMe 97.90, microSD 4.99, micro HDMI lead 3.19)', 'Opening depreciation is the 2025 year-end ledger figure (carry amount then 190.00).'),
+        S('eq-camera-ebay', 'Camera (eBay, October 2026)', 'camera', '2026-10-20', 355.98, true, 0, '2026-10-31', 'in_use', 'Expense, Ebay.co.uk, 2026-10-20, in Camera', 'Replace the name with the model. Hub depreciation starts Nov 2026.'),
+        S('eq-camerahw-1', 'Camera accessory (Amazon, 28 Oct 2026)', 'camerahw', '2026-10-28', 26, false, 0, '', 'in_use', 'Expense, Amazon.co.uk, 2026-10-28, in Camera hardware', 'Small item kept at cost. Rename with what it is.'),
+        S('eq-camerahw-2', 'Camera accessory (Amazon, 2 Nov 2026)', 'camerahw', '2026-11-02', 61.99, false, 0, '', 'in_use', 'Expense, Amazon.co.uk, 2026-11-02, in Camera hardware', 'Small item kept at cost. Rename with what it is.'),
+        S('eq-lexar', 'Lexar 256 GB microSD cards (2-pack)', 'dronehw', '2025-07-25', 37.55, false, 0, '', 'in_use', 'Expense, Amazon.co.uk, ref "Lexar 256 GB microSD cards (2-pack)", in Drone Hardware', 'Small item kept at cost.'),
+        S('eq-powerbank', 'Ugreen Nexode Power Bank 20 Ah', 'dronehw', '2025-05-07', 50.99, false, 0, '', 'in_use', 'Journal 20 "Ugreen Nexode Power Bank 20 Ah"', 'Small item kept at cost. Zoho account assumed, confirm.'),
+        S('eq-joysticks', 'Extended joysticks for DJI RC', 'dronehw', '2025-07-29', 7.78, false, 0, '', 'in_use', 'Journal 23 "Extended joysticks for DJI RC"', 'Small item kept at cost. Zoho account assumed, confirm.'),
+        S('eq-canon', 'Canon TS3300 printer', 'computer', '2025-12-08', 30, false, 0, '', 'in_use', 'Journal 24 "Canon TS3300, sold to company"', 'Small item kept at cost. Zoho account assumed, confirm.'),
+        S('eq-nvme', '2TB Crucial P3 2280 NVMe', 'computer', '2025-04-10', 80, false, 0, '', 'in_use', 'Journal 16 "2TB Crucial P3 2280 NVMe, sold to company"', 'Small item kept at cost. Zoho account assumed, confirm.'),
+        S('eq-caddy', 'EZCOST S8000 NVMe caddy', 'computer', '2025-04-10', 10, false, 0, '', 'in_use', 'Journal 15 "EZCOST S8000 NVME caddy, sold to company"', 'Small item kept at cost. Zoho account assumed, confirm.')
+      ]);
+      d.equipmentSeeded = true;
+      d.equipmentLife60 = true;
+    }
+    // 13 Nov 2026: all equipment is depreciated straight line over 5 years to nil. Seeded items saved
+    // earlier with the interim 36 months are moved to 60 once.
+    if (!d.equipmentLife60){
+      d.equipment.forEach(function(a){ if (String(a.id).indexOf('eq-') === 0 && Number(a.lifeMonths) === 36) a.lifeMonths = 60; });
+      d.equipmentLife60 = true;
+    }
+    d.equipment.forEach(function(a){
+      a.id = a.id || randomId();
+      a.name = a.name || 'Equipment';
+      a.accountKey = a.accountKey || 'computer';
+      a.purchaseDate = a.purchaseDate || '';
+      a.cost = Number(a.cost) || 0;
+      a.residual = Number(a.residual) || 0;
+      a.lifeMonths = Number(a.lifeMonths) || 60;
+      a.depreciate = (a.depreciate !== false);
+      a.accDepOpening = Number(a.accDepOpening) || 0;
+      a.accDepThrough = a.accDepThrough || '';
+      a.status = (a.status === 'review' || a.status === 'removed') ? a.status : 'in_use';
+      a.removedDate = a.removedDate || '';
+      a.zohoSource = a.zohoSource || '';
+      a.notes = a.notes || '';
+      a.reference = a.reference || ('Depreciation: ' + a.name).slice(0, 100);
+      a.createdAt = a.createdAt || todayIso_();
+      a.reversal = (a.reversal && typeof a.reversal === 'object') ? a.reversal : null;
+      if (a.id === 'eq-macstudio' && !a.reversal) a.reversal = { date: '2026-05-18', director: 'J', amount: 670.75, reference: 'Reversal of Apple Mac Studio workstation', external: true, note: 'journal 70, 670.75' };
     });
     d.paperwork = d.paperwork || [];
     d.paperwork.forEach(function(p){
@@ -4827,7 +4980,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     if (!slotRows.length) throw new Error('Could not find any address-line slots under "' + labelText + '".');
 
-    const lines = (addressLines || []).filter(function(l){ return l && l.trim(); });
+    // The bold name row above already shows the client/company name, so an address line that
+    // is just that same name (a client address saved starting with its own name, as Just
+    // Jules' was, which printed the name twice on invoice and receipt 26003) is dropped.
+    // Compared ignoring case, spacing and punctuation; only whole-line matches are removed.
+    const sameAsName = function(l){
+      const norm = function(v){ return String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); };
+      return !!norm(name) && norm(l) === norm(name);
+    };
+    const lines = (addressLines || []).filter(function(l){ return l && l.trim() && !sameAsName(l); });
     let overflow = false;
     const toWrite = lines.slice(0, slotRows.length);
     if (lines.length > slotRows.length){
@@ -8182,6 +8343,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     renderDjiProxySettings();
     renderLinks();
     renderWebsiteSocials();
+    renderSocialPlanner();
     renderWpStatus();
     renderBlogHistory();
     renderGalleries();
@@ -8281,7 +8443,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // listed here (home, cal, flights) sit on the primary row and collapse both sub-navs.
   const PANEL_GROUP = {
     clients: 'Client', paperwork: 'Client', quotes: 'Client', invoices: 'Client', documents: 'Client', galleries: 'Client', retention: 'Client',
-    tasks: 'Admin', renewals: 'Admin', meetings: 'Admin', finance: 'Admin', emails: 'Admin', tax: 'Admin',
+    tasks: 'Admin', renewals: 'Admin', meetings: 'Admin', finance: 'Admin', equipment: 'Admin', emails: 'Admin', tax: 'Admin',
     blog: 'Website', links: 'Website', webdev: 'Website', social: 'Website'
   };
   // Remembers the last panel visited inside each group, so re-opening a group (e.g.
@@ -8532,7 +8694,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   const MERGE_NAMES_ = { tasks: 'Task', clients: 'Client', events: 'Calendar event', meetings: 'Meeting note', documents: 'Document', paperwork: 'Paperwork',
     quotes: 'Quote', renewals: 'Renewal', links: 'Link', galleries: 'Gallery', emailTemplates: 'Email template', soleTraderClients: 'Self-employed client',
-    subscriptions: 'Subscription', opportunities: 'Opportunity', retainers: 'Retainer', blogPosts: 'Blog post', emailSettings: 'Email settings', financeProfile: 'Finance profile' };
+    subscriptions: 'Subscription', equipment: 'Equipment', opportunities: 'Opportunity', retainers: 'Retainer', blogPosts: 'Blog post', emailSettings: 'Email settings', financeProfile: 'Finance profile' };
   function mergeRecLabel_(r){
     if (!isPlainObj_(r)) return '';
     return String(r.name || r.title || r.text || r.label || r.vendor || r.imageScapeRef || r.number || r.ref || '').slice(0, 60);
@@ -8662,7 +8824,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // no delete anywhere in the Hub is ever final by accident. A save that removes a large
   // share of a list at once asks first.
   const TRASH_KEYS_ = { tasks: 'Task', clients: 'Client', meetings: 'Meeting note', documents: 'Document', paperwork: 'Paperwork', quotes: 'Quote',
-    renewals: 'Renewal', links: 'Link', galleries: 'Gallery', emailTemplates: 'Email template', subscriptions: 'Subscription',
+    renewals: 'Renewal', links: 'Link', galleries: 'Gallery', emailTemplates: 'Email template', subscriptions: 'Subscription', equipment: 'Equipment',
     opportunities: 'Opportunity', retainers: 'Retainer', blogPosts: 'Blog post', discussionTopics: 'Discussion topic', soleTraderClients: 'Self-employed client',
     websiteLinks: 'Website link' };
   const TRASH_DAYS_ = 90, TRASH_MAX_ = 300;
@@ -8734,8 +8896,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.10.36';
+  const HUB_VERSION = '2026.11.4';
   const HUB_CHANGELOG = [
+    { v: '2026.11.4', date: '14 Nov 2026', items: [
+      'Website > Socials: new social planner above the links list. It tracks the accounts (Instagram, website and blog, Etsy, LinkedIn, Google Business, YouTube) and a library of posts and ideas with their status, and can pull the YouTube channel\'s uploads using a YouTube Data API key, which is stored encrypted in the vault. Merged with the Equipment tab and the Reverse in Zoho button.' ] },
+    { v: '2026.11.3', date: '13 Nov 2026', items: [
+      'Equipment tab: new Reverse in Zoho button on each item. It posts a reversal journal (debit the chosen director\'s loan account, credit the asset account, no cash) dated as you choose, marks the item as no longer a company asset, and shows whether Zoho has the journal. The Mac Studio is shown as already reversed (journal 70).' ] },
+    { v: '2026.11.2', date: '13 Nov 2026', items: [
+      'Equipment tab: all equipment now depreciates straight line over 5 years (60 months) to nil, the standing rule. The default life for new items is 60 months, and the items already seeded were moved from 36 to 60.' ] },
+    { v: '2026.11.1', date: '13 Nov 2026', items: [
+      'New Equipment tab (Business Admin): a register of company kit found in Zoho, with straight line depreciation scheduled by month and posted to Zoho as journals (debit Depreciation Expense, credit Accumulated depreciation) through the same bridge as the prepayments. Each month shows as in Zoho only when Zoho holds a journal with the same reference and date. Check each item\'s life, opening depreciation and Zoho account before posting anything.' ] },
     { v: '2026.10.36', date: '28 Oct 2026', items: [
       'Tax spreadsheet, Invoices tab: adding a new invoice row no longer throws the Due dates out of line. The older rows\' Due formulas and the total at the bottom kept pointing at their old row numbers, so after a recalculation in LibreOffice or Google Sheets each Due date showed the one belonging to a row further up. The Hub now moves those references down with the rows when it adds an invoice, and puts any Due formula that already points at the wrong row back onto its own row.' ] },
     { v: '2026.10.35', date: '20 Oct 2026', items: [
@@ -8990,7 +9160,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function rerenderAll_(){
     [renderCalendar, renderClients, renderTasks, renderMeetings, renderDocuments, renderPaperwork, renderFinance, renderRatePresets, renderQuotes,
      renderInvoiceQueue, renderTemplates, populateUseTemplateSelects, renderEmailSettings, renderTaxPackCard, renderFlights, renderDjiProxySettings,
-     renderLinks, renderWebsiteSocials, renderWpStatus, renderBlogHistory, renderGalleries, renderRetention, renderChecklists, renderSoleTraderClients,
+     renderLinks, renderWebsiteSocials, renderSocialPlanner, renderWpStatus, renderBlogHistory, renderGalleries, renderRetention, renderChecklists, renderSoleTraderClients,
      renderSoleTraderCalStatus, renderSoleTraderSheetStatus, renderRenewals, renderTrash_, renderAbout_, renderHome].forEach(function(fn){
       try { fn(); } catch (e){ if (window.console) console.warn('Hub refresh step failed:', fn && fn.name, e); }
     });
@@ -11794,6 +11964,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         });
       }
     })();
+    (function(){
+      const eq = (data.equipment || []).map(function(a){ return { a: a, st: equipmentZohoState(a) }; }).filter(function(x){ return x.st.dueLines.length; });
+      if (eq.length){
+        items.push({ level: 'soon', title: eq.length + ' equipment item' + (eq.length === 1 ? '' : 's') + ' with depreciation to post in Zoho',
+          sub: eq.map(function(x){ return x.a.name + ' (' + x.st.dueLines.length + ' journal' + (x.st.dueLines.length === 1 ? '' : 's') + ')'; }).join(', '),
+          panel: 'equipment', when: 'Equipment' });
+      }
+    })();
     const fp = data.financeProfile || {};
     try { accessManualReminderItems().forEach(function(it){ items.push(it); }); } catch (e){ /* ignore */ }
     if (!fp.personalUtr){
@@ -13620,7 +13798,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       zohoLogAction({ kind: p.kind, ok: true, label: zohoActionLabel(p, r), error: null });
     });
     data.zohoPending = stillPending;
-    if (applied || failed){ markDirty(); renderZohoActionLog(); renderInvoiceQueue(); renderSubscriptions(); renderHome(); }
+    if (applied || failed){ markDirty(); renderZohoActionLog(); renderInvoiceQueue(); renderSubscriptions(); renderEquipment(); renderHome(); }
     if (needsOk.length){
       setTimeout(function(){ alert('Zoho update - please read:\n\n' + needsOk.join('\n\n')); }, 50);
     }
@@ -13827,7 +14005,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       renderZohoReviewBadge();
       renderUseTemplateQuoteAndInvoiceOptions();
       renderSubscriptions();
-      if (data.subscriptions && data.subscriptions.length) renderHome();
+      renderEquipment();
+      if ((data.subscriptions && data.subscriptions.length) || (data.equipment && data.equipment.length)) renderHome();
       if (linked) toast('Linked ' + linked + ' client' + (linked === 1 ? '' : 's') + ' to an existing Zoho contact by email.');
       else if (summary) toast(summary);
       return zohoHandleNewlyPaidInvoices();
@@ -19405,12 +19584,370 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     toast('Subscription added. Post it to Zoho from the card when ready.');
   });
 
+  // ---------------------------------------------------------------- equipment / depreciation
+  // The register of company equipment. Depreciation is straight line, monthly, posted to Zoho as a
+  // manual journal (debit Depreciation Expense, credit Accumulated depreciation) through the same
+  // Apps Script bridge as the prepayments. Nothing is recorded here as "posted": every month's
+  // state is read back from the Zoho snapshot (same journal reference and date), so this always
+  // shows what Zoho actually holds. Scripted creates are idempotent on that reference and date.
+  const EQ_DEPR_EXPENSE_ID = '942152000000000439';   // Depreciation Expense
+  const EQ_ACCUM_DEPR_ID = '942152000000063044';     // Accumulated depreciation
+  const EQUIPMENT_ACCOUNTS = [
+    { key: 'drone', name: 'DRONE', id: '942152000000065169' },
+    { key: 'dronehw', name: 'Drone Hardware', id: '942152000000070722' },
+    { key: 'camera', name: 'Camera', id: '942152000000469027' },
+    { key: 'camerahw', name: 'Camera hardware', id: '942152000000574002' },
+    { key: 'computer', name: 'Computer hardware', id: '942152000000063056' },
+    { key: 'furniture', name: 'Furniture and Equipment', id: '942152000000000355' }
+  ];
+  function eqAccount_(key){ return EQUIPMENT_ACCOUNTS.find(function(a){ return a.key === key; }) || EQUIPMENT_ACCOUNTS[4]; }
+  function eqRef_(name){ return ('Depreciation: ' + String(name || 'asset')).slice(0, 100); }
+  let eqEditId_ = null;
+
+  const EQ_DLA = {
+    M: { id: '942152000000068089', name: 'Directors Loan Account - Mike' },
+    J: { id: '942152000000068097', name: 'Directors Loan Account - Jon' }
+  };
+  function eqSnapState_(){
+    const snap = zohoSnapshotCache;
+    const listed = !!(snap && Array.isArray(snap.subscriptionEntries));
+    const scriptOk = !!(snap && Number(snap.scriptVersion) >= ZOHO_SCRIPT_VERSION_REQUIRED);
+    const entriesKnown = listed && scriptOk;
+    const byKey = {};
+    (entriesKnown ? snap.subscriptionEntries : []).forEach(function(e){ byKey[subEntryKey_(e.kind, e.reference, e.date)] = e; });
+    const pendingKeys = {};
+    (data.zohoPending || []).forEach(function(p){ if (p.kind === 'createJournal' && p.meta && p.meta.key) pendingKeys[p.meta.key] = true; });
+    return { entriesKnown: entriesKnown, byKey: byKey, pendingKeys: pendingKeys };
+  }
+  // The reversal journal takes the item out of its asset account against a director's loan account
+  // (debit the loan account, credit the asset), with no cash moving, the same shape as the HP Omen
+  // and Mac Studio reversals. Items reversed outside the Hub carry reversal.external and show as done.
+  function equipmentReversalState_(a){
+    const r = a.reversal; if (!r) return null;
+    if (r.external) return { external: true, state: 'in_zoho', text: 'Reversed in Zoho before the Hub (' + (r.note || 'journal already posted') + ')' };
+    const s = eqSnapState_();
+    const key = subEntryKey_('journal', r.reference, r.date);
+    const entry = s.byKey[key] || null;
+    let state, text;
+    if (entry){ state = (entry.status && entry.status !== 'published') ? 'draft' : 'in_zoho'; text = (state === 'in_zoho' ? 'In Zoho' : 'In Zoho as a draft, publish it there') + (entry.number ? (' (journal #' + entry.number + ')') : ''); }
+    else if (s.pendingKeys[key]){ state = 'sending'; text = 'Sending to Zoho...'; }
+    else if (s.entriesKnown){ state = 'not_found'; text = 'Not found in Zoho at the last sync'; }
+    else { state = 'unknown'; text = 'Zoho state unknown until the next sync'; }
+    return { external: false, state: state, text: text, entriesKnown: s.entriesKnown };
+  }
+  async function reverseEquipmentInZoho_(a){
+    const acct = eqAccount_(a.accountKey);
+    let r = a.reversal;
+    if (!r){
+      const f = equipmentFigures_(a);
+      const date = prompt('Date of the reversal in Zoho (YYYY-MM-DD).', todayIso_());
+      if (date === null) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())){ alert('Use the format YYYY-MM-DD.'); return; }
+      const who = prompt('Which director\'s loan account is the other side?\n\nType M for Mike or J for Jon.', a.id === 'eq-mini5pro' ? 'M' : 'J');
+      if (who === null) return;
+      const w = who.trim().toUpperCase();
+      if (w !== 'M' && w !== 'J'){ alert('Type M or J.'); return; }
+      const amtStr = prompt('Amount to reverse (£).\n\nThe default is cost less depreciation already in Zoho for this item.', (Math.round((a.cost - f.acc) * 100) / 100).toFixed(2));
+      if (amtStr === null) return;
+      const amount = Math.round(parseFloat(amtStr) * 100) / 100;
+      if (!(amount > 0) || amount > (Number(a.cost) || 0) + 0.001){ alert('The amount must be more than £0 and no more than the cost.'); return; }
+      r = { date: date.trim(), director: w, amount: amount, reference: ('Reversal of ' + a.name).slice(0, 100), external: false };
+    }
+    const st0 = equipmentReversalState_(a && a.reversal ? a : { reversal: r });
+    const dla = EQ_DLA[r.director] || EQ_DLA.J;
+    if (!confirm('Post this reversal to Zoho now?\n\nDate ' + r.date + '\nDebit ' + dla.name + ' ' + fmtGBP(r.amount) + '\nCredit ' + acct.name + ' ' + fmtGBP(r.amount) + '\nReference: ' + r.reference + '\n\nNo cash moves. The same reference and date is checked in Zoho first, so it cannot post twice. The item stops depreciating from this date.')) return;
+    const key = subEntryKey_('journal', r.reference, r.date);
+    await zohoFireWrite('createJournal', { reference: r.reference, date: r.date, amount: r.amount, expenseAccountId: dla.id, prepaidAccountId: acct.id },
+      { subId: a.id, ref: r.reference, key: key, date: r.date });
+    a.reversal = r; a.status = 'removed'; a.removedDate = r.date;
+    markDirty(); renderEquipment(); renderHome();
+  }
+
+  // Straight line: (cost - residual) / life months, to the penny, one line per month-end after
+  // the "depreciation already in Zoho up to" date (or after the purchase month when none is set).
+  // Stops when the depreciable amount is used up. Removed, under-review and not-depreciated
+  // items have no schedule.
+  function computeEquipmentSchedule(a){
+    const out = [];
+    if (!a.depreciate || a.status !== 'in_use') return out;
+    const baseC = Math.max(0, Math.round(((Number(a.cost) || 0) - (Number(a.residual) || 0)) * 100));
+    const life = Math.max(1, Math.round(Number(a.lifeMonths)) || 60);
+    const monthlyC = Math.round(baseC / life);
+    let remaining = baseC - Math.round((Number(a.accDepOpening) || 0) * 100);
+    const from = a.accDepThrough || a.purchaseDate;
+    if (remaining <= 0 || monthlyC <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(from || '')) return out;
+    let y = parseInt(from.slice(0, 4), 10), m = parseInt(from.slice(5, 7), 10) - 1;
+    for (let i = 0; i < 600 && remaining > 0; i++){
+      m++; if (m > 11){ m = 0; y++; }
+      let cents = Math.min(monthlyC, remaining);
+      if (remaining - cents > 0 && remaining - cents < 100) cents = remaining;   // never leave under £1 for a last line
+      remaining -= cents;
+      const last = new Date(y, m + 1, 0).getDate();
+      out.push({ dateIso: isoDate(y, m, last), amount: cents / 100 });
+    }
+    return out;
+  }
+
+  function equipmentZohoState(a){
+    const snap = zohoSnapshotCache;
+    const connected = !!(data.zohoConnection && data.zohoConnection.webAppUrl);
+    const listed = !!(snap && Array.isArray(snap.subscriptionEntries));
+    const scriptOk = !!(snap && Number(snap.scriptVersion) >= ZOHO_SCRIPT_VERSION_REQUIRED);
+    const entriesKnown = listed && scriptOk;
+    const byKey = {};
+    (entriesKnown ? snap.subscriptionEntries : []).forEach(function(e){ byKey[subEntryKey_(e.kind, e.reference, e.date)] = e; });
+    const pendingKeys = {};
+    (data.zohoPending || []).forEach(function(p){
+      if (p.kind === 'createJournal' && p.meta && p.meta.key) pendingKeys[p.meta.key] = true;
+    });
+    const today = todayIso_();
+    const lines = computeEquipmentSchedule(a).map(function(l){
+      const key = subEntryKey_('journal', a.reference, l.dateIso);
+      const entry = byKey[key] || null;
+      let state;
+      if (entry) state = (entry.status && entry.status !== 'published') ? 'draft' : 'in_zoho';
+      else if (pendingKeys[key]) state = 'sending';
+      else if (l.dateIso <= today) state = 'due';
+      else state = 'upcoming';
+      return { dateIso: l.dateIso, amount: l.amount, key: key, entry: entry, state: state };
+    });
+    const stateError = (snap && snap.subscriptionEntriesError) ||
+      (listed && !scriptOk ? 'The Apps Script is an older version. Replace it with the latest Code.gs and deploy a new version.' : '');
+    return { connected: connected, entriesKnown: entriesKnown, snapshotLoaded: !!snap, error: stateError, lines: lines,
+             dueLines: lines.filter(function(l){ return l.state === 'due'; }) };
+  }
+
+  // Cost, depreciation held in Zoho so far (opening figure plus Hub journals Zoho has) and what is left.
+  function equipmentFigures_(a){
+    const st = equipmentZohoState(a);
+    const posted = st.lines.filter(function(l){ return l.state === 'in_zoho'; }).reduce(function(n, l){ return n + Math.round(l.amount * 100); }, 0) / 100;
+    const acc = (Number(a.accDepOpening) || 0) + posted;
+    return { st: st, posted: posted, acc: acc, nbv: (Number(a.cost) || 0) - acc };
+  }
+
+  async function postEquipmentDue_(onlyId){
+    const items = [];
+    data.equipment.forEach(function(a){
+      if (onlyId && a.id !== onlyId) return;
+      const st = equipmentZohoState(a);
+      if (!st.entriesKnown){ return; }
+      st.dueLines.forEach(function(l){ items.push({ a: a, line: l }); });
+    });
+    if (!items.length){ alert('Nothing is due to post, or Zoho state is unknown. Press Sync now on the Zoho Books card at the bottom of the Dashboard first.'); return; }
+    items.sort(function(x, y){
+      if (x.line.dateIso !== y.line.dateIso) return x.line.dateIso < y.line.dateIso ? -1 : 1;
+      return (x.a.createdAt || '').localeCompare(y.a.createdAt || '');
+    });
+    const seen = {};
+    for (let k = 0; k < items.length; k++){
+      if (seen[items[k].line.key]){ alert('Two assets would post the same reference on the same day:\n\n' + items[k].a.reference + ' on ' + items[k].line.dateIso + '\n\nGive one of them a different journal reference first.'); return; }
+      seen[items[k].line.key] = true;
+    }
+    const total = items.reduce(function(n, it){ return n + Math.round(it.line.amount * 100); }, 0) / 100;
+    const preview = items.slice(0, 8).map(function(it){ return it.line.dateIso + '  ' + fmtGBP(it.line.amount) + '  ' + it.a.reference; }).join('\n') + (items.length > 8 ? ('\n...and ' + (items.length - 8) + ' more') : '');
+    if (!confirm('Post ' + items.length + ' depreciation journal' + (items.length === 1 ? '' : 's') + ' to Zoho now, oldest first?\n\nTotal ' + fmtGBP(total) + '\nDebit Depreciation Expense, credit Accumulated depreciation\n\n' + preview + '\n\nEach is checked against Zoho (same reference and same date) first, so nothing is posted twice.')) return;
+    for (let k = 0; k < items.length; k++){
+      const it = items[k];
+      await zohoFireWrite('createJournal', { reference: it.a.reference, date: it.line.dateIso, amount: it.line.amount,
+        expenseAccountId: EQ_DEPR_EXPENSE_ID, prepaidAccountId: EQ_ACCUM_DEPR_ID },
+        { subId: it.a.id, ref: it.a.reference, key: it.line.key, date: it.line.dateIso });
+      renderEquipment();
+    }
+    renderHome();
+  }
+
+  const EQ_STATUS_TEXT = {
+    in_use: 'In use',
+    review: 'Needs review, no depreciation until confirmed',
+    removed: 'No longer a company asset'
+  };
+
+  function renderEquipment(){
+    const sel = document.getElementById('eqAccount');
+    if (sel && !sel.options.length){
+      EQUIPMENT_ACCOUNTS.forEach(function(c){ const o = document.createElement('option'); o.value = c.key; o.textContent = c.name; sel.appendChild(o); });
+    }
+    const wrap = document.getElementById('eqList');
+    const sum = document.getElementById('eqSummary');
+    if (!wrap || !sum) return;
+    wrap.innerHTML = ''; sum.innerHTML = '';
+    const list = data.equipment.slice().sort(function(a, b){
+      const ord = { in_use: 0, review: 1, removed: 2 };
+      if (ord[a.status] !== ord[b.status]) return ord[a.status] - ord[b.status];
+      return (b.purchaseDate || '').localeCompare(a.purchaseDate || '');
+    });
+    if (!list.length){ wrap.innerHTML = '<div class="empty-note">No equipment recorded yet.</div>'; return; }
+
+    // Summary by Zoho account, in-use assets only.
+    const byAcc = {}; let totCost = 0, totAcc = 0, dueTotal = 0, unknown = 0;
+    list.forEach(function(a){
+      const f = equipmentFigures_(a);
+      if (!f.st.entriesKnown && a.depreciate && a.status === 'in_use') unknown++;
+      dueTotal += f.st.dueLines.length;
+      if (a.status !== 'in_use') return;
+      const k = a.accountKey;
+      byAcc[k] = byAcc[k] || { cost: 0, acc: 0 };
+      byAcc[k].cost += Number(a.cost) || 0; byAcc[k].acc += f.acc;
+      totCost += Number(a.cost) || 0; totAcc += f.acc;
+    });
+    let rows = '';
+    EQUIPMENT_ACCOUNTS.forEach(function(c){
+      const r = byAcc[c.key]; if (!r) return;
+      rows += '<tr><td style="padding-right:18px;">' + escapeHtml(c.name) + '</td><td style="padding-right:18px;">' + fmtGBP(r.cost) + '</td><td style="padding-right:18px;">' + fmtGBP(r.acc) + '</td><td>' + fmtGBP(r.cost - r.acc) + '</td></tr>';
+    });
+    rows += '<tr><td style="padding-right:18px;"><b>Total in use</b></td><td style="padding-right:18px;"><b>' + fmtGBP(totCost) + '</b></td><td style="padding-right:18px;"><b>' + fmtGBP(totAcc) + '</b></td><td><b>' + fmtGBP(totCost - totAcc) + '</b></td></tr>';
+    sum.innerHTML = '<div style="overflow-x:auto;"><table style="border-collapse:separate;border-spacing:0 4px;"><tr><th style="padding-right:18px;text-align:left;">Zoho asset account</th><th style="padding-right:18px;text-align:left;">Cost</th><th style="padding-right:18px;text-align:left;">Depreciation to date</th><th style="text-align:left;">Net book value</th></tr>' + rows + '</table></div>' +
+      '<div class="hint" style="margin-top:6px;">Cost and depreciation come from this register. Compare the cost column with the asset account balances, and the depreciation column with Accumulated depreciation, in Zoho Chart of Accounts. Any difference is an asset or an opening figure to fix here.</div>';
+    if (dueTotal){
+      const bar = document.createElement('div'); bar.style.margin = '0 0 10px';
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-primary'; b.style.width = 'auto';
+      b.textContent = 'Post ' + dueTotal + ' due depreciation journal' + (dueTotal === 1 ? '' : 's') + ' to Zoho, oldest first';
+      b.addEventListener('click', function(){ postEquipmentDue_(null); });
+      bar.appendChild(b); wrap.appendChild(bar);
+    }
+    if (unknown){
+      const w = document.createElement('div'); w.className = 'hint'; w.style.marginBottom = '10px';
+      w.textContent = 'Zoho state is not readable yet (not connected, no sync yet, or the Apps Script needs updating), so journals show as planned only.';
+      wrap.appendChild(w);
+    }
+
+    list.forEach(function(a){
+      const acct = eqAccount_(a.accountKey);
+      const f = equipmentFigures_(a), st = f.st;
+      const card = document.createElement('div'); card.className = 'snapshot-card';
+      if (a.status === 'removed') card.style.opacity = '0.7';
+      const lineRow = function(l){
+        const t = SUB_STATE_TEXT[l.state];
+        const num = (l.entry && l.entry.number) ? (' (journal #' + escapeHtml(String(l.entry.number)) + ')') : '';
+        return '<tr><td>' + escapeHtml(l.dateIso) + '</td><td>' + fmtGBP(l.amount) + '</td><td style="color:' + t[1] + ';">' + (st.entriesKnown || l.state === 'sending' ? (t[0] + num) : 'Planned') + '</td></tr>';
+      };
+      let lrows = '', folded = '', foldedN = 0, up = 0;
+      st.lines.forEach(function(l){
+        if (l.state === 'upcoming'){ up++; if (up > 3){ folded += lineRow(l); foldedN++; return; } }
+        lrows += lineRow(l);
+      });
+      const monthlyShown = st.lines.length ? st.lines[0].amount : 0;
+      card.innerHTML =
+        '<div class="snap-head"><span class="snap-title"></span><span class="snap-pulled"></span><button class="snap-del" title="Remove from this list (does not touch Zoho)">✕</button></div>' +
+        '<div class="snap-period"></div>' +
+        '<div class="hint eq-status" style="margin-top:4px;"></div>' +
+        '<div class="snap-notes">Journal reference in Zoho: <b></b></div>' +
+        '<div class="hint eq-source" style="margin-top:4px;"></div>' +
+        '<table style="margin-top:8px;"><tr><td>Cost</td><td>' + fmtGBP(a.cost) + '</td></tr>' +
+          '<tr><td>Depreciation to date</td><td>' + fmtGBP(f.acc) + '</td></tr>' +
+          '<tr><td>Net book value</td><td>' + fmtGBP(f.nbv) + '</td></tr></table>' +
+        (lrows || foldedN ? ('<div class="hint" style="margin-top:8px;">' + (st.entriesKnown ? (st.lines.filter(function(l){ return l.state === 'in_zoho'; }).length + ' of ' + st.lines.length + ' remaining monthly journals in Zoho') : (st.lines.length + ' monthly journals planned')) + '</div><table style="margin-top:6px;">' + lrows + '</table>') : '') +
+        (foldedN ? ('<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;color:var(--muted);">' + foldedN + ' further upcoming month' + (foldedN === 1 ? '' : 's') + '</summary><table style="margin-top:6px;">' + folded + '</table></details>') : '') +
+        '<div class="snap-actions" style="margin-top:8px;"></div>';
+      card.querySelector('.snap-title').textContent = a.name;
+      card.querySelector('.snap-pulled').textContent = fmtGBP(a.cost) + ' · bought ' + (a.purchaseDate || '?');
+      card.querySelector('.snap-period').textContent = 'Zoho account ' + acct.name + (a.depreciate ? (' · straight line over ' + a.lifeMonths + ' months, residual ' + fmtGBP(a.residual) + (monthlyShown ? (', about ' + fmtGBP(monthlyShown) + ' a month') : '')) : ' · not depreciated');
+      let stText = EQ_STATUS_TEXT[a.status] + (a.status === 'removed' && a.removedDate ? (' since ' + a.removedDate) : '');
+      if (a.depreciate && a.status === 'in_use' && a.accDepThrough) stText += '. Depreciation already in Zoho up to ' + a.accDepThrough + ' (' + fmtGBP(a.accDepOpening) + ').';
+      const rev = equipmentReversalState_(a);
+      if (rev && !rev.external) stText += '. Reversal ' + a.reversal.date + ', ' + fmtGBP(a.reversal.amount) + ' against ' + (EQ_DLA[a.reversal.director] || EQ_DLA.J).name + ': ' + rev.text + '.';
+      else if (rev) stText += '. ' + rev.text + '.';
+      card.querySelector('.eq-status').textContent = stText;
+      card.querySelector('.snap-notes b').textContent = a.reference;
+      card.querySelector('.eq-source').textContent = [a.zohoSource ? ('Zoho source: ' + a.zohoSource) : '', a.notes || ''].filter(Boolean).join(' · ');
+      const actions = card.querySelector('.snap-actions');
+      const mk = function(label, fn){ const b = document.createElement('button'); b.type = 'button'; b.className = 'snap-csv-btn'; b.textContent = label; b.addEventListener('click', fn); actions.appendChild(b); };
+      if (st.dueLines.length) mk('Post ' + st.dueLines.length + ' due journal' + (st.dueLines.length === 1 ? '' : 's'), function(){ postEquipmentDue_(a.id); });
+      mk('Edit', function(){ loadEquipmentIntoForm_(a); });
+      if (!a.reversal) mk('Reverse in Zoho', function(){ reverseEquipmentInZoho_(a); });
+      else if (rev && !rev.external && rev.state === 'not_found') mk('Post reversal journal again', function(){ reverseEquipmentInZoho_(a); });
+      if (a.status === 'in_use') mk('No longer a company asset', function(){
+        const v = prompt('Date it stopped being a company asset (YYYY-MM-DD).\n\nThis only stops the Hub scheduling depreciation. Disposal or transfer entries in Zoho are made in Zoho.', todayIso_());
+        if (v === null) return;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v.trim())){ alert('Use the format YYYY-MM-DD.'); return; }
+        a.status = 'removed'; a.removedDate = v.trim(); markDirty(); renderEquipment(); renderHome();
+      });
+      else mk('Back in use', function(){ a.status = 'in_use'; a.removedDate = ''; markDirty(); renderEquipment(); renderHome(); });
+      if (!st.entriesKnown && st.error){ const w = document.createElement('div'); w.className = 'hint'; w.style.marginTop = '6px'; w.textContent = 'Cannot read Zoho yet: ' + st.error; card.appendChild(w); }
+      card.querySelector('.snap-del').addEventListener('click', function(){
+        if (!confirm('Remove "' + a.name + '" from the register?\n\nThis only deletes the Hub record. Anything already in Zoho stays there.')) return;
+        data.equipment = data.equipment.filter(function(x){ return x.id !== a.id; });
+        markDirty(); renderEquipment(); renderHome();
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  function loadEquipmentIntoForm_(a){
+    eqEditId_ = a.id;
+    document.getElementById('eqName').value = a.name;
+    document.getElementById('eqAccount').value = a.accountKey;
+    document.getElementById('eqPurchase').value = a.purchaseDate;
+    document.getElementById('eqCost').value = a.cost;
+    document.getElementById('eqResidual').value = a.residual;
+    document.getElementById('eqLife').value = a.lifeMonths;
+    document.getElementById('eqDepr').checked = !!a.depreciate;
+    document.getElementById('eqAccOpen').value = a.accDepOpening;
+    document.getElementById('eqAccThrough').value = a.accDepThrough;
+    document.getElementById('eqSource').value = a.zohoSource;
+    document.getElementById('eqReference').value = a.reference;
+    document.getElementById('eqStatus').value = a.status;
+    document.getElementById('eqSaveBtn').textContent = 'Save changes';
+    document.getElementById('eqCancelBtn').style.display = '';
+    document.getElementById('eqFormTitle').textContent = 'Edit: ' + a.name;
+    document.getElementById('eqName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function resetEquipmentForm_(){
+    eqEditId_ = null;
+    ['eqName', 'eqPurchase', 'eqCost', 'eqAccOpen', 'eqAccThrough', 'eqSource', 'eqReference'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('eqResidual').value = '0';
+    document.getElementById('eqLife').value = '60';
+    document.getElementById('eqDepr').checked = true;
+    document.getElementById('eqStatus').value = 'in_use';
+    document.getElementById('eqSaveBtn').textContent = 'Add equipment';
+    document.getElementById('eqCancelBtn').style.display = 'none';
+    document.getElementById('eqFormTitle').textContent = 'Add equipment';
+  }
+  document.getElementById('eqCancelBtn').addEventListener('click', resetEquipmentForm_);
+  document.getElementById('eqSaveBtn').addEventListener('click', function(){
+    const name = document.getElementById('eqName').value.trim();
+    const cost = parseFloat(document.getElementById('eqCost').value);
+    const purchaseDate = document.getElementById('eqPurchase').value;
+    const residual = parseFloat(document.getElementById('eqResidual').value) || 0;
+    const life = parseInt(document.getElementById('eqLife').value, 10) || 60;
+    const accOpen = parseFloat(document.getElementById('eqAccOpen').value) || 0;
+    const accThrough = document.getElementById('eqAccThrough').value;
+    const reference = (document.getElementById('eqReference').value.trim() || eqRef_(name)).slice(0, 100);
+    if (!name){ alert('Name is required.'); return; }
+    if (!cost || cost <= 0){ alert('Cost must be more than £0.'); return; }
+    if (!purchaseDate){ alert('Purchase date is required.'); return; }
+    if (life < 1 || life > 240){ alert('Life must be between 1 and 240 months.'); return; }
+    if (residual < 0 || residual >= cost){ alert('Residual value must be at least £0 and less than the cost.'); return; }
+    if (accOpen < 0 || accOpen > cost){ alert('Depreciation already in Zoho cannot be more than the cost.'); return; }
+    if (accOpen > 0 && !accThrough){ alert('Say which month-end the depreciation already in Zoho runs up to.'); return; }
+    const clash = data.equipment.find(function(o){ return o.id !== eqEditId_ && subNormRef_(o.reference) === subNormRef_(reference); });
+    if (clash){ alert('Not saved.\n\n"' + reference + '" is already the journal reference of ' + clash.name + '. Zoho would see the two assets as one entry. Make the reference different.'); return; }
+    const fields = { name: name, accountKey: document.getElementById('eqAccount').value, purchaseDate: purchaseDate, cost: cost, residual: residual,
+      lifeMonths: life, depreciate: document.getElementById('eqDepr').checked, accDepOpening: accOpen, accDepThrough: accThrough,
+      zohoSource: document.getElementById('eqSource').value.trim().slice(0, 200), reference: reference, status: document.getElementById('eqStatus').value };
+    if (eqEditId_){
+      const a = data.equipment.find(function(x){ return x.id === eqEditId_; });
+      if (a){
+        if (a.reference !== reference && a.accDepThrough){ if (!confirm('Changing the journal reference means journals already in Zoho under the old reference will no longer be recognised. Only do this before posting. Continue?')) return; }
+        Object.keys(fields).forEach(function(k){ a[k] = fields[k]; });
+        if (a.status !== 'removed') a.removedDate = '';
+      }
+      toast('Equipment updated.');
+    } else {
+      fields.id = randomId(); fields.notes = ''; fields.removedDate = ''; fields.createdAt = todayIso_();
+      data.equipment.push(fields);
+      toast('Equipment added.');
+    }
+    markDirty(); resetEquipmentForm_(); renderEquipment(); renderHome();
+  });
+
   function renderFinance(){
     try { renderPnl(); } catch (e){ /* live report is optional */ }
     renderFinanceProfile();
     renderDeadlines();
     renderSnapshots();
     renderSubscriptions();
+    renderEquipment();
     renderRemindersStatus();
   }
 
@@ -19920,6 +20457,421 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     data.links.push(entry);
     labelEl.value = ''; urlEl.value = ''; userEl.value = ''; passEl.value = '';
     markDirty(); renderLinks();
+  });
+
+  // ---------------------------------------------------------------- social planner
+  // Added 13 Nov 2026. Lives in the Website > Socials tab, above the older link list. Everything
+  // here is stored in data.social, so it is encrypted into the vault with the rest of the Hub.
+  // Connection keys (data.social.yt) are API keys, never account passwords.
+  const SP_PLATFORMS = {
+    instagram: { n: 'Instagram',       c: '#c2557a' },
+    website:   { n: 'Website / blog',  c: '#a3833f' },
+    etsy:      { n: 'Etsy',            c: '#c4622d' },
+    linkedin:  { n: 'LinkedIn',        c: '#3a6ea5' },
+    gbp:       { n: 'Google Business', c: '#2e8b57' },
+    youtube:   { n: 'YouTube',         c: '#c0392b' },
+    facebook:  { n: 'Facebook',        c: '#4a64b8' }
+  };
+  const SP_STATUSES = ['published', 'scheduled', 'draft', 'idea'];
+  const SP_KINDS = ['photo', 'reel / video', 'carousel', 'text post', 'blog post', 'listing', 'story'];
+  const SP_PILLARS = ['Behind the scenes', 'Finished work', 'Tips and how-tos', 'Services', 'Artwork and prints', 'Community and events'];
+  const spUI = { view: 'library', plats: {}, status: 'all', q: '', month: null };
+
+  function spIso_(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function spFmt_(s){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return 'date not set';
+    const p = s.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function spHash_(str){
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+  function spStableId_(platform, date, title){ return 'p-' + spHash_(platform + '|' + (date || '') + '|' + String(title || '').trim().toLowerCase()); }
+  function spTag_(p){
+    const pl = SP_PLATFORMS[p] || { n: p, c: '#888' };
+    return '<span class="sp-tag" style="background:' + pl.c + '">' + escapeHtml(pl.n) + '</span>';
+  }
+
+  function spFiltered_(){
+    const s = data.social, anyPlat = Object.keys(spUI.plats).some(function(k){ return spUI.plats[k]; });
+    const q = spUI.q.trim().toLowerCase();
+    return s.posts.filter(function(p){
+      if (anyPlat && !spUI.plats[p.platform]) return false;
+      if (spUI.status !== 'all' && p.status !== spUI.status) return false;
+      if (q && ((p.title || '') + ' ' + (p.caption || '') + ' ' + (p.pillar || '') + ' ' + (p.plan || '')).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    }).sort(function(a, b){
+      return (b.date || '0000').localeCompare(a.date || '0000') || ((a.order || 0) - (b.order || 0));
+    });
+  }
+
+  function spChips_(withCounts){
+    return Object.keys(SP_PLATFORMS).map(function(k){
+      const on = !!spUI.plats[k];
+      const n = data.social.posts.filter(function(p){ return p.platform === k; }).length;
+      return '<span class="sp-chip' + (on ? ' on' : '') + '" data-sp-chip="' + k + '" style="' + (on ? 'background:' + SP_PLATFORMS[k].c + ';border-color:' + SP_PLATFORMS[k].c : '') + '">' +
+        escapeHtml(SP_PLATFORMS[k].n) + (withCounts ? ' (' + n + ')' : '') + '</span>';
+    }).join('');
+  }
+
+  function spLibraryHtml_(){
+    const list = spFiltered_();
+    const cards = list.map(function(p){
+      return '<div class="sp-card" data-sp-edit="' + escapeHtml(p.id) + '">' + spTag_(p.platform) +
+        '<span class="sp-st sp-st-' + escapeHtml(p.status) + '">' + escapeHtml(p.status) + '</span>' +
+        '<h4>' + escapeHtml(p.title || 'Untitled') + '</h4>' +
+        '<p>' + escapeHtml(p.caption || '') + '</p>' +
+        '<div class="sp-meta">' + escapeHtml(spFmt_(p.date)) + (p.kind ? ' &middot; ' + escapeHtml(p.kind) : '') +
+        (p.pillar ? ' &middot; ' + escapeHtml(p.pillar) : '') + (p.plan ? ' &middot; plan: ' + escapeHtml(p.plan) : '') + '</div></div>';
+    }).join('');
+    return '<div class="sp-bar">' + spChips_(true) + '</div>' +
+      '<div class="sp-bar"><input type="text" id="spQ" placeholder="Search titles and captions" value="' + escapeHtml(spUI.q) + '" style="max-width:260px;">' +
+      '<select id="spStatusSel" style="width:auto;"><option value="all">All statuses</option>' +
+      SP_STATUSES.map(function(s){ return '<option value="' + s + '"' + (spUI.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+      '</select><span class="sp-meta">' + list.length + ' of ' + data.social.posts.length + ' items</span></div>' +
+      (list.length ? '<div class="sp-grid">' + cards + '</div>' : '<div class="sp-empty">Nothing matches. Add an item or clear the filters.</div>');
+  }
+
+  function spPlannerHtml_(){
+    if (!spUI.month){ spUI.month = new Date(); spUI.month.setDate(1); }
+    const y = spUI.month.getFullYear(), mo = spUI.month.getMonth();
+    const startOff = (new Date(y, mo, 1).getDay() + 6) % 7;
+    const start = new Date(y, mo, 1 - startOff);
+    const today = spIso_(new Date());
+    const anyPlat = Object.keys(spUI.plats).some(function(k){ return spUI.plats[k]; });
+    let cells = '';
+    for (let i = 0; i < 42; i++){
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const k = spIso_(d);
+      const items = data.social.posts.filter(function(p){ return p.date === k && (!anyPlat || spUI.plats[p.platform]); });
+      cells += '<div class="sp-day' + (d.getMonth() !== mo ? ' out' : '') + (k === today ? ' today' : '') + '" data-sp-day="' + k + '"><small>' + d.getDate() + '</small>' +
+        items.map(function(p){
+          return '<div class="sp-pill sp-pill-' + escapeHtml(p.status) + '" data-sp-edit="' + escapeHtml(p.id) + '" style="background:' + ((SP_PLATFORMS[p.platform] || {}).c || '#888') + '" title="' + escapeHtml(p.title || '') + '">' + escapeHtml(p.title || 'Untitled') + '</div>';
+        }).join('') + '</div>';
+    }
+    const lim = new Date(); lim.setDate(lim.getDate() + 14);
+    const limIso = spIso_(lim);
+    const cover = data.social.accounts.map(function(a){
+      const tgt = Math.round((Number(a.target) || 0) * 2);
+      const have = data.social.posts.filter(function(p){ return p.platform === a.id && p.date >= today && p.date <= limIso && p.status !== 'published'; }).length;
+      const cls = !tgt ? '' : (have >= tgt ? 'sp-ok' : (have > 0 ? 'sp-warn' : 'sp-bad'));
+      return '<div class="sp-row"><span>' + escapeHtml((SP_PLATFORMS[a.id] || { n: a.id }).n) + '</span><span class="' + cls + '">' + have + ' / ' + tgt + '</span></div>';
+    }).join('');
+    const ideas = data.social.posts.filter(function(p){ return !p.date && p.status !== 'published'; });
+    return '<div class="sp-bar">' + spChips_(false) + '</div><div class="sp-two"><div>' +
+      '<div class="sp-mh"><button class="btn btn-ghost" data-sp-nav="-1" style="width:auto;">&larr;</button><strong style="min-width:150px;text-align:center;">' +
+      escapeHtml(spUI.month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })) + '</strong>' +
+      '<button class="btn btn-ghost" data-sp-nav="1" style="width:auto;">&rarr;</button><button class="btn btn-ghost" data-sp-nav="0" style="width:auto;">Today</button></div>' +
+      '<div class="sp-cal">' + ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(function(d){ return '<div class="sp-dow">' + d + '</div>'; }).join('') + cells + '</div>' +
+      '<div class="sp-meta" style="margin-top:6px;">Click a day to plan a post. Faded pills are already published.</div></div>' +
+      '<div><div class="sp-side"><h4>Next 14 days</h4>' + (cover || '<div class="sp-meta">No accounts yet.</div>') +
+      '<div class="sp-meta">Planned posts against each account\'s weekly target.</div></div>' +
+      '<div class="sp-side" style="margin-top:12px;"><h4>Unscheduled ideas (' + ideas.length + ')</h4>' +
+      (ideas.map(function(p){ return '<div class="sp-row sp-click" data-sp-edit="' + escapeHtml(p.id) + '"><span>' + escapeHtml(p.title || 'Untitled') + '</span>' + spTag_(p.platform) + '</div>'; }).join('') || '<div class="sp-meta">None. Items without a date wait here.</div>') +
+      '</div></div></div>';
+  }
+
+  function spAccountsHtml_(){
+    const cards = data.social.accounts.slice().sort(function(a, b){ return a.id.localeCompare(b.id); }).map(function(a){
+      const n = data.social.posts.filter(function(p){ return p.platform === a.id; }).length;
+      return '<div class="sp-card" data-sp-acc="' + escapeHtml(a.id) + '">' + spTag_(a.id) + '<span class="sp-st">' + escapeHtml(a.state || '') + '</span>' +
+        '<h4>' + escapeHtml(a.handle || '') + '</h4><p>' + escapeHtml(a.notes || '') + '</p>' +
+        '<div class="sp-meta">' + n + ' items here' + (a.followers ? ' &middot; ' + escapeHtml(a.followers) + ' followers' : '') + ' &middot; target ' + escapeHtml(String(a.target || 0)) + ' per week</div>' +
+        (/^https?:\/\//i.test(a.url || '') ? '<div class="sp-meta"><a href="' + escapeHtml(safeHref(a.url)) + '" target="_blank" rel="noopener">' + escapeHtml(a.url) + '</a></div>' : '') + '</div>';
+    }).join('');
+    return '<div class="sp-grid">' + cards + '</div><div class="sp-meta" style="margin-top:8px;">Click an account to edit its details and weekly posting target.</div>';
+  }
+
+  function spConnectionsHtml_(){
+    const yt = data.social.yt || {};
+    return '<div class="sp-side" style="max-width:640px;"><h4>YouTube</h4>' +
+      '<div class="sp-meta" style="margin-bottom:8px;">Pulls the channel\'s uploads into the Library. Uses a YouTube Data API key (a key, not your Google password). It is stored encrypted in the vault with the rest of the Hub.</div>' +
+      '<div class="field"><label>Channel handle</label><input type="text" id="spYtHandle" placeholder="imagescapestudiosltd"></div>' +
+      '<div class="field"><label>YouTube Data API key</label><input type="password" id="spYtKey" autocomplete="off" placeholder="Paste the key here"></div>' +
+      '<div class="row"><button class="btn btn-ghost" id="spYtSave" style="width:auto;">Save connection</button>' +
+      '<button class="btn btn-primary" id="spYtPull" style="width:auto;">Refresh from YouTube</button></div>' +
+      '<div class="sp-meta" id="spYtMsg" style="margin-top:8px;">' + (yt.lastPull ? 'Last refreshed ' + escapeHtml(yt.lastPull) : 'Not refreshed yet.') + '</div></div>' +
+      '<div class="sp-side" style="max-width:640px;margin-top:12px;"><h4>Other accounts</h4>' +
+      '<div class="sp-meta">Instagram, Facebook, LinkedIn, Etsy and Google Business each need their own developer app and approval before the Hub can read them automatically. Until then, use Import plan and the item editor, and keep the Library up to date by hand or by asking Claude to take a fresh snapshot.</div></div>';
+  }
+
+  function renderSocialPlanner(){
+    const root = document.getElementById('spRoot');
+    if (!root || !data || !data.social) return;
+    const views = [['library', 'Library'], ['planner', 'Planner'], ['accounts', 'Accounts'], ['connections', 'Connections']];
+    root.innerHTML =
+      '<div class="card"><h2>Social planner</h2>' +
+      '<div class="sub">A copy of what is already posted on each account, plus the plans for what goes out next. Plans built with Claude come in through Import plan.</div>' +
+      '<div class="sp-top">' + views.map(function(v){ return '<button class="sp-vbtn' + (spUI.view === v[0] ? ' on' : '') + '" data-sp-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') +
+      '<span style="flex:1"></span><button class="btn btn-ghost" id="spImportBtn" style="width:auto;">Import plan</button>' +
+      '<button class="btn btn-ghost" id="spExportBtn" style="width:auto;">Export</button>' +
+      '<button class="btn btn-primary" id="spNewBtn" style="width:auto;">+ New item</button></div>' +
+      '<div id="spBody">' + (spUI.view === 'library' ? spLibraryHtml_() : spUI.view === 'planner' ? spPlannerHtml_() : spUI.view === 'accounts' ? spAccountsHtml_() : spConnectionsHtml_()) + '</div></div>';
+    if (spUI.view === 'connections'){
+      const yt = data.social.yt || {};
+      document.getElementById('spYtHandle').value = yt.handle || '';
+      document.getElementById('spYtKey').value = yt.apiKey || '';
+    }
+  }
+
+  function spOpts_(arr, sel, labelFn){
+    return arr.map(function(v){ return '<option value="' + escapeHtml(v) + '"' + (v === sel ? ' selected' : '') + '>' + escapeHtml(labelFn ? labelFn(v) : v) + '</option>'; }).join('');
+  }
+  function spModal_(inner){
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = '<div class="modal">' + inner + '</div>';
+    document.body.appendChild(backdrop);
+    return backdrop;
+  }
+
+  function spEditPost_(id, presetDate){
+    let p = data.social.posts.find(function(x){ return x.id === id; });
+    const isNew = !p;
+    if (isNew) p = { id: randomId(), platform: 'instagram', status: presetDate ? 'scheduled' : 'idea', date: presetDate || '', kind: 'photo', pillar: '', title: '', caption: '', url: '', plan: '' };
+    const b = spModal_('<h3>' + (isNew ? 'New item' : 'Edit item') + '</h3>' +
+      '<div class="field"><label>Platform</label><select id="spmPl">' + spOpts_(Object.keys(SP_PLATFORMS), p.platform, function(k){ return SP_PLATFORMS[k].n; }) + '</select></div>' +
+      '<div class="field"><label>Status</label><select id="spmSt">' + spOpts_(SP_STATUSES, p.status) + '</select></div>' +
+      '<div class="field"><label>Title</label><input type="text" id="spmTi"></div>' +
+      '<div class="field"><label>Caption or copy</label><textarea id="spmCa" rows="5"></textarea></div>' +
+      '<div class="field"><label>Date</label><input type="date" id="spmDa"></div>' +
+      '<div class="field"><label>Format</label><select id="spmKi">' + spOpts_(SP_KINDS, p.kind) + '</select></div>' +
+      '<div class="field"><label>Content pillar</label><select id="spmPi"><option value="">None</option>' + spOpts_(SP_PILLARS, p.pillar) + '</select></div>' +
+      '<div class="field"><label>Plan it belongs to</label><input type="text" id="spmPn" placeholder="e.g. Week of 17 Nov"></div>' +
+      '<div class="field"><label>Link to the live post</label><input type="text" id="spmUr"></div>' +
+      '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="spmX">Close</button>' +
+      (isNew ? '' : '<button class="btn btn-ghost" id="spmDel" style="color:var(--warn);">Delete</button>') +
+      '<button class="btn btn-primary" id="spmOk">Save</button></div>');
+    b.querySelector('#spmTi').value = p.title || '';
+    b.querySelector('#spmCa').value = p.caption || '';
+    b.querySelector('#spmDa').value = p.date || '';
+    b.querySelector('#spmPn').value = p.plan || '';
+    b.querySelector('#spmUr').value = p.url || '';
+    b.querySelector('#spmX').addEventListener('click', function(){ b.remove(); });
+    const del = b.querySelector('#spmDel');
+    if (del) del.addEventListener('click', function(){
+      if (!confirm('Delete "' + (p.title || 'this item') + '"?')) return;
+      data.social.posts = data.social.posts.filter(function(x){ return x.id !== p.id; });
+      markDirty(); b.remove(); renderSocialPlanner(); toast('Deleted.');
+    });
+    b.querySelector('#spmOk').addEventListener('click', function(){
+      p.platform = b.querySelector('#spmPl').value;
+      p.status = b.querySelector('#spmSt').value;
+      p.title = b.querySelector('#spmTi').value.trim();
+      p.caption = b.querySelector('#spmCa').value;
+      p.date = b.querySelector('#spmDa').value;
+      p.kind = b.querySelector('#spmKi').value;
+      p.pillar = b.querySelector('#spmPi').value;
+      p.plan = b.querySelector('#spmPn').value.trim();
+      p.url = b.querySelector('#spmUr').value.trim();
+      if (isNew) data.social.posts.push(p);
+      markDirty(); b.remove(); renderSocialPlanner(); toast('Saved.');
+    });
+  }
+
+  function spEditAccount_(id){
+    const a = data.social.accounts.find(function(x){ return x.id === id; });
+    if (!a) return;
+    const b = spModal_('<h3>' + escapeHtml((SP_PLATFORMS[id] || { n: id }).n) + '</h3>' +
+      '<div class="field"><label>Handle or name</label><input type="text" id="spaH"></div>' +
+      '<div class="field"><label>Status</label><select id="spaS">' + spOpts_(['active', 'quiet', 'new', 'to set up'], a.state) + '</select></div>' +
+      '<div class="field"><label>Address</label><input type="text" id="spaU"></div>' +
+      '<div class="field"><label>Followers</label><input type="text" id="spaF"></div>' +
+      '<div class="field"><label>Target posts per week</label><input type="number" step="0.5" min="0" id="spaT"></div>' +
+      '<div class="field"><label>Notes</label><textarea id="spaN" rows="4"></textarea></div>' +
+      '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="spaX">Close</button><button class="btn btn-primary" id="spaOk">Save</button></div>');
+    b.querySelector('#spaH').value = a.handle || '';
+    b.querySelector('#spaU').value = a.url || '';
+    b.querySelector('#spaF').value = a.followers || '';
+    b.querySelector('#spaT').value = a.target || 0;
+    b.querySelector('#spaN').value = a.notes || '';
+    b.querySelector('#spaX').addEventListener('click', function(){ b.remove(); });
+    b.querySelector('#spaOk').addEventListener('click', function(){
+      a.handle = b.querySelector('#spaH').value.trim();
+      a.state = b.querySelector('#spaS').value;
+      a.url = b.querySelector('#spaU').value.trim();
+      a.followers = b.querySelector('#spaF').value.trim();
+      a.target = Number(b.querySelector('#spaT').value) || 0;
+      a.notes = b.querySelector('#spaN').value;
+      markDirty(); b.remove(); renderSocialPlanner(); toast('Saved.');
+    });
+  }
+
+  // ---- plan import
+  // Accepts a JSON array of items, or { "plan": "Week of 17 Nov", "posts": [...], "accounts": [...] }.
+  // An item without an id gets a stable one made from platform + date + title, so importing the
+  // same plan twice updates the items instead of duplicating them.
+  const SP_EXAMPLE = '{\n  "plan": "Week of 17 Nov 2026",\n  "posts": [\n    { "platform": "instagram", "date": "2026-11-17", "kind": "reel / video",\n      "pillar": "Behind the scenes", "title": "Night flight setup",\n      "caption": "Caption text here" },\n    { "platform": "linkedin", "date": "2026-11-19", "title": "Property imagery intro",\n      "caption": "Post text here" }\n  ]\n}';
+
+  function spParsePlan_(text){
+    const out = { items: [], accounts: [], errors: [] };
+    let obj;
+    try { obj = JSON.parse(text); } catch (e){ out.errors.push('That is not valid JSON: ' + e.message); return out; }
+    const plan = (!Array.isArray(obj) && obj && typeof obj.plan === 'string') ? obj.plan.trim() : '';
+    const rows = Array.isArray(obj) ? obj : (obj && Array.isArray(obj.posts) ? obj.posts : null);
+    if (!rows){ out.errors.push('Expected a list of items, or an object with a "posts" list.'); return out; }
+    rows.forEach(function(r, i){
+      const n = 'Item ' + (i + 1);
+      if (!r || typeof r !== 'object'){ out.errors.push(n + ': not an object.'); return; }
+      const platform = String(r.platform || '').toLowerCase();
+      if (!SP_PLATFORMS[platform]){ out.errors.push(n + ': unknown platform "' + (r.platform || '') + '".'); return; }
+      const date = r.date ? String(r.date) : '';
+      if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)){ out.errors.push(n + ': date must look like 2026-11-17.'); return; }
+      const title = String(r.title || '').trim();
+      if (!title){ out.errors.push(n + ': needs a title.'); return; }
+      const status = SP_STATUSES.indexOf(r.status) >= 0 ? r.status : (date ? 'scheduled' : 'idea');
+      out.items.push({
+        id: r.id ? String(r.id) : spStableId_(platform, date, title),
+        platform: platform, status: status, date: date, title: title,
+        caption: String(r.caption || ''), kind: String(r.kind || ''), pillar: String(r.pillar || ''),
+        url: String(r.url || ''), plan: String(r.plan || plan || '')
+      });
+    });
+    if (obj && !Array.isArray(obj) && Array.isArray(obj.accounts)){
+      obj.accounts.forEach(function(a){ if (a && SP_PLATFORMS[a.id]) out.accounts.push(a); });
+    }
+    return out;
+  }
+
+  function spOpenImport_(){
+    const b = spModal_('<h3>Import plan</h3>' +
+      '<div class="sub">Paste a plan built with Claude. Weekly or monthly, any size. Importing the same plan again updates items rather than duplicating them.</div>' +
+      '<div class="field"><textarea id="spiT" rows="12" style="font-family:monospace;font-size:12px;"></textarea></div>' +
+      '<div class="sp-meta" id="spiMsg">Nothing checked yet.</div>' +
+      '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="spiX">Close</button><button class="btn btn-ghost" id="spiEx">Show example</button>' +
+      '<button class="btn btn-ghost" id="spiChk">Check</button><button class="btn btn-primary" id="spiGo">Import</button></div>');
+    const ta = b.querySelector('#spiT'), msg = b.querySelector('#spiMsg');
+    function check(){
+      const r = spParsePlan_(ta.value);
+      const have = {}; data.social.posts.forEach(function(p){ have[p.id] = true; });
+      const upd = r.items.filter(function(i){ return have[i.id]; }).length;
+      msg.textContent = r.items.length + ' items ready (' + (r.items.length - upd) + ' new, ' + upd + ' updated).' + (r.errors.length ? ' Problems: ' + r.errors.join(' ') : '');
+      return r;
+    }
+    b.querySelector('#spiX').addEventListener('click', function(){ b.remove(); });
+    b.querySelector('#spiEx').addEventListener('click', function(){ ta.value = SP_EXAMPLE; check(); });
+    b.querySelector('#spiChk').addEventListener('click', check);
+    b.querySelector('#spiGo').addEventListener('click', function(){
+      const r = check();
+      if (!r.items.length && !r.accounts.length) return;
+      r.items.forEach(function(it){
+        const ex = data.social.posts.find(function(p){ return p.id === it.id; });
+        if (ex) Object.keys(it).forEach(function(k){ if (it[k] !== '' || k === 'caption') ex[k] = it[k]; });
+        else data.social.posts.push(it);
+      });
+      r.accounts.forEach(function(a){
+        const ex = data.social.accounts.find(function(x){ return x.id === a.id; });
+        if (ex) Object.keys(a).forEach(function(k){ ex[k] = a[k]; }); else data.social.accounts.push(a);
+      });
+      markDirty(); b.remove(); renderSocialPlanner();
+      toast('Imported ' + r.items.length + ' items' + (r.errors.length ? ' (' + r.errors.length + ' skipped)' : '') + '.');
+    });
+  }
+
+  function spOpenExport_(){
+    const dump = JSON.stringify({ accounts: data.social.accounts, posts: data.social.posts }, null, 1);
+    const b = spModal_('<h3>Export</h3><div class="sub">A full copy of the Library, Planner and Accounts. Paste it back into Import plan to restore or merge. API keys are not included.</div>' +
+      '<div class="field"><textarea id="speT" rows="12" style="font-family:monospace;font-size:12px;" readonly></textarea></div>' +
+      '<div class="row"><button class="btn btn-ghost" id="speX">Close</button><button class="btn btn-primary" id="speC">Copy</button></div>');
+    b.querySelector('#speT').value = dump;
+    b.querySelector('#speX').addEventListener('click', function(){ b.remove(); });
+    b.querySelector('#speC').addEventListener('click', function(){
+      const t = b.querySelector('#speT'); t.select();
+      try { navigator.clipboard.writeText(t.value).then(function(){ toast('Copied.'); }, function(){ document.execCommand('copy'); toast('Copied.'); }); }
+      catch (e){ try { document.execCommand('copy'); toast('Copied.'); } catch (e2){ toast('Select the text and copy it.'); } }
+    });
+  }
+
+  // ---- YouTube refresh (Data API v3, API key sent as a header)
+  async function spPullYouTube_(){
+    const yt = data.social.yt || {};
+    const key = (yt.apiKey || '').trim(), handle = (yt.handle || '').replace(/^@/, '').trim();
+    const msg = document.getElementById('spYtMsg');
+    if (!key || !handle){ toast('Save the channel handle and API key first.'); return; }
+    const hdr = { headers: { 'X-Goog-Api-Key': key } };
+    const base = 'https://www.googleapis.com/youtube/v3/';
+    try {
+      if (msg) msg.textContent = 'Reading the channel...';
+      const r1 = await fetch(base + 'channels?part=contentDetails,statistics&forHandle=' + encodeURIComponent(handle), hdr);
+      const j1 = await r1.json();
+      if (!r1.ok) throw new Error((j1.error && j1.error.message) || ('HTTP ' + r1.status));
+      if (!j1.items || !j1.items.length) throw new Error('No channel found for that handle.');
+      const ch = j1.items[0];
+      const uploads = ch.contentDetails.relatedPlaylists.uploads;
+      let token = '', added = 0, updated = 0, pages = 0;
+      do {
+        const r2 = await fetch(base + 'playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=' + encodeURIComponent(uploads) + (token ? '&pageToken=' + encodeURIComponent(token) : ''), hdr);
+        const j2 = await r2.json();
+        if (!r2.ok) throw new Error((j2.error && j2.error.message) || ('HTTP ' + r2.status));
+        (j2.items || []).forEach(function(it){
+          const vid = it.contentDetails && it.contentDetails.videoId;
+          if (!vid) return;
+          const id = 'yt-' + vid;
+          const date = String((it.contentDetails.videoPublishedAt || it.snippet.publishedAt || '')).slice(0, 10);
+          const ex = data.social.posts.find(function(p){ return p.id === id; });
+          const fields = { platform: 'youtube', status: 'published', kind: 'reel / video', date: date, title: it.snippet.title || 'Untitled video',
+            caption: String(it.snippet.description || '').slice(0, 400), url: 'https://www.youtube.com/watch?v=' + vid };
+          if (ex){ Object.assign(ex, fields); updated++; }
+          else { fields.id = id; fields.pillar = ''; data.social.posts.push(fields); added++; }
+        });
+        token = j2.nextPageToken || ''; pages++;
+      } while (token && pages < 10);
+      const acc = data.social.accounts.find(function(a){ return a.id === 'youtube'; });
+      if (acc){
+        acc.state = 'active';
+        if (ch.statistics && !ch.statistics.hiddenSubscriberCount) acc.followers = String(ch.statistics.subscriberCount || '');
+      }
+      data.social.yt.lastPull = new Date().toLocaleString('en-GB');
+      markDirty(); renderSocialPlanner();
+      toast('YouTube refreshed: ' + added + ' new, ' + updated + ' updated.');
+    } catch (e){
+      if (msg) msg.textContent = 'Could not refresh: ' + e.message;
+      toast('YouTube refresh failed: ' + e.message);
+    }
+  }
+
+  document.addEventListener('click', function(e){
+    const root = document.getElementById('spRoot');
+    if (!root || !root.contains(e.target)) return;
+    const t = e.target;
+    let el;
+    if ((el = t.closest('[data-sp-view]'))){ spUI.view = el.getAttribute('data-sp-view'); renderSocialPlanner(); return; }
+    if (t.closest('#spImportBtn')){ spOpenImport_(); return; }
+    if (t.closest('#spExportBtn')){ spOpenExport_(); return; }
+    if (t.closest('#spNewBtn')){ spEditPost_(null, ''); return; }
+    if ((el = t.closest('[data-sp-chip]'))){ const k = el.getAttribute('data-sp-chip'); spUI.plats[k] = !spUI.plats[k]; renderSocialPlanner(); return; }
+    if ((el = t.closest('[data-sp-nav]'))){
+      const n = Number(el.getAttribute('data-sp-nav'));
+      if (!spUI.month){ spUI.month = new Date(); spUI.month.setDate(1); }
+      if (n === 0){ spUI.month = new Date(); spUI.month.setDate(1); }
+      else spUI.month = new Date(spUI.month.getFullYear(), spUI.month.getMonth() + n, 1);
+      renderSocialPlanner(); return;
+    }
+    if ((el = t.closest('[data-sp-edit]'))){ spEditPost_(el.getAttribute('data-sp-edit')); return; }
+    if ((el = t.closest('[data-sp-acc]'))){ spEditAccount_(el.getAttribute('data-sp-acc')); return; }
+    if ((el = t.closest('[data-sp-day]'))){ spEditPost_(null, el.getAttribute('data-sp-day')); return; }
+    if (t.closest('#spYtSave')){
+      data.social.yt = Object.assign(data.social.yt || {}, { handle: document.getElementById('spYtHandle').value.trim(), apiKey: document.getElementById('spYtKey').value.trim() });
+      markDirty(); toast('Connection saved.'); return;
+    }
+    if (t.closest('#spYtPull')){
+      data.social.yt = Object.assign(data.social.yt || {}, { handle: document.getElementById('spYtHandle').value.trim(), apiKey: document.getElementById('spYtKey').value.trim() });
+      markDirty(); spPullYouTube_(); return;
+    }
+  });
+  document.addEventListener('input', function(e){
+    if (e.target && e.target.id === 'spQ'){
+      spUI.q = e.target.value;
+      const pos = e.target.selectionStart;
+      renderSocialPlanner();
+      const q = document.getElementById('spQ');
+      if (q){ q.focus(); q.setSelectionRange(pos, pos); }
+    }
+  });
+  document.addEventListener('change', function(e){
+    if (e.target && e.target.id === 'spStatusSel'){ spUI.status = e.target.value; renderSocialPlanner(); }
   });
 
   // ---------------------------------------------------------------- website & socials
