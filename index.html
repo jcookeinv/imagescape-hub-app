@@ -2761,6 +2761,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     sv.accounts = Array.isArray(sv.accounts) ? sv.accounts : [];
     sv.posts = Array.isArray(sv.posts) ? sv.posts : [];
     sv.yt = (sv.yt && typeof sv.yt === 'object') ? sv.yt : { handle: '', apiKey: '', lastPull: '' };
+    sv.meta = (sv.meta && typeof sv.meta === 'object') ? sv.meta : { pageId: '', igId: '', token: '', lastPull: '' };
+    sv.lastRefresh = sv.lastRefresh || null;
     sv.accounts.forEach(function(a){ a.id = a.id || randomId(); a.handle = a.handle || ''; a.state = a.state || 'active'; a.url = a.url || ''; a.followers = a.followers || ''; a.target = Number(a.target) || 0; a.notes = a.notes || ''; });
     sv.posts.forEach(function(q){ q.id = q.id || randomId(); q.platform = q.platform || 'instagram'; q.status = q.status || 'idea'; q.date = q.date || ''; q.title = q.title || ''; q.caption = q.caption || ''; q.kind = q.kind || ''; q.pillar = q.pillar || ''; q.url = q.url || ''; q.plan = q.plan || ''; });
     return sv;
@@ -8896,8 +8898,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.11.4';
+  const HUB_VERSION = '2026.11.5';
   const HUB_CHANGELOG = [
+    { v: '2026.11.5', date: '14 Nov 2026', items: [
+      'Website > Socials: new Refresh all button. One click copies the latest posts from YouTube, Instagram, Facebook and your website into the social planner Library, updates follower counts, and shows what worked and what needs attention. Set each source up once in Connections (a YouTube API key, one Meta Page token for Instagram and Facebook, and the WordPress connection already on the Blog tab). Keys and tokens are stored encrypted in the vault and are never included in Export. LinkedIn, Etsy and Google Business cannot be read by the Hub.' ] },
     { v: '2026.11.4', date: '14 Nov 2026', items: [
       'Website > Socials: new social planner above the links list. It tracks the accounts (Instagram, website and blog, Etsy, LinkedIn, Google Business, YouTube) and a library of posts and ideas with their status, and can pull the YouTube channel\'s uploads using a YouTube Data API key, which is stored encrypted in the vault. Merged with the Equipment tab and the Reverse in Zoho button.' ] },
     { v: '2026.11.3', date: '13 Nov 2026', items: [
@@ -20593,8 +20597,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       '<div class="row"><button class="btn btn-ghost" id="spYtSave" style="width:auto;">Save connection</button>' +
       '<button class="btn btn-primary" id="spYtPull" style="width:auto;">Refresh from YouTube</button></div>' +
       '<div class="sp-meta" id="spYtMsg" style="margin-top:8px;">' + (yt.lastPull ? 'Last refreshed ' + escapeHtml(yt.lastPull) : 'Not refreshed yet.') + '</div></div>' +
+      '<div class="sp-side" style="max-width:640px;margin-top:12px;"><h4>Instagram and Facebook (Meta)</h4>' +
+      '<div class="sp-meta" style="margin-bottom:8px;">One Meta connection covers both. It uses a Page access token (a token, not your password), stored encrypted in the vault.</div>' +
+      '<div class="field"><label>Facebook Page ID</label><input type="text" id="spMetaPage" autocomplete="off"></div>' +
+      '<div class="field"><label>Instagram account ID</label><input type="text" id="spMetaIg" autocomplete="off"></div>' +
+      '<div class="field"><label>Page access token</label><input type="password" id="spMetaToken" autocomplete="off" placeholder="Paste the token here"></div>' +
+      '<div class="row"><button class="btn btn-ghost" id="spMetaSave" style="width:auto;">Save connection</button></div>' +
+      '<details style="margin-top:10px;"><summary class="sp-meta" style="cursor:pointer;">One-off setup steps</summary><ol class="sp-meta" style="margin:6px 0 0 18px;padding:0;line-height:1.5;">' +
+      '<li>Your Instagram must be a Business or Creator account, linked to your Facebook Page.</li>' +
+      '<li>At developers.facebook.com create an app (type Business) and add Facebook Login for Business or the Instagram API.</li>' +
+      '<li>In the Graph API Explorer, pick your app and generate a Page token with pages_show_list, pages_read_engagement and instagram_basic.</li>' +
+      '<li>Exchange it for a long lived Page token, then paste the Page ID, the Instagram account ID and that token above.</li></ol></details></div>' +
+      '<div class="sp-side" style="max-width:640px;margin-top:12px;"><h4>Website</h4>' +
+      '<div class="sp-meta">Uses the WordPress connection already saved on the Blog tab' + ((data.wpConnection && data.wpConnection.siteUrl) ? ' (' + escapeHtml(data.wpConnection.siteUrl) + ').' : ', which is not set up yet.') + ' Published blog posts are copied into the Library.</div></div>' +
       '<div class="sp-side" style="max-width:640px;margin-top:12px;"><h4>Other accounts</h4>' +
-      '<div class="sp-meta">Instagram, Facebook, LinkedIn, Etsy and Google Business each need their own developer app and approval before the Hub can read them automatically. Until then, use Import plan and the item editor, and keep the Library up to date by hand or by asking Claude to take a fresh snapshot.</div></div>';
+      '<div class="sp-meta">LinkedIn, Etsy and Google Business cannot be read from the Hub. Use Import plan and the item editor, or ask Claude to take a fresh snapshot through Chrome.</div></div>';
   }
 
   function renderSocialPlanner(){
@@ -20605,14 +20622,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       '<div class="card"><h2>Social planner</h2>' +
       '<div class="sub">A copy of what is already posted on each account, plus the plans for what goes out next. Plans built with Claude come in through Import plan.</div>' +
       '<div class="sp-top">' + views.map(function(v){ return '<button class="sp-vbtn' + (spUI.view === v[0] ? ' on' : '') + '" data-sp-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') +
-      '<span style="flex:1"></span><button class="btn btn-ghost" id="spImportBtn" style="width:auto;">Import plan</button>' +
+      '<span style="flex:1"></span><button class="btn btn-primary" id="spRefreshAll" style="width:auto;">Refresh all</button><button class="btn btn-ghost" id="spImportBtn" style="width:auto;">Import plan</button>' +
       '<button class="btn btn-ghost" id="spExportBtn" style="width:auto;">Export</button>' +
       '<button class="btn btn-primary" id="spNewBtn" style="width:auto;">+ New item</button></div>' +
-      '<div id="spBody">' + (spUI.view === 'library' ? spLibraryHtml_() : spUI.view === 'planner' ? spPlannerHtml_() : spUI.view === 'accounts' ? spAccountsHtml_() : spConnectionsHtml_()) + '</div></div>';
+      spRefreshLineHtml_() + '<div id="spBody" style="margin-top:10px;">' + (spUI.view === 'library' ? spLibraryHtml_() : spUI.view === 'planner' ? spPlannerHtml_() : spUI.view === 'accounts' ? spAccountsHtml_() : spConnectionsHtml_()) + '</div></div>';
     if (spUI.view === 'connections'){
       const yt = data.social.yt || {};
       document.getElementById('spYtHandle').value = yt.handle || '';
       document.getElementById('spYtKey').value = yt.apiKey || '';
+      const mt = data.social.meta || {};
+      document.getElementById('spMetaPage').value = mt.pageId || '';
+      document.getElementById('spMetaIg').value = mt.igId || '';
+      document.getElementById('spMetaToken').value = mt.token || '';
     }
   }
 
@@ -20785,47 +20806,174 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---- YouTube refresh (Data API v3, API key sent as a header)
-  async function spPullYouTube_(){
+  // ---- one-click refresh (13 to 14 Nov 2026): YouTube, Instagram, Facebook, website
+  // Each source is optional. A source that is not set up is skipped, and one failing never stops the others.
+  // Keys and tokens live in data.social (encrypted in the vault). They are never included in Export.
+  function spUpsert_(id, fields, preserve){
+    const ex = data.social.posts.find(function(p){ return p.id === id; });
+    if (ex){
+      Object.keys(fields).forEach(function(k){ if (preserve.indexOf(k) < 0) ex[k] = fields[k]; });
+      return 'updated';
+    }
+    data.social.posts.push(Object.assign({ id: id, pillar: '', plan: '' }, fields));
+    return 'added';
+  }
+  function spSetAccount_(id, patch){
+    const a = data.social.accounts.find(function(x){ return x.id === id; });
+    if (a) Object.keys(patch).forEach(function(k){ if (patch[k] !== '') a[k] = patch[k]; });
+  }
+  function spFirstLine_(s, max){
+    const t = String(s || '').split('\n')[0].replace(/\s+/g, ' ').trim();
+    return t.length > max ? t.slice(0, max - 3).trim() + '...' : t;
+  }
+  function spGraph_(pathOrUrl, token){
+    const url = /^https?:\/\//i.test(pathOrUrl) ? pathOrUrl : 'https://graph.facebook.com/v21.0/' + pathOrUrl;
+    return fetch(url, { headers: { 'Authorization': 'Bearer ' + token } }).then(function(r){
+      return r.json().then(function(j){
+        if (!r.ok || j.error){
+          const er = j.error || {};
+          if (er.code === 190) throw new Error('The Meta access token has expired or was withdrawn. Make a new one and paste it in Connections.');
+          throw new Error(er.message || ('Meta request failed (' + r.status + ').'));
+        }
+        return j;
+      });
+    });
+  }
+
+  async function spYouTubeCore_(){
     const yt = data.social.yt || {};
     const key = (yt.apiKey || '').trim(), handle = (yt.handle || '').replace(/^@/, '').trim();
-    const msg = document.getElementById('spYtMsg');
-    if (!key || !handle){ toast('Save the channel handle and API key first.'); return; }
+    if (!key || !handle) return { skipped: 'not set up' };
     const hdr = { headers: { 'X-Goog-Api-Key': key } };
     const base = 'https://www.googleapis.com/youtube/v3/';
-    try {
-      if (msg) msg.textContent = 'Reading the channel...';
-      const r1 = await fetch(base + 'channels?part=contentDetails,statistics&forHandle=' + encodeURIComponent(handle), hdr);
-      const j1 = await r1.json();
-      if (!r1.ok) throw new Error((j1.error && j1.error.message) || ('HTTP ' + r1.status));
-      if (!j1.items || !j1.items.length) throw new Error('No channel found for that handle.');
-      const ch = j1.items[0];
-      const uploads = ch.contentDetails.relatedPlaylists.uploads;
-      let token = '', added = 0, updated = 0, pages = 0;
-      do {
-        const r2 = await fetch(base + 'playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=' + encodeURIComponent(uploads) + (token ? '&pageToken=' + encodeURIComponent(token) : ''), hdr);
-        const j2 = await r2.json();
-        if (!r2.ok) throw new Error((j2.error && j2.error.message) || ('HTTP ' + r2.status));
-        (j2.items || []).forEach(function(it){
-          const vid = it.contentDetails && it.contentDetails.videoId;
-          if (!vid) return;
-          const id = 'yt-' + vid;
-          const date = String((it.contentDetails.videoPublishedAt || it.snippet.publishedAt || '')).slice(0, 10);
-          const ex = data.social.posts.find(function(p){ return p.id === id; });
-          const fields = { platform: 'youtube', status: 'published', kind: 'reel / video', date: date, title: it.snippet.title || 'Untitled video',
-            caption: String(it.snippet.description || '').slice(0, 400), url: 'https://www.youtube.com/watch?v=' + vid };
-          if (ex){ Object.assign(ex, fields); updated++; }
-          else { fields.id = id; fields.pillar = ''; data.social.posts.push(fields); added++; }
-        });
-        token = j2.nextPageToken || ''; pages++;
-      } while (token && pages < 10);
-      const acc = data.social.accounts.find(function(a){ return a.id === 'youtube'; });
-      if (acc){
-        acc.state = 'active';
-        if (ch.statistics && !ch.statistics.hiddenSubscriberCount) acc.followers = String(ch.statistics.subscriberCount || '');
+    const r1 = await fetch(base + 'channels?part=contentDetails,statistics&forHandle=' + encodeURIComponent(handle), hdr);
+    const j1 = await r1.json();
+    if (!r1.ok) throw new Error((j1.error && j1.error.message) || ('HTTP ' + r1.status));
+    if (!j1.items || !j1.items.length) throw new Error('No channel found for that handle.');
+    const ch = j1.items[0];
+    const uploads = ch.contentDetails.relatedPlaylists.uploads;
+    let token = '', added = 0, updated = 0, pages = 0;
+    do {
+      const r2 = await fetch(base + 'playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=' + encodeURIComponent(uploads) + (token ? '&pageToken=' + encodeURIComponent(token) : ''), hdr);
+      const j2 = await r2.json();
+      if (!r2.ok) throw new Error((j2.error && j2.error.message) || ('HTTP ' + r2.status));
+      (j2.items || []).forEach(function(it){
+        const vid = it.contentDetails && it.contentDetails.videoId;
+        if (!vid) return;
+        const date = String((it.contentDetails.videoPublishedAt || it.snippet.publishedAt || '')).slice(0, 10);
+        const res = spUpsert_('yt-' + vid, { platform: 'youtube', status: 'published', kind: 'reel / video', date: date, title: it.snippet.title || 'Untitled video',
+          caption: String(it.snippet.description || '').slice(0, 400), url: 'https://www.youtube.com/watch?v=' + vid }, ['pillar', 'plan']);
+        if (res === 'added') added++; else updated++;
+      });
+      token = j2.nextPageToken || ''; pages++;
+    } while (token && pages < 10);
+    const sub = (ch.statistics && !ch.statistics.hiddenSubscriberCount) ? String(ch.statistics.subscriberCount || '') : '';
+    spSetAccount_('youtube', { state: 'active', followers: sub });
+    return { added: added, updated: updated };
+  }
+
+  async function spInstagramCore_(){
+    const m = data.social.meta || {};
+    if (!m.token || !m.igId) return { skipped: 'not set up' };
+    const info = await spGraph_(encodeURIComponent(m.igId) + '?fields=username,followers_count,media_count', m.token);
+    let next = encodeURIComponent(m.igId) + '/media?fields=id,caption,media_type,media_product_type,permalink,timestamp&limit=50';
+    let added = 0, updated = 0, pages = 0;
+    while (next && pages < 6){
+      const j = await spGraph_(next, m.token);
+      (j.data || []).forEach(function(it){
+        const mm = /\/(?:p|reel|tv)\/([^\/?#]+)/.exec(it.permalink || '');
+        const id = 'ig-' + (mm ? mm[1] : it.id);
+        const kind = (it.media_product_type === 'REELS' || it.media_type === 'VIDEO') ? 'reel / video' : (it.media_type === 'CAROUSEL_ALBUM' ? 'carousel' : 'photo');
+        const res = spUpsert_(id, { platform: 'instagram', status: 'published', kind: kind, date: String(it.timestamp || '').slice(0, 10),
+          title: spFirstLine_(it.caption, 60) || 'Instagram post', caption: String(it.caption || '').slice(0, 600), url: it.permalink || '' }, ['title', 'caption', 'pillar', 'plan']);
+        if (res === 'added') added++; else updated++;
+      });
+      next = (j.paging && j.paging.next) ? j.paging.next : '';
+      pages++;
+    }
+    spSetAccount_('instagram', { state: 'active', handle: info.username ? '@' + info.username : '', followers: info.followers_count != null ? String(info.followers_count) : '' });
+    return { added: added, updated: updated };
+  }
+
+  async function spFacebookCore_(){
+    const m = data.social.meta || {};
+    if (!m.token || !m.pageId) return { skipped: 'not set up' };
+    const info = await spGraph_(encodeURIComponent(m.pageId) + '?fields=name,followers_count,fan_count', m.token);
+    let next = encodeURIComponent(m.pageId) + '/published_posts?fields=id,message,created_time,permalink_url&limit=50';
+    let added = 0, updated = 0, pages = 0;
+    while (next && pages < 6){
+      const j = await spGraph_(next, m.token);
+      (j.data || []).forEach(function(it){
+        const res = spUpsert_('fb-' + it.id, { platform: 'facebook', status: 'published', kind: 'text post', date: String(it.created_time || '').slice(0, 10),
+          title: spFirstLine_(it.message, 60) || 'Facebook post', caption: String(it.message || '').slice(0, 600), url: it.permalink_url || '' }, ['title', 'caption', 'pillar', 'plan']);
+        if (res === 'added') added++; else updated++;
+      });
+      next = (j.paging && j.paging.next) ? j.paging.next : '';
+      pages++;
+    }
+    const fol = info.followers_count != null ? info.followers_count : info.fan_count;
+    spSetAccount_('facebook', { state: 'active', handle: info.name || '', followers: fol != null ? String(fol) : '' });
+    return { added: added, updated: updated };
+  }
+
+  async function spWebsiteCore_(){
+    const conn = data.wpConnection;
+    if (!conn || !conn.siteUrl) return { skipped: 'not set up' };
+    const list = await wpApiFetch(conn, '/wp-json/wp/v2/posts?per_page=50&status=publish&_fields=id,date,link,title,excerpt');
+    const plain = function(html){ return new DOMParser().parseFromString(String(html || ''), 'text/html').body.textContent.replace(/\s+/g, ' ').trim(); };
+    let added = 0, updated = 0;
+    (list || []).forEach(function(it){
+      const res = spUpsert_('wp-' + it.id, { platform: 'website', status: 'published', kind: 'blog post', date: String(it.date || '').slice(0, 10),
+        title: plain(it.title && it.title.rendered) || 'Untitled post', caption: plain(it.excerpt && it.excerpt.rendered).slice(0, 300), url: it.link || '' }, ['title', 'caption', 'pillar', 'plan']);
+      if (res === 'added') added++; else updated++;
+    });
+    return { added: added, updated: updated };
+  }
+
+  const SP_SOURCES = [['YouTube', spYouTubeCore_], ['Instagram', spInstagramCore_], ['Facebook', spFacebookCore_], ['Website', spWebsiteCore_]];
+
+  async function spRefreshAll_(){
+    if (spUI.busy) return;
+    spUI.busy = true;
+    const btn = document.getElementById('spRefreshAll');
+    if (btn){ btn.disabled = true; btn.textContent = 'Refreshing...'; }
+    const results = [];
+    for (let i = 0; i < SP_SOURCES.length; i++){
+      const name = SP_SOURCES[i][0];
+      try {
+        const r = await SP_SOURCES[i][1]();
+        results.push(r.skipped ? { source: name, status: 'skipped', msg: r.skipped } : { source: name, status: 'ok', msg: r.added + ' new, ' + r.updated + ' updated' });
+      } catch (e){
+        results.push({ source: name, status: 'error', msg: String((e && e.message) || e) });
       }
+    }
+    data.social.lastRefresh = { at: new Date().toLocaleString('en-GB'), results: results };
+    spUI.busy = false;
+    if (results.some(function(r){ return r.status === 'ok'; })) markDirty();
+    renderSocialPlanner();
+    const ok = results.filter(function(r){ return r.status === 'ok'; }).length;
+    const bad = results.filter(function(r){ return r.status === 'error'; }).length;
+    toast('Refresh done: ' + ok + ' updated' + (bad ? ', ' + bad + ' need attention' : '') + '.');
+  }
+
+  function spRefreshLineHtml_(){
+    const lr = data.social.lastRefresh;
+    if (!lr || !lr.results) return '<div class="sp-meta" id="spRefreshMsg">Refresh all has not been run yet. Set up each source in Connections first.</div>';
+    return '<div class="sp-meta" id="spRefreshMsg">Last refresh ' + escapeHtml(lr.at) + ': ' + lr.results.map(function(r){
+      const cls = r.status === 'ok' ? 'sp-ok' : (r.status === 'error' ? 'sp-bad' : '');
+      return '<span class="' + cls + '">' + escapeHtml(r.source) + ' ' + escapeHtml(r.msg) + '</span>';
+    }).join(' &middot; ') + '</div>';
+  }
+
+  async function spPullYouTube_(){
+    const msg = document.getElementById('spYtMsg');
+    if (msg) msg.textContent = 'Reading the channel...';
+    try {
+      const r = await spYouTubeCore_();
+      if (r.skipped){ toast('Save the channel handle and API key first.'); if (msg) msg.textContent = 'Not set up.'; return; }
       data.social.yt.lastPull = new Date().toLocaleString('en-GB');
       markDirty(); renderSocialPlanner();
-      toast('YouTube refreshed: ' + added + ' new, ' + updated + ' updated.');
+      toast('YouTube refreshed: ' + r.added + ' new, ' + r.updated + ' updated.');
     } catch (e){
       if (msg) msg.textContent = 'Could not refresh: ' + e.message;
       toast('YouTube refresh failed: ' + e.message);
@@ -20838,6 +20986,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const t = e.target;
     let el;
     if ((el = t.closest('[data-sp-view]'))){ spUI.view = el.getAttribute('data-sp-view'); renderSocialPlanner(); return; }
+    if (t.closest('#spRefreshAll')){ spRefreshAll_(); return; }
+    if (t.closest('#spMetaSave')){
+      data.social.meta = Object.assign(data.social.meta || {}, { pageId: document.getElementById('spMetaPage').value.trim(), igId: document.getElementById('spMetaIg').value.trim(), token: document.getElementById('spMetaToken').value.trim() });
+      markDirty(); toast('Connection saved.'); return;
+    }
     if (t.closest('#spImportBtn')){ spOpenImport_(); return; }
     if (t.closest('#spExportBtn')){ spOpenExport_(); return; }
     if (t.closest('#spNewBtn')){ spEditPost_(null, ''); return; }
