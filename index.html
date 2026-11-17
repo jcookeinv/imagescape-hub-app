@@ -956,6 +956,65 @@
   #oh-fullscreen-btn.oh-set{border-color:#B8902F;color:#B8902F;}
   #opsHubRoot:fullscreen{height:100vh;width:100vw;border-radius:0;border:none;}
   #opsHubRoot:-webkit-full-screen{height:100vh;width:100vw;border-radius:0;border:none;}
+
+  /* ---- 2026.11.8 tidy: folds, badges, compact register, density ---- */
+  .fold-section{margin-top:16px;}
+  .fold-section > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-weight:700;font-size:16px;}
+  .fold-section > summary::-webkit-details-marker{display:none;}
+  .fold-section > summary::before{content:"\25B8";color:var(--muted);transition:transform .15s;}
+  .fold-section[open] > summary::before{transform:rotate(90deg);}
+  .fold-section > summary .fold-live{font-weight:400;font-size:13px;color:var(--muted);flex:1;min-width:200px;}
+  .fold-section > summary .fold-live.needs{color:var(--warn);}
+  .fold-section[open] > summary{margin-bottom:12px;}
+  .fold-card > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;}
+  .fold-card > summary::-webkit-details-marker{display:none;}
+  .fold-card > summary::before{content:"\25B8";color:var(--gold-deep);}
+  .fold-card[open] > summary::before{content:"\25BE";}
+  .fold-card > summary h2{margin:0;}
+  .fold-card[open] > summary{margin-bottom:10px;}
+  .fold-inline > summary{cursor:pointer;list-style:none;display:inline-block;padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-weight:600;font-size:14px;background:var(--card);}
+  .fold-inline > summary::-webkit-details-marker{display:none;}
+  .fold-inline[open] > summary{margin-bottom:10px;}
+  .jump-chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;}
+  .jump-chips button{width:auto;padding:6px 12px;font-size:13px;}
+  .tab-badge{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:999px;font-size:11.5px;font-weight:700;line-height:18px;text-align:center;background:var(--soon);color:#fff;vertical-align:1px;}
+  .tab-badge.overdue{background:var(--warn);}
+  .attn-snooze{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:12px;padding:3px 8px;margin-left:6px;flex-shrink:0;}
+  .attn-snooze:hover{border-color:var(--navy);color:var(--navy);}
+  .attn-more{margin-top:8px;}
+  .attn-foot{font-size:13px;color:var(--muted);margin-top:8px;}
+  .attn-foot a{cursor:pointer;text-decoration:underline;}
+  .eq-item{padding:0 !important;}
+  .eq-item > summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap;cursor:pointer;list-style:none;padding:10px 14px;}
+  .eq-item > summary::-webkit-details-marker{display:none;}
+  .eq-item > summary::before{content:"\25B8";color:var(--muted);}
+  .eq-item[open] > summary::before{content:"\25BE";}
+  .eq-item .eq-name{font-weight:700;flex:1;min-width:160px;}
+  .eq-item .eq-nbv{color:var(--muted);font-size:14px;}
+  .eq-chip{font-size:12px;padding:2px 8px;border-radius:999px;background:#eef1f6;color:var(--muted);}
+  .eq-chip.due{background:var(--soon);color:#fff;}
+  .eq-item .eq-body{padding:0 14px 12px;}
+  .eq-fold{margin:10px 0;}
+  .eq-fold > summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);padding:6px 0;}
+  table td,table th,.stat-num,.snap-totals b{font-variant-numeric:tabular-nums;}
+  #eqSummary td:not(:first-child),#eqSummary th:not(:first-child){text-align:right;}
+  #panel-home .card:has(> #dashUpcomingList > .empty-note:only-child) > .sub,
+  #panel-home .card:has(> #dashAttentionList > .empty-note:only-child) > .sub,
+  #panel-home .card:has(> #dashTodayList > .empty-note:only-child) > .sub{display:none;}
+  body.compact .card{padding:10px 12px;margin-bottom:10px;}
+  body.compact .attention-row{padding:5px 4px;}
+  body.compact .sub{margin-bottom:4px;}
+  body.compact h2{font-size:17px;}
+  body.compact .snapshot-card{padding:8px 12px;margin-bottom:8px;}
+  body.compact .eq-item > summary{padding:6px 12px;}
+  body.compact .stat-grid{gap:8px;}
+  @media (max-width:600px){
+    .attention-row{flex-wrap:wrap;}
+    .attention-row .body{flex:1 1 calc(100% - 30px);min-width:0;}
+    .attention-row .when{margin-left:20px;}
+    .attn-snooze{margin-left:auto;}
+    .dash-section-head{flex-wrap:wrap;gap:2px 10px;}
+  }
 </style>
 </head>
 <body>
@@ -1077,6 +1136,7 @@
       <button class="btn btn-ghost gh-badge more-item" id="driveBadgeBtn" title="Change Google Drive connection">⇄ <span id="driveBadgeLabel"></span></button>
       <button class="btn btn-ghost more-item" id="changePwBtn">Change password</button>
       <button class="btn btn-ghost more-item" id="backupBtn">Backup / Restore</button>
+      <button class="btn btn-ghost more-item ro-allow" id="densityBtn" title="Tighter spacing on this device">Compact view</button>
       <button class="btn btn-ghost" id="saveBtn"><span id="dirtyDot" class="dirty-dot" style="display:none;"></span>Save</button>
       <button class="btn btn-ghost ro-allow" id="lockBtn" title="Also auto-locks after 1 hour of inactivity">Lock</button>
       <button class="btn btn-ghost ro-allow" id="moreBtn" aria-label="More options" aria-expanded="false" title="Drive connection, password, backup">More ▾</button>
@@ -1115,8 +1175,7 @@
     <button data-panel="tasks">Tasks</button>
     <button data-panel="renewals">Renewals</button>
     <button data-panel="meetings">Meeting Notes</button>
-    <button data-panel="finance">Finance</button>
-    <button data-panel="equipment">Equipment</button>
+    <button data-panel="finance">Prepayments &amp; Equipment</button>
     <button data-panel="emails">Email Templates</button>
     <button data-panel="tax">Tax</button>
   </nav>
@@ -1156,18 +1215,9 @@
         <div class="hint" id="dashMoneyNote" style="margin-top:6px;"></div>
       </div>
       <div class="card">
-        <div class="dash-section-head"><h2>Needs attention</h2></div>
+        <div class="dash-section-head"><h2>Needs attention</h2><span class="hint-count" id="dashAttentionCount"></span></div>
         <div class="sub">Sign-ins, passwords and access the Hub needs, then overdue and due-soon tasks and paperwork across every client, in one list.</div>
         <div id="dashAttentionList"></div>
-      </div>
-      <div class="card" id="dashAccessCard">
-        <div class="dash-section-head"><h2>Access &amp; permissions</h2>
-          <button type="button" class="btn btn-ghost" id="dashAccessRunBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Run access check</button>
-        </div>
-        <div class="sub">Everything each computer and your Google account must allow for every part of the Hub to work. Tested items are checked automatically; tick the rest once they're set. <span id="dashAccessSummary"></span></div>
-        <details id="dashAccessDetails" style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;">Show the full list</summary>
-          <div id="dashAccessList"></div>
-        </details>
       </div>
       <div class="card">
         <div class="dash-section-head"><h2>Next 7 days</h2>
@@ -1176,21 +1226,9 @@
         <div class="sub">Manual events plus paperwork due/sent dates and task due dates, whichever comes first.</div>
         <div id="dashUpcomingList"></div>
       </div>
-      <div class="card" id="dashTrashCard">
-        <div class="dash-section-head"><h2>Recently deleted</h2><span class="hint-count" id="dashTrashSummary"></span></div>
-        <div class="sub">Anything you delete in the Hub waits here after your next save, so a slip is never final. Restore puts it back where it came from.</div>
-        <div id="dashTrashList"></div>
-      </div>
-      <div class="card" id="healthCard">
-        <div class="dash-section-head"><h2>The Hub: health and about</h2>
-          <button type="button" class="btn btn-ghost" id="healthRunBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Run health check</button>
-        </div>
-        <div class="sub">A monthly check that Drive, Zoho, your backups and your data are all in order, in plain English. <span id="healthSummary"></span></div>
-        <div id="healthResults"></div>
-        <details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;"><span id="aboutVersion"></span>: what changed and when</summary>
-          <div id="aboutLog"></div>
-        </details>
-      </div>
+
+      <details class="fold-section" id="hubSystemFold">
+        <summary>Hub, connections and settings <span class="fold-live" id="hubFoldLive"></span></summary>
       <div class="card" id="zohoCard" style="margin-top:16px;">
         <h2>Zoho Books</h2>
         <div class="sub">Everything Zoho in one place: the connection, sync, health checks, the invoices folder and the log of what the Hub has sent. Lets client records show live balance and recent invoices, and posts invoices, payments and prepayment journals, via a small Google Apps Script proxy you control (Zoho's API can't be called directly from a static page). See the setup guide for the one-time Apps Script deployment.</div>
@@ -1226,6 +1264,53 @@
           <div id="zohoActionLog"></div>
         </div>
       </div>
+      <div class="card" id="dashTrashCard">
+        <div class="dash-section-head"><h2>Recently deleted</h2><span class="hint-count" id="dashTrashSummary"></span></div>
+        <div class="sub">Anything you delete in the Hub waits here after your next save, so a slip is never final. Restore puts it back where it came from.</div>
+        <div id="dashTrashList"></div>
+      </div>
+      <div class="card" id="remCard">
+        <h2>Proactive reminders</h2>
+        <div class="sub">Whenever you save, this sends a small, unencrypted copy of open tasks' due dates and the deadlines above to a Google Apps Script you control — a daily check there pushes a notification via ntfy.sh if anything's overdue or coming up. Nothing else (notes, credentials, financial figures, meeting content) ever leaves the vault. See SETUP.md section 8 for the one-time Apps Script setup.</div>
+        <div class="wp-status">
+          <span class="pill disconnected" id="remStatusPill"><span class="dot"></span><span id="remStatusText">Not connected</span></span>
+          <button class="btn btn-ghost" id="remEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
+        </div>
+        <div class="wp-connect-fields" id="remConnectFields">
+          <div class="hint">Deploy the Apps Script as a Web App (see SETUP.md section 8), then paste its URL and the shared secret you set in the script's Project Settings → Script Properties here.</div>
+          <input type="text" id="remWebAppUrl" placeholder="Apps Script Web App URL (ends in /exec)">
+          <input type="password" id="remSharedSecret" placeholder="Shared secret" autocomplete="off">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="remSaveBtn" style="width:auto;">Save connection</button>
+            <button class="btn btn-ghost" id="remDisconnectBtn" style="width:auto;">Remove connection</button>
+          </div>
+        </div>
+        <div style="margin-top:4px;">
+          <button class="btn btn-ghost" id="remSyncNowBtn" style="width:auto;">Sync now</button>
+          <span id="remSyncStatus" class="hint" style="margin-left:8px;"></span>
+        </div>
+        <div class="hint" style="margin-top:10px;">Because of how Apps Script's cross-origin handling works, the Hub can't confirm the sync actually succeeded — only that it was sent. The first time you connect, click <strong>Sync now</strong>, then check the Reminders folder in Drive directly to confirm <code>reminders.json</code> appeared and updated.</div>
+      </div>
+      <div class="card" id="dashAccessCard">
+        <div class="dash-section-head"><h2>Access &amp; permissions</h2>
+          <button type="button" class="btn btn-ghost" id="dashAccessRunBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Run access check</button>
+        </div>
+        <div class="sub">Everything each computer and your Google account must allow for every part of the Hub to work. Tested items are checked automatically; tick the rest once they're set. <span id="dashAccessSummary"></span></div>
+        <details id="dashAccessDetails" style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;">Show the full list</summary>
+          <div id="dashAccessList"></div>
+        </details>
+      </div>
+      <div class="card" id="healthCard">
+        <div class="dash-section-head"><h2>The Hub: health and about</h2>
+          <button type="button" class="btn btn-ghost" id="healthRunBtn" style="width:auto;padding:6px 12px;font-size:12.5px;">Run health check</button>
+        </div>
+        <div class="sub">A monthly check that Drive, Zoho, your backups and your data are all in order, in plain English. <span id="healthSummary"></span></div>
+        <div id="healthResults"></div>
+        <details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;"><span id="aboutVersion"></span>: what changed and when</summary>
+          <div id="aboutLog"></div>
+        </details>
+      </div>
+      </details>
     </div>
 
     <div class="panel" id="panel-cal">
@@ -1676,14 +1761,57 @@ function doPost(e) {
       </div>
     </div>
 
-    <div class="panel" id="panel-equipment">
-      <div class="card">
+    <div class="panel" id="panel-finance">
+      <div class="jump-chips" id="finJump">
+        <button type="button" class="btn btn-ghost" data-jump="finPnlCard">Profit and loss</button>
+        <button type="button" class="btn btn-ghost" data-jump="subsCard">Subscriptions &amp; prepayments</button>
+        <button type="button" class="btn btn-ghost" data-jump="eqCard">Equipment</button>
+        <button type="button" class="btn btn-ghost" data-jump="finSnapCard">Financial snapshots</button>
+      </div>
+      <div class="card" id="finPnlCard">
+        <h2>Profit and loss (live from Zoho)</h2>
+        <div class="sub">Read straight from Zoho Books reports at each sync. The Hub keeps no figures of its own, so this always matches Zoho's Reports, Profit and Loss.</div>
+        <div id="finPnlTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"></div>
+        <div id="finPnl"></div>
+      </div>
+      <div class="card" id="subsCard">
+        <h2>Subscriptions &amp; prepayments</h2>
+        <div class="sub">Posts the initial prepayment (bank to Prepaid Expenses) and each month's recognition journal (expense account, credit Prepaid Expenses) to Zoho through your Apps Script bridge. Monthly amount is total ÷ months, rounded to the penny, remainder on the final month, one journal per month dated its last day. The Hub keeps no status of its own: each line below is read back from Zoho (entries tagged MH-SUB-...), so what you see is what Zoho holds.</div>
+        <details class="fold-inline" id="subFormDetails"><summary>+ Add a subscription</summary>
+        <div class="finance-form">
+          <div class="finance-form-col">
+            <div class="finance-form-label">Add a subscription</div>
+            <input type="text" id="subVendor" placeholder="Vendor (e.g. Midjourney)">
+            <select id="subCategory"></select>
+            <input type="number" id="subTotal" placeholder="Total amount paid (£)" step="0.01" min="0">
+            <input type="date" id="subCoverageStart" title="Coverage start date">
+            <div class="hint">Coverage start date (first day of the first covered month)</div>
+            <input type="number" id="subMonths" placeholder="Months covered" value="12" min="1" max="120" step="1" list="subMonthsList">
+            <datalist id="subMonthsList"><option value="12"><option value="24"><option value="36"><option value="48"><option value="60"></datalist>
+            <div class="hint">Type any number of months, up to 120. For example 24 = 2 years, 36 = 3 years.</div>
+            <input type="date" id="subPaidDate" title="Date paid">
+            <div class="hint">Date paid (optional, defaults to the coverage start date)</div>
+            <label style="display:flex;gap:8px;align-items:center;font-size:13px;"><input type="checkbox" id="subInitInZoho"> Initial payment is already in Zoho (e.g. from the bank feed), only post the monthly journals</label>
+            <input type="text" id="subReference" placeholder="Reference (what Zoho shows, e.g. GoDaddy.com domain purchases)" maxlength="100">
+            <div class="hint">This text becomes the journal Reference and Notes in Zoho. The same reference can repeat across months, but never twice on the same day.</div>
+            <select id="subDateMode" title="Journal dates">
+              <option value="monthend">Journal dates: last day of each month</option>
+              <option value="anniversary">Journal dates: same day each month as the purchase</option>
+            </select>
+            <button class="btn btn-primary" id="subAddBtn" style="width:auto;">Add subscription</button>
+          </div>
+        </div>
+        </details>
+        <div id="subList" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card" id="eqCard">
         <h2>Equipment and depreciation</h2>
         <div class="sub">The register of company kit, with straight line depreciation posted to Zoho as a monthly journal (debit Depreciation Expense, credit Accumulated depreciation) through the Apps Script bridge. Each month shows as in Zoho only when Zoho reports a journal with the same reference and date, so the Hub never claims something is posted that is not. "Depreciation already in Zoho" is what Zoho held before the Hub started scheduling; the Hub then schedules the months after that date.</div>
         <div id="eqSummary" style="margin-top:10px;"></div>
       </div>
-      <div class="card">
-        <h2 id="eqFormTitle">Add equipment</h2>
+      <details class="card fold-card" id="eqFormDetails">
+        <summary><h2 id="eqFormTitle">Add equipment</h2></summary>
         <div class="finance-form">
           <div class="finance-form-col">
             <input type="text" id="eqName" placeholder="Name (e.g. DJI Mavic 4 Pro Fly More Combo)" maxlength="100">
@@ -1715,21 +1843,14 @@ function doPost(e) {
             </div>
           </div>
         </div>
-      </div>
+      </details>
       <div class="card">
         <h2>Register</h2>
         <div id="eqList"></div>
       </div>
-    </div>
 
-    <div class="panel" id="panel-finance">
-      <div class="card" id="finPnlCard">
-        <h2>Profit and loss (live from Zoho)</h2>
-        <div class="sub">Read straight from Zoho Books reports at each sync. The Hub keeps no figures of its own, so this always matches Zoho's Reports, Profit and Loss.</div>
-        <div id="finPnlTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"></div>
-        <div id="finPnl"></div>
-      </div>
-      <div class="card">
+
+      <div class="card" id="finSnapCard">
         <h2>Financial snapshots</h2>
         <div class="sub">Period profit-and-loss figures aren't part of the live Zoho connection on the Dashboard (that covers contacts, invoices and payments), so these snapshots are imported: ask Claude, in a session with Zoho connected, to pull the latest figures and generate an import file — then bring it in here. See SETUP.md for the exact format if you want to build one by hand.</div>
         <div class="finance-import">
@@ -1739,58 +1860,6 @@ function doPost(e) {
           <span id="finImportMsg" class="hint"></span>
         </div>
         <div id="finSnapshotList"></div>
-      </div>
-
-      <div class="card">
-        <h2>Subscriptions &amp; prepayments</h2>
-        <div class="sub">Posts the initial prepayment (bank to Prepaid Expenses) and each month's recognition journal (expense account, credit Prepaid Expenses) to Zoho through your Apps Script bridge. Monthly amount is total ÷ months, rounded to the penny, remainder on the final month, one journal per month dated its last day. The Hub keeps no status of its own: each line below is read back from Zoho (entries tagged MH-SUB-...), so what you see is what Zoho holds.</div>
-        <div class="finance-form">
-          <div class="finance-form-col">
-            <div class="finance-form-label">Add a subscription</div>
-            <input type="text" id="subVendor" placeholder="Vendor (e.g. Midjourney)">
-            <select id="subCategory"></select>
-            <input type="number" id="subTotal" placeholder="Total amount paid (£)" step="0.01" min="0">
-            <input type="date" id="subCoverageStart" title="Coverage start date">
-            <div class="hint">Coverage start date (first day of the first covered month)</div>
-            <input type="number" id="subMonths" placeholder="Months covered" value="12" min="1" max="120" step="1" list="subMonthsList">
-            <datalist id="subMonthsList"><option value="12"><option value="24"><option value="36"><option value="48"><option value="60"></datalist>
-            <div class="hint">Type any number of months, up to 120. For example 24 = 2 years, 36 = 3 years.</div>
-            <input type="date" id="subPaidDate" title="Date paid">
-            <div class="hint">Date paid (optional, defaults to the coverage start date)</div>
-            <label style="display:flex;gap:8px;align-items:center;font-size:13px;"><input type="checkbox" id="subInitInZoho"> Initial payment is already in Zoho (e.g. from the bank feed), only post the monthly journals</label>
-            <input type="text" id="subReference" placeholder="Reference (what Zoho shows, e.g. GoDaddy.com domain purchases)" maxlength="100">
-            <div class="hint">This text becomes the journal Reference and Notes in Zoho. The same reference can repeat across months, but never twice on the same day.</div>
-            <select id="subDateMode" title="Journal dates">
-              <option value="monthend">Journal dates: last day of each month</option>
-              <option value="anniversary">Journal dates: same day each month as the purchase</option>
-            </select>
-            <button class="btn btn-primary" id="subAddBtn" style="width:auto;">Add subscription</button>
-          </div>
-        </div>
-        <div id="subList" style="margin-top:14px;"></div>
-      </div>
-
-      <div class="card">
-        <h2>Proactive reminders</h2>
-        <div class="sub">Whenever you save, this sends a small, unencrypted copy of open tasks' due dates and the deadlines above to a Google Apps Script you control — a daily check there pushes a notification via ntfy.sh if anything's overdue or coming up. Nothing else (notes, credentials, financial figures, meeting content) ever leaves the vault. See SETUP.md section 8 for the one-time Apps Script setup.</div>
-        <div class="wp-status">
-          <span class="pill disconnected" id="remStatusPill"><span class="dot"></span><span id="remStatusText">Not connected</span></span>
-          <button class="btn btn-ghost" id="remEditBtn" style="padding:6px 12px;font-size:12.5px;">Connect / edit</button>
-        </div>
-        <div class="wp-connect-fields" id="remConnectFields">
-          <div class="hint">Deploy the Apps Script as a Web App (see SETUP.md section 8), then paste its URL and the shared secret you set in the script's Project Settings → Script Properties here.</div>
-          <input type="text" id="remWebAppUrl" placeholder="Apps Script Web App URL (ends in /exec)">
-          <input type="password" id="remSharedSecret" placeholder="Shared secret" autocomplete="off">
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-primary" id="remSaveBtn" style="width:auto;">Save connection</button>
-            <button class="btn btn-ghost" id="remDisconnectBtn" style="width:auto;">Remove connection</button>
-          </div>
-        </div>
-        <div style="margin-top:4px;">
-          <button class="btn btn-ghost" id="remSyncNowBtn" style="width:auto;">Sync now</button>
-          <span id="remSyncStatus" class="hint" style="margin-left:8px;"></span>
-        </div>
-        <div class="hint" style="margin-top:10px;">Because of how Apps Script's cross-origin handling works, the Hub can't confirm the sync actually succeeded — only that it was sent. The first time you connect, click <strong>Sync now</strong>, then check the Reminders folder in Drive directly to confirm <code>reminders.json</code> appeared and updated.</div>
       </div>
     </div>
 
@@ -2907,6 +2976,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     d.trash = (Array.isArray(d.trash) ? d.trash : []).filter(function(x){
       return x && typeof x === 'object' && typeof x.key === 'string' && x.item && typeof x.item === 'object' && typeof x.deletedAt === 'string';
     }).map(function(x){ return { id: x.id || randomId(), key: x.key, item: x.item, deletedAt: x.deletedAt }; });
+    d.attnSnooze = (d.attnSnooze && typeof d.attnSnooze === 'object' && !Array.isArray(d.attnSnooze)) ? d.attnSnooze : {};
     d.events = d.events || [];
     d.events.forEach(function(e){ e.paperworkId = e.paperworkId || ''; e.kind = e.kind || ''; });
     d.tasks = d.tasks || [];
@@ -8462,6 +8532,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   let currentPanelId_ = 'home';
   function activatePanel(panelId, fromHistory){
+    if (panelId === 'equipment') panelId = 'finance'; // Equipment now lives on the combined Prepayments & Equipment tab
     const panel = document.getElementById('panel-' + panelId);
     if (!panel) return;
     // The phone's Back button/gesture steps back through the tabs you visited instead of leaving the Hub.
@@ -8901,8 +8972,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.11.6';
+  const HUB_VERSION = '2026.11.8';
   const HUB_CHANGELOG = [
+    { v: '2026.11.8', date: '17 Nov 2026', items: [
+      'Dashboard: Zoho Books, Recently deleted, Proactive reminders, Access & permissions and the Hub health check now sit in one folded section at the bottom called "Hub, connections and settings", with a one line status you can read without opening it.',
+      'Needs attention: shows the first six items with a Show more button, a count of overdue and due soon, and a Snooze button (hides an item for 7 days; Bring them back undoes it). Sign-in items cannot be snoozed.',
+      'Tabs now show a small count when something in them needs attention (amber for due soon, red for overdue), and the Business Admin, Clients and Website buttons show the total for their tabs.',
+      'Prepayments & Equipment: add forms are folded away behind buttons, jump links sit at the top, and the equipment register is one line per item (name, net book value, status) that opens for the detail. Small items kept at cost, items needing review and removed items are grouped.',
+      'New Compact view button in the top bar (Comfortable view switches back); it is remembered on each device. Search now also finds equipment and subscriptions. Numbers line up in columns, and empty dashboard cards shrink to one line.' ] },
+    { v: '2026.11.7', date: '17 Nov 2026', items: [
+      'Business Admin: the Finance and Equipment tabs are now one tab called Prepayments & Equipment. It holds profit and loss, subscriptions and prepayments, the equipment register, proactive reminders and, at the very bottom, Financial snapshots.',
+      'Dashboard: Recently deleted now sits directly under the Zoho Books card.' ] },
     { v: '2026.11.6', date: '17 Nov 2026', items: [
       'Website > Socials: posts in the Library now show a thumbnail picture so they are quick to spot, and the calendar shows a small one beside each post. Refresh all fills them in from YouTube, Instagram, Facebook and your website. Instagram picture links expire after a while, so a faded one is replaced the next time you refresh. You can also paste a picture link by hand when editing a post. Connections now shows which sources are ready for Refresh all.' ] },
     { v: '2026.11.5', date: '14 Nov 2026', items: [
@@ -11448,7 +11528,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // and URL — since those are credential values, not searchable notes.
   function performGlobalSearch(term){
     const q = (term || '').trim().toLowerCase();
-    const results = { renewals: [], clients: [], tasks: [], quotes: [], paperwork: [], documents: [], meetings: [], discussions: [], galleries: [], templates: [], links: [], websiteLinks: [], blog: [] };
+    const results = { renewals: [], clients: [], tasks: [], quotes: [], paperwork: [], documents: [], meetings: [], discussions: [], galleries: [], templates: [], links: [], websiteLinks: [], blog: [], equipment: [], subscriptions: [] };
     if (!q) return results;
     const hit = function(s){ return typeof s === 'string' && s.toLowerCase().indexOf(q) !== -1; };
     const clientIdx = buildClientIndex();
@@ -11534,15 +11614,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         results.blog.push({ text: p.title, sub: p.date || '', onClick: function(){ jumpToPanel_('blog'); } });
       }
     });
+    (data.equipment || []).forEach(function(a){
+      if (hit(a.name) || hit(a.reference) || hit(a.notes) || hit(a.zohoSource)){
+        results.equipment.push({ text: a.name, sub: fmtGBP(a.cost) + (a.purchaseDate ? ' · bought ' + a.purchaseDate : ''), onClick: function(){ jumpToPanel_('finance'); } });
+      }
+    });
+    (data.subscriptions || []).forEach(function(sb){
+      if (hit(sb.vendor) || hit(sb.reference)){
+        results.subscriptions.push({ text: sb.vendor || sb.reference, sub: (sb.totalAmount ? fmtGBP(sb.totalAmount) + ' · ' : '') + (sb.reference || ''), onClick: function(){ jumpToPanel_('finance'); } });
+      }
+    });
     return results;
   }
 
   const GSR_GROUP_LABELS = {
     renewals: 'Renewals', clients: 'Clients', tasks: 'Tasks', quotes: 'Quotes', paperwork: 'Paperwork', documents: 'Documents',
     meetings: 'Meetings', discussions: 'Discussion topics', galleries: 'Galleries',
-    templates: 'Email templates', links: 'Links', websiteLinks: 'Website & Socials', blog: 'Blog posts'
+    templates: 'Email templates', links: 'Links', websiteLinks: 'Website & Socials', blog: 'Blog posts', equipment: 'Equipment', subscriptions: 'Subscriptions & prepayments'
   };
-  const GSR_GROUP_ORDER = ['clients', 'tasks', 'renewals', 'quotes', 'paperwork', 'documents', 'meetings', 'discussions', 'galleries', 'templates', 'links', 'websiteLinks', 'blog'];
+  const GSR_GROUP_ORDER = ['clients', 'tasks', 'renewals', 'quotes', 'paperwork', 'documents', 'meetings', 'discussions', 'galleries', 'templates', 'links', 'websiteLinks', 'blog', 'equipment', 'subscriptions'];
   const GSR_MAX_PER_GROUP = 5;
 
   function renderGlobalSearchResults(term){
@@ -11883,6 +11973,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function jumpToHubPanel_(panel){
     if (panel === 'access' || panel === 'home'){
+      const hf = document.getElementById('hubSystemFold'); if (hf) hf.open = true;
       const d = document.getElementById('dashAccessDetails');
       if (d) d.open = true;
       const c = document.getElementById('dashAccessCard');
@@ -11962,14 +12053,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             if (x.st.dueLines.length) bits.push(x.st.dueLines.length + ' journal' + (x.st.dueLines.length === 1 ? '' : 's') + ' due');
             return x.s.vendor + ' (' + bits.join(', ') + ')';
           }).join(', '),
-          panel: 'finance', when: 'Finance'
+          panel: 'finance', when: 'Prepayments'
         });
       } else if (unknown.length){
         items.push({
           level: 'soon',
           title: unknown.length + ' subscription' + (unknown.length === 1 ? '' : 's') + ' tracked, Zoho state unknown',
           sub: 'Needs a Zoho sync with the prepayments version of the Apps Script before it can show what is posted.',
-          panel: 'finance', when: 'Finance'
+          panel: 'finance', when: 'Prepayments'
         });
       }
     })();
@@ -11978,7 +12069,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (eq.length){
         items.push({ level: 'soon', title: eq.length + ' equipment item' + (eq.length === 1 ? '' : 's') + ' with depreciation to post in Zoho',
           sub: eq.map(function(x){ return x.a.name + ' (' + x.st.dueLines.length + ' journal' + (x.st.dueLines.length === 1 ? '' : 's') + ')'; }).join(', '),
-          panel: 'equipment', when: 'Equipment' });
+          panel: 'finance', when: 'Equipment' });
       }
     })();
     const fp = data.financeProfile || {};
@@ -11988,6 +12079,67 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     return items;
   }
+
+  // ---------------------------------------------------------------- 2026.11.8 tidy helpers
+  let attnShowAll_ = false;
+  const ATTN_LIMIT_ = 6;
+  function attnKey_(it){ return (it.panel || '') + '|' + (it.title || '') + '|' + (it.date || ''); }
+  function updateTabBadges_(items){
+    const by = {};
+    items.forEach(function(it){
+      let p = it.panel; if (!p || p === 'access' || p === 'home') return;
+      if (p === 'equipment') p = 'finance';
+      const b = by[p] || (by[p] = { n: 0, over: false });
+      b.n++; if (it.level === 'overdue') b.over = true;
+    });
+    document.querySelectorAll('nav.tabs .tab-badge').forEach(function(e){ e.remove(); });
+    const add = function(btn, n, over){
+      if (!btn || !n) return;
+      const sp = document.createElement('span');
+      sp.className = 'tab-badge' + (over ? ' overdue' : '');
+      sp.textContent = String(n);
+      sp.title = n + ' item' + (n === 1 ? '' : 's') + ' need attention';
+      btn.appendChild(sp);
+    };
+    const grp = {};
+    Object.keys(by).forEach(function(p){
+      document.querySelectorAll('nav.tabs button[data-panel="' + p + '"]').forEach(function(btn){ add(btn, by[p].n, by[p].over); });
+      const g = PANEL_GROUP[p];
+      if (g){ const o = grp[g] || (grp[g] = { n: 0, over: false }); o.n += by[p].n; o.over = o.over || by[p].over; }
+    });
+    Object.keys(grp).forEach(function(g){
+      add(document.querySelector('.group-btn[data-group="' + g.toLowerCase() + '"]'), grp[g].n, grp[g].over);
+    });
+  }
+  function refreshHubFoldLive_(){
+    const live = document.getElementById('hubFoldLive'); if (!live) return;
+    const t = function(id){ const e = document.getElementById(id); return e ? (e.textContent || '').trim() : ''; };
+    const parts = [];
+    const z = t('zohoStatusText'); if (z) parts.push('Zoho: ' + z.toLowerCase());
+    const tr = t('dashTrashSummary'); if (tr) parts.push('Recently deleted: ' + tr);
+    const rem = t('remStatusText'); if (rem) parts.push('Reminders: ' + rem.toLowerCase());
+    const h = t('healthSummary'); if (h) parts.push(h);
+    const a = t('dashAccessSummary'); if (a) parts.push(a);
+    live.textContent = parts.join(' · ');
+    live.classList.toggle('needs', /not connected|problem|fix|failed|error/i.test(live.textContent));
+  }
+  (function initTidy_(){
+    ['zohoStatusText', 'dashTrashSummary', 'remStatusText', 'healthSummary', 'dashAccessSummary'].forEach(function(id){
+      const e = document.getElementById(id); if (!e || !window.MutationObserver) return;
+      new MutationObserver(function(){ try { refreshHubFoldLive_(); } catch (err) { /* cosmetic */ } }).observe(e, { childList: true, characterData: true, subtree: true });
+    });
+    const jc = document.getElementById('finJump');
+    if (jc) jc.addEventListener('click', function(e){
+      const b = e.target.closest('button[data-jump]'); if (!b) return;
+      const tgt = document.getElementById(b.dataset.jump);
+      if (tgt){ if (tgt.tagName === 'DETAILS') tgt.open = true; tgt.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+    const KEY = 'imagescapeHub.density.v1', btn = document.getElementById('densityBtn');
+    let on = false; try { on = localStorage.getItem(KEY) === 'compact'; } catch (e) { /* storage unavailable */ }
+    const apply = function(){ document.body.classList.toggle('compact', on); if (btn) btn.textContent = on ? 'Comfortable view' : 'Compact view'; };
+    apply();
+    if (btn) btn.addEventListener('click', function(){ on = !on; try { localStorage.setItem(KEY, on ? 'compact' : 'comfortable'); } catch (e) { /* ignore */ } apply(); });
+  })();
 
   function renderHome(){
     const statsWrap = document.getElementById('dashStats');
@@ -12104,11 +12256,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     // Sign-ins, tokens and passwords go first: without them other parts of the Hub stop.
     const accessItems = (function(){ try { return accessReminderItems(); } catch (e){ return []; } })();
     accessItems.slice().reverse().forEach(function(it){ attnItems.unshift(it); });
+    // Snoozed items are hidden for 7 days (stored in the vault so every device agrees); sign-in items cannot be snoozed.
+    const snoozeMap_ = data.attnSnooze || {};
+    const snoozedItems = [];
+    const keptItems = attnItems.filter(function(it){
+      if (it.panel === 'access' || it.panel === 'home') return true;
+      const until = snoozeMap_[attnKey_(it)];
+      if (until && until > todayIso_()){ snoozedItems.push(it); return false; }
+      return true;
+    });
+    attnItems.length = 0; keptItems.forEach(function(it){ attnItems.push(it); });
+    try { updateTabBadges_(attnItems); } catch (e) { /* cosmetic */ }
+    (function(){
+      const c = document.getElementById('dashAttentionCount'); if (!c) return;
+      const over = attnItems.filter(function(i){ return i.level === 'overdue'; }).length;
+      const soon = attnItems.length - over;
+      c.textContent = attnItems.length ? ((over ? over + ' overdue' : '') + (over && soon ? ' · ' : '') + (soon ? soon + ' due soon' : '')) : '';
+    })();
     attnWrap.innerHTML = '';
     if (!attnItems.length){
       attnWrap.innerHTML = '<div class="empty-note">Nothing overdue or due soon — you\'re on top of it.</div>';
     } else {
-      attnItems.forEach(function(item){
+      attnItems.slice(0, attnShowAll_ ? attnItems.length : ATTN_LIMIT_).forEach(function(item){
         const row = document.createElement('div');
         row.className = 'attention-row lvl-' + item.level;
         row.innerHTML = '<span class="dot"></span><div class="body"><div class="txt"></div><div class="sub"></div></div><div class="when"></div>';
@@ -12127,8 +12296,37 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           row.querySelector('.when').textContent = (item.level === 'overdue' ? 'Was due ' : 'Due ') + item.date;
           row.addEventListener('click', function(){ jumpToPanel_(item.panel); });
         }
+        if (item.panel !== 'access' && item.panel !== 'home'){
+          const sb = document.createElement('button');
+          sb.type = 'button'; sb.className = 'attn-snooze'; sb.textContent = 'Snooze'; sb.title = 'Hide this for 7 days';
+          sb.addEventListener('click', function(e){
+            e.stopPropagation();
+            data.attnSnooze = data.attnSnooze || {};
+            data.attnSnooze[attnKey_(item)] = addDaysIso(todayIso_(), 7);
+            markDirty(); renderHome();
+          });
+          row.appendChild(sb);
+        }
         attnWrap.appendChild(row);
       });
+      if (attnItems.length > ATTN_LIMIT_){
+        const mb = document.createElement('button');
+        mb.type = 'button'; mb.className = 'btn btn-ghost attn-more'; mb.style.width = 'auto';
+        mb.textContent = attnShowAll_ ? 'Show fewer' : ('Show ' + (attnItems.length - ATTN_LIMIT_) + ' more');
+        mb.addEventListener('click', function(){ attnShowAll_ = !attnShowAll_; renderHome(); });
+        attnWrap.appendChild(mb);
+      }
+    }
+    if (snoozedItems.length){
+      const ft = document.createElement('div'); ft.className = 'attn-foot';
+      ft.appendChild(document.createTextNode(snoozedItems.length + ' snoozed for now. '));
+      const ca = document.createElement('a'); ca.textContent = 'Bring them back';
+      ca.addEventListener('click', function(){
+        data.attnSnooze = data.attnSnooze || {};
+        snoozedItems.forEach(function(it){ delete data.attnSnooze[attnKey_(it)]; });
+        markDirty(); renderHome();
+      });
+      ft.appendChild(ca); attnWrap.appendChild(ft);
     }
 
     // Next 7 days: every calendar event (manual, plus paperwork due/sent already mirrored there).
@@ -12160,6 +12358,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     };
     try { renderTodayCard_(); } catch (e){ /* never block the Dashboard */ }
     try { renderMoneyCard_(); } catch (e){ /* never block the Dashboard */ }
+    try { refreshHubFoldLive_(); } catch (e){ /* cosmetic */ }
     maybeAutoRunAccessCheck();
   }
 
@@ -19820,6 +20019,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       wrap.appendChild(w);
     }
 
+    const eqGroups = { main: [], review: [], small: [], removed: [] };
     list.forEach(function(a){
       const acct = eqAccount_(a.accountKey);
       const f = equipmentFigures_(a), st = f.st;
@@ -19878,8 +20078,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         data.equipment = data.equipment.filter(function(x){ return x.id !== a.id; });
         markDirty(); renderEquipment(); renderHome();
       });
-      wrap.appendChild(card);
+      eqGroups[a.status === 'removed' ? 'removed' : (a.status === 'review' ? 'review' : (a.depreciate ? 'main' : 'small'))].push(eqCompactCard_(card, a, f, st));
     });
+    const addEqGroup = function(items, label, open){
+      if (!items.length) return;
+      if (label === null){ items.forEach(function(c){ wrap.appendChild(c); }); return; }
+      const fd = document.createElement('details'); fd.className = 'eq-fold'; if (open) fd.open = true;
+      const sm = document.createElement('summary'); sm.textContent = label + ' (' + items.length + ')'; fd.appendChild(sm);
+      items.forEach(function(c){ fd.appendChild(c); });
+      wrap.appendChild(fd);
+    };
+    addEqGroup(eqGroups.main, null);
+    addEqGroup(eqGroups.review, 'Needs review', true);
+    addEqGroup(eqGroups.small, 'Small items kept at cost', false);
+    addEqGroup(eqGroups.removed, 'No longer company assets', false);
+  }
+
+  // One tidy line per item (name, net book value, status); everything else opens on click.
+  function eqCompactCard_(card, a, f, st){
+    const det = document.createElement('details'); det.className = 'snapshot-card eq-item';
+    if (st.dueLines.length || eqEditId_ === a.id) det.open = true;
+    det.style.opacity = card.style.opacity || '';
+    const sum = document.createElement('summary');
+    sum.innerHTML = '<span class="eq-name"></span><span class="eq-nbv"></span><span class="eq-chip"></span>' + (st.dueLines.length ? '<span class="eq-chip due"></span>' : '');
+    sum.querySelector('.eq-name').textContent = a.name;
+    sum.querySelector('.eq-nbv').textContent = 'NBV ' + fmtGBP(f.nbv);
+    sum.querySelector('.eq-chip').textContent = ({ in_use: 'In use', review: 'Needs review', removed: 'Removed' }[a.status] || '') + (a.depreciate ? '' : ', at cost');
+    const dc = sum.querySelector('.eq-chip.due'); if (dc) dc.textContent = st.dueLines.length + ' due';
+    det.appendChild(sum);
+    const body = document.createElement('div'); body.className = 'eq-body';
+    while (card.firstChild) body.appendChild(card.firstChild);
+    det.appendChild(body);
+    return det;
   }
 
   function loadEquipmentIntoForm_(a){
@@ -19899,6 +20129,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('eqSaveBtn').textContent = 'Save changes';
     document.getElementById('eqCancelBtn').style.display = '';
     document.getElementById('eqFormTitle').textContent = 'Edit: ' + a.name;
+    const efd = document.getElementById('eqFormDetails'); if (efd) efd.open = true;
     document.getElementById('eqName').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   function resetEquipmentForm_(){
