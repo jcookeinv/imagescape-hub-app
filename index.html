@@ -2233,6 +2233,9 @@ function doPost(e) {
   #spRoot .sp-card:hover{border-color:var(--gold-deep);}
   #spRoot .sp-card h4{margin:6px 0 3px;font-size:14px;}
   #spRoot .sp-card p{margin:0;color:var(--muted);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  #spRoot .sp-thumb{position:relative;aspect-ratio:16/10;border-radius:8px;overflow:hidden;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;}
+  #spRoot .sp-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;}
+  #spRoot .sp-pill-img{width:14px;height:14px;object-fit:cover;border-radius:3px;vertical-align:-3px;margin-right:4px;}
   #spRoot .sp-tag{flex-shrink:0;white-space:nowrap;display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;color:#fff;font-weight:600;}
   #spRoot .sp-st{font-size:11px;margin-left:6px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
   #spRoot .sp-st-published{color:var(--good);}#spRoot .sp-st-scheduled{color:var(--gold-deep);}#spRoot .sp-st-draft{color:var(--warn);}
@@ -2764,7 +2767,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     sv.meta = (sv.meta && typeof sv.meta === 'object') ? sv.meta : { pageId: '', igId: '', token: '', lastPull: '' };
     sv.lastRefresh = sv.lastRefresh || null;
     sv.accounts.forEach(function(a){ a.id = a.id || randomId(); a.handle = a.handle || ''; a.state = a.state || 'active'; a.url = a.url || ''; a.followers = a.followers || ''; a.target = Number(a.target) || 0; a.notes = a.notes || ''; });
-    sv.posts.forEach(function(q){ q.id = q.id || randomId(); q.platform = q.platform || 'instagram'; q.status = q.status || 'idea'; q.date = q.date || ''; q.title = q.title || ''; q.caption = q.caption || ''; q.kind = q.kind || ''; q.pillar = q.pillar || ''; q.url = q.url || ''; q.plan = q.plan || ''; });
+    sv.posts.forEach(function(q){ q.id = q.id || randomId(); q.platform = q.platform || 'instagram'; q.status = q.status || 'idea'; q.date = q.date || ''; q.title = q.title || ''; q.caption = q.caption || ''; q.kind = q.kind || ''; q.pillar = q.pillar || ''; q.url = q.url || ''; q.plan = q.plan || ''; q.thumb = /^https?:\/\//i.test(q.thumb || '') ? q.thumb : ''; });
     return sv;
   }
 
@@ -8898,8 +8901,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.11.5';
+  const HUB_VERSION = '2026.11.6';
   const HUB_CHANGELOG = [
+    { v: '2026.11.6', date: '17 Nov 2026', items: [
+      'Website > Socials: posts in the Library now show a thumbnail picture so they are quick to spot, and the calendar shows a small one beside each post. Refresh all fills them in from YouTube, Instagram, Facebook and your website. Instagram picture links expire after a while, so a faded one is replaced the next time you refresh. You can also paste a picture link by hand when editing a post. Connections now shows which sources are ready for Refresh all.' ] },
     { v: '2026.11.5', date: '14 Nov 2026', items: [
       'Website > Socials: new Refresh all button. One click copies the latest posts from YouTube, Instagram, Facebook and your website into the social planner Library, updates follower counts, and shows what worked and what needs attention. Set each source up once in Connections (a YouTube API key, one Meta Page token for Instagram and Facebook, and the WordPress connection already on the Blog tab). Keys and tokens are stored encrypted in the vault and are never included in Export. LinkedIn, Etsy and Google Business cannot be read by the Hub.' ] },
     { v: '2026.11.4', date: '14 Nov 2026', items: [
@@ -20498,6 +20503,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return '<span class="sp-tag" style="background:' + pl.c + '">' + escapeHtml(pl.n) + '</span>';
   }
 
+  // Thumbnail block: the picture when there is a link for it, otherwise a coloured block with the platform name.
+  // Instagram picture links expire after a while, so a broken one quietly falls back to the block until the next refresh.
+  function spThumbHtml_(p){
+    const pl = SP_PLATFORMS[p.platform] || { n: p.platform, c: '#888' };
+    const img = /^https?:\/\//i.test(p.thumb || '') ? '<img src="' + escapeHtml(p.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '';
+    return '<div class="sp-thumb" style="background:' + pl.c + '"><span>' + escapeHtml(pl.n) + '</span>' + img + '</div>';
+  }
+  document.addEventListener('error', function(e){
+    const t = e.target;
+    if (t && t.tagName === 'IMG' && t.closest && t.closest('#spRoot')) t.remove();
+  }, true);
+
   function spFiltered_(){
     const s = data.social, anyPlat = Object.keys(spUI.plats).some(function(k){ return spUI.plats[k]; });
     const q = spUI.q.trim().toLowerCase();
@@ -20523,7 +20540,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function spLibraryHtml_(){
     const list = spFiltered_();
     const cards = list.map(function(p){
-      return '<div class="sp-card" data-sp-edit="' + escapeHtml(p.id) + '">' + spTag_(p.platform) +
+      return '<div class="sp-card" data-sp-edit="' + escapeHtml(p.id) + '">' + spThumbHtml_(p) + spTag_(p.platform) +
         '<span class="sp-st sp-st-' + escapeHtml(p.status) + '">' + escapeHtml(p.status) + '</span>' +
         '<h4>' + escapeHtml(p.title || 'Untitled') + '</h4>' +
         '<p>' + escapeHtml(p.caption || '') + '</p>' +
@@ -20552,7 +20569,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const items = data.social.posts.filter(function(p){ return p.date === k && (!anyPlat || spUI.plats[p.platform]); });
       cells += '<div class="sp-day' + (d.getMonth() !== mo ? ' out' : '') + (k === today ? ' today' : '') + '" data-sp-day="' + k + '"><small>' + d.getDate() + '</small>' +
         items.map(function(p){
-          return '<div class="sp-pill sp-pill-' + escapeHtml(p.status) + '" data-sp-edit="' + escapeHtml(p.id) + '" style="background:' + ((SP_PLATFORMS[p.platform] || {}).c || '#888') + '" title="' + escapeHtml(p.title || '') + '">' + escapeHtml(p.title || 'Untitled') + '</div>';
+          return '<div class="sp-pill sp-pill-' + escapeHtml(p.status) + '" data-sp-edit="' + escapeHtml(p.id) + '" style="background:' + ((SP_PLATFORMS[p.platform] || {}).c || '#888') + '" title="' + escapeHtml(p.title || '') + '">' + (/^https?:\/\//i.test(p.thumb || '') ? '<img class="sp-pill-img" src="' + escapeHtml(p.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '') + escapeHtml(p.title || 'Untitled') + '</div>';
         }).join('') + '</div>';
     }
     const lim = new Date(); lim.setDate(lim.getDate() + 14);
@@ -20588,9 +20605,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return '<div class="sp-grid">' + cards + '</div><div class="sp-meta" style="margin-top:8px;">Click an account to edit its details and weekly posting target.</div>';
   }
 
+  function spSourceStatusHtml_(){
+    const yt = data.social.yt || {}, mt = data.social.meta || {};
+    const rows = [
+      ['YouTube', !!(yt.apiKey && yt.handle), 'needs the API key and handle'],
+      ['Instagram', !!(mt.token && mt.igId), 'needs the Meta token and Instagram account ID'],
+      ['Facebook', !!(mt.token && mt.pageId), 'needs the Meta token and Page ID'],
+      ['Website', !!(data.wpConnection && data.wpConnection.siteUrl), 'needs the WordPress connection on the Blog tab']
+    ];
+    return '<div class="sp-side" style="max-width:640px;margin-bottom:12px;"><h4>Ready for Refresh all?</h4>' + rows.map(function(r){
+      return '<div class="sp-row"><span>' + r[0] + '</span><span class="' + (r[1] ? 'sp-ok' : 'sp-warn') + '">' + (r[1] ? 'Set up' : 'Not set up: ' + escapeHtml(r[2])) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
   function spConnectionsHtml_(){
     const yt = data.social.yt || {};
-    return '<div class="sp-side" style="max-width:640px;"><h4>YouTube</h4>' +
+    return spSourceStatusHtml_() + '<div class="sp-side" style="max-width:640px;"><h4>YouTube</h4>' +
       '<div class="sp-meta" style="margin-bottom:8px;">Pulls the channel\'s uploads into the Library. Uses a YouTube Data API key (a key, not your Google password). It is stored encrypted in the vault with the rest of the Hub.</div>' +
       '<div class="field"><label>Channel handle</label><input type="text" id="spYtHandle" placeholder="imagescapestudiosltd"></div>' +
       '<div class="field"><label>YouTube Data API key</label><input type="password" id="spYtKey" autocomplete="off" placeholder="Paste the key here"></div>' +
@@ -20662,6 +20692,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       '<div class="field"><label>Content pillar</label><select id="spmPi"><option value="">None</option>' + spOpts_(SP_PILLARS, p.pillar) + '</select></div>' +
       '<div class="field"><label>Plan it belongs to</label><input type="text" id="spmPn" placeholder="e.g. Week of 17 Nov"></div>' +
       '<div class="field"><label>Link to the live post</label><input type="text" id="spmUr"></div>' +
+      '<div class="field"><label>Thumbnail picture link (optional, filled in by Refresh all where possible)</label><input type="text" id="spmTh" placeholder="https://..."></div>' +
       '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="spmX">Close</button>' +
       (isNew ? '' : '<button class="btn btn-ghost" id="spmDel" style="color:var(--warn);">Delete</button>') +
       '<button class="btn btn-primary" id="spmOk">Save</button></div>');
@@ -20670,6 +20701,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     b.querySelector('#spmDa').value = p.date || '';
     b.querySelector('#spmPn').value = p.plan || '';
     b.querySelector('#spmUr').value = p.url || '';
+    b.querySelector('#spmTh').value = p.thumb || '';
     b.querySelector('#spmX').addEventListener('click', function(){ b.remove(); });
     const del = b.querySelector('#spmDel');
     if (del) del.addEventListener('click', function(){
@@ -20687,6 +20719,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       p.pillar = b.querySelector('#spmPi').value;
       p.plan = b.querySelector('#spmPn').value.trim();
       p.url = b.querySelector('#spmUr').value.trim();
+      const th = b.querySelector('#spmTh').value.trim();
+      p.thumb = /^https?:\/\//i.test(th) ? th : '';
       if (isNew) data.social.posts.push(p);
       markDirty(); b.remove(); renderSocialPlanner(); toast('Saved.');
     });
@@ -20747,7 +20781,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         id: r.id ? String(r.id) : spStableId_(platform, date, title),
         platform: platform, status: status, date: date, title: title,
         caption: String(r.caption || ''), kind: String(r.kind || ''), pillar: String(r.pillar || ''),
-        url: String(r.url || ''), plan: String(r.plan || plan || '')
+        url: String(r.url || ''), plan: String(r.plan || plan || ''), thumb: /^https?:\/\//i.test(String(r.thumb || '')) ? String(r.thumb) : ''
       });
     });
     if (obj && !Array.isArray(obj) && Array.isArray(obj.accounts)){
@@ -20812,10 +20846,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function spUpsert_(id, fields, preserve){
     const ex = data.social.posts.find(function(p){ return p.id === id; });
     if (ex){
-      Object.keys(fields).forEach(function(k){ if (preserve.indexOf(k) < 0) ex[k] = fields[k]; });
+      Object.keys(fields).forEach(function(k){ if (preserve.indexOf(k) >= 0) return; if (k === 'thumb' && !fields[k]) return; ex[k] = fields[k]; });
       return 'updated';
     }
-    data.social.posts.push(Object.assign({ id: id, pillar: '', plan: '' }, fields));
+    data.social.posts.push(Object.assign({ id: id, pillar: '', plan: '', thumb: '' }, fields));
     return 'added';
   }
   function spSetAccount_(id, patch){
@@ -20862,7 +20896,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!vid) return;
         const date = String((it.contentDetails.videoPublishedAt || it.snippet.publishedAt || '')).slice(0, 10);
         const res = spUpsert_('yt-' + vid, { platform: 'youtube', status: 'published', kind: 'reel / video', date: date, title: it.snippet.title || 'Untitled video',
-          caption: String(it.snippet.description || '').slice(0, 400), url: 'https://www.youtube.com/watch?v=' + vid }, ['pillar', 'plan']);
+          caption: String(it.snippet.description || '').slice(0, 400), url: 'https://www.youtube.com/watch?v=' + vid,
+          thumb: (function(t){ t = t || {}; return ((t.medium || t.high || t.default || {}).url) || ''; })(it.snippet.thumbnails) }, ['pillar', 'plan']);
         if (res === 'added') added++; else updated++;
       });
       token = j2.nextPageToken || ''; pages++;
@@ -20876,7 +20911,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const m = data.social.meta || {};
     if (!m.token || !m.igId) return { skipped: 'not set up' };
     const info = await spGraph_(encodeURIComponent(m.igId) + '?fields=username,followers_count,media_count', m.token);
-    let next = encodeURIComponent(m.igId) + '/media?fields=id,caption,media_type,media_product_type,permalink,timestamp&limit=50';
+    let next = encodeURIComponent(m.igId) + '/media?fields=id,caption,media_type,media_product_type,permalink,timestamp,media_url,thumbnail_url&limit=50';
     let added = 0, updated = 0, pages = 0;
     while (next && pages < 6){
       const j = await spGraph_(next, m.token);
@@ -20885,7 +20920,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const id = 'ig-' + (mm ? mm[1] : it.id);
         const kind = (it.media_product_type === 'REELS' || it.media_type === 'VIDEO') ? 'reel / video' : (it.media_type === 'CAROUSEL_ALBUM' ? 'carousel' : 'photo');
         const res = spUpsert_(id, { platform: 'instagram', status: 'published', kind: kind, date: String(it.timestamp || '').slice(0, 10),
-          title: spFirstLine_(it.caption, 60) || 'Instagram post', caption: String(it.caption || '').slice(0, 600), url: it.permalink || '' }, ['title', 'caption', 'pillar', 'plan']);
+          title: spFirstLine_(it.caption, 60) || 'Instagram post', caption: String(it.caption || '').slice(0, 600), url: it.permalink || '',
+          thumb: it.thumbnail_url || (it.media_type !== 'VIDEO' ? (it.media_url || '') : '') }, ['title', 'caption', 'pillar', 'plan']);
         if (res === 'added') added++; else updated++;
       });
       next = (j.paging && j.paging.next) ? j.paging.next : '';
@@ -20899,13 +20935,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const m = data.social.meta || {};
     if (!m.token || !m.pageId) return { skipped: 'not set up' };
     const info = await spGraph_(encodeURIComponent(m.pageId) + '?fields=name,followers_count,fan_count', m.token);
-    let next = encodeURIComponent(m.pageId) + '/published_posts?fields=id,message,created_time,permalink_url&limit=50';
+    let next = encodeURIComponent(m.pageId) + '/published_posts?fields=id,message,created_time,permalink_url,full_picture&limit=50';
     let added = 0, updated = 0, pages = 0;
     while (next && pages < 6){
       const j = await spGraph_(next, m.token);
       (j.data || []).forEach(function(it){
         const res = spUpsert_('fb-' + it.id, { platform: 'facebook', status: 'published', kind: 'text post', date: String(it.created_time || '').slice(0, 10),
-          title: spFirstLine_(it.message, 60) || 'Facebook post', caption: String(it.message || '').slice(0, 600), url: it.permalink_url || '' }, ['title', 'caption', 'pillar', 'plan']);
+          title: spFirstLine_(it.message, 60) || 'Facebook post', caption: String(it.message || '').slice(0, 600), url: it.permalink_url || '', thumb: it.full_picture || '' }, ['title', 'caption', 'pillar', 'plan']);
         if (res === 'added') added++; else updated++;
       });
       next = (j.paging && j.paging.next) ? j.paging.next : '';
@@ -20919,12 +20955,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function spWebsiteCore_(){
     const conn = data.wpConnection;
     if (!conn || !conn.siteUrl) return { skipped: 'not set up' };
-    const list = await wpApiFetch(conn, '/wp-json/wp/v2/posts?per_page=50&status=publish&_fields=id,date,link,title,excerpt');
+    const list = await wpApiFetch(conn, '/wp-json/wp/v2/posts?per_page=50&status=publish&_embed=wp:featuredmedia&_fields=id,date,link,title,excerpt,_embedded');
     const plain = function(html){ return new DOMParser().parseFromString(String(html || ''), 'text/html').body.textContent.replace(/\s+/g, ' ').trim(); };
     let added = 0, updated = 0;
     (list || []).forEach(function(it){
       const res = spUpsert_('wp-' + it.id, { platform: 'website', status: 'published', kind: 'blog post', date: String(it.date || '').slice(0, 10),
-        title: plain(it.title && it.title.rendered) || 'Untitled post', caption: plain(it.excerpt && it.excerpt.rendered).slice(0, 300), url: it.link || '' }, ['title', 'caption', 'pillar', 'plan']);
+        title: plain(it.title && it.title.rendered) || 'Untitled post', caption: plain(it.excerpt && it.excerpt.rendered).slice(0, 300), url: it.link || '',
+        thumb: (function(){ const m = it._embedded && it._embedded['wp:featuredmedia'] && it._embedded['wp:featuredmedia'][0]; if (!m) return ''; const sz = m.media_details && m.media_details.sizes; return (sz && sz.medium && sz.medium.source_url) || m.source_url || ''; })() }, ['title', 'caption', 'pillar', 'plan']);
       if (res === 'added') added++; else updated++;
     });
     return { added: added, updated: updated };
