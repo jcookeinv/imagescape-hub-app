@@ -7042,13 +7042,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return res;
   }
 
+  // Which Drive folder is "the Hub folder". Three rules, all learned from duplicate folders
+  // appearing in November 2026:
+  //  1. If the vault file is known, its own parent folder IS the Hub folder. No guessing by name.
+  //  2. Only if there is no vault yet is the folder looked up by name, oldest first, so the answer
+  //     is the same every time even if a stray duplicate exists.
+  //  3. A folder is created only when the search worked and found nothing. A search that FAILED
+  //     (network blip, expired sign-in) used to fall through to "create", which is how duplicate
+  //     "ImageScape Hub" folders appeared. It now stops with an error instead.
+  let driveFolderCache_ = null; // { key, id }
   async function ensureDriveFolder(){
-    const q = "name = '" + DRIVE_FOLDER_NAME.replace(/'/g, "\\'") + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)&spaces=drive');
-    if (res.ok){
-      const body = await res.json();
-      if (body.files && body.files.length) return body.files[0].id;
+    const key = (conn && conn.fileId) || '';
+    if (driveFolderCache_ && driveFolderCache_.key === key) return driveFolderCache_.id;
+    if (key){
+      try {
+        const pr = await driveApiFetch('/files/' + encodeURIComponent(key) + '?fields=parents,trashed');
+        if (pr.ok){
+          const pf = await pr.json();
+          if (!pf.trashed && pf.parents && pf.parents.length){ driveFolderCache_ = { key: key, id: pf.parents[0] }; return pf.parents[0]; }
+        }
+      } catch (e){ /* fall back to the search below */ }
     }
+    const q = "name = '" + DRIVE_FOLDER_NAME.replace(/'/g, "\\'") + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const res = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,createdTime)&orderBy=createdTime&spaces=drive');
+    if (!res.ok) throw new Error('Could not look for the "' + DRIVE_FOLDER_NAME + '" folder in Drive (status ' + res.status + '). Nothing was created. Try again in a moment.');
+    const body = await res.json();
+    if (body.files && body.files.length){ driveFolderCache_ = { key: key, id: body.files[0].id }; return body.files[0].id; }
     const createRes = await driveApiFetch('/files?fields=id', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -7056,6 +7075,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     if (!createRes.ok) throw new Error('Could not create the "' + DRIVE_FOLDER_NAME + '" folder in Drive.');
     const created = await createRes.json();
+    driveFolderCache_ = { key: key, id: created.id };
     return created.id;
   }
 
@@ -8972,8 +8992,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.11.8';
+  const HUB_VERSION = '2026.11.11';
   const HUB_CHANGELOG = [
+    { v: '2026.11.11', date: '18 Nov 2026', items: [
+      'Health check now spots clutter: it lists anything unexpected in your Hub folder in Drive, and warns about two files with the same name there.',
+      'Health check also tells you whether the Hub you are running is the newest build in Drive Handover, and About shows the build fingerprint.' ] },
+    { v: '2026.11.10', date: '18 Nov 2026', items: [
+      'Drive housekeeping: the Hub now treats the folder holding your vault as the Hub folder, instead of searching Drive for any folder called ImageScape Hub. A failed search can no longer create a new, duplicate folder. The health check warns if more than one Drive folder has that name.' ] },
+    { v: '2026.11.9', date: '18 Nov 2026', items: [
+      'Website > Socials > Import plan: new Choose file button, so a plan saved as a .json file can be loaded straight in (several files at once are merged). Pasting still works. Check and Import work the same.' ] },
     { v: '2026.11.8', date: '17 Nov 2026', items: [
       'Dashboard: Zoho Books, Recently deleted, Proactive reminders, Access & permissions and the Hub health check now sit in one folded section at the bottom called "Hub, connections and settings", with a one line status you can read without opening it.',
       'Needs attention: shows the first six items with a Show more button, a count of overdue and due soon, and a Snooze button (hides an item for 7 days; Bring them back undoes it). Sign-in items cannot be snoozed.',
@@ -9067,9 +9094,90 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   ];
   const HUB_SEEN_KEY = 'imagescapeHub.seenVersion.v1';
 
+  // ---- Which build am I? ---------------------------------------------------------------------------
+  // The Hub cannot embed its own fingerprint (it would change the file), so it reads its own file from
+  // the address it was loaded from and hashes it. Drive reports an md5 for every file, so the two can be
+  // compared. Only works when the Hub is opened from a web address (GitHub Pages), not from a saved file.
+  function md5Hex_(u8){
+    const K = [];
+    for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+    const R = [7,12,17,22, 5,9,14,20, 4,11,16,23, 6,10,15,21];
+    let a0 = 0x67452301 | 0, b0 = 0xefcdab89 | 0, c0 = 0x98badcfe | 0, d0 = 0x10325476 | 0;
+    const n = u8.length, full = Math.floor(n / 64), rest = n - full * 64;
+    const tail = new Uint8Array(rest + 9 <= 64 ? 64 : 128);
+    tail.set(u8.subarray(full * 64)); tail[rest] = 0x80;
+    const bits = n * 8, lo = bits % 4294967296, hi = Math.floor(bits / 4294967296), tl = tail.length;
+    for (let i = 0; i < 4; i++){ tail[tl - 8 + i] = (lo >>> (8 * i)) & 255; tail[tl - 4 + i] = (hi >>> (8 * i)) & 255; }
+    const M = new Int32Array(16);
+    function block(s, off){
+      for (let i = 0, j = off; i < 16; i++, j += 4) M[i] = s[j] | (s[j + 1] << 8) | (s[j + 2] << 16) | (s[j + 3] << 24);
+      let A = a0, B = b0, C = c0, D = d0;
+      for (let i = 0; i < 64; i++){
+        let F, g;
+        if (i < 16){ F = (B & C) | (~B & D); g = i; }
+        else if (i < 32){ F = (D & B) | (~D & C); g = (5 * i + 1) & 15; }
+        else if (i < 48){ F = B ^ C ^ D; g = (3 * i + 5) & 15; }
+        else { F = C ^ (B | ~D); g = (7 * i) & 15; }
+        const sh = R[(i >> 4) * 4 + (i & 3)];
+        F = (F + A + K[i] + M[g]) | 0; A = D; D = C; C = B;
+        B = (B + ((F << sh) | (F >>> (32 - sh)))) | 0;
+      }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+    }
+    for (let b = 0; b < full; b++) block(u8, b * 64);
+    for (let o = 0; o < tl; o += 64) block(tail, o);
+    let hex = '';
+    [a0, b0, c0, d0].forEach(function(w){ for (let i = 0; i < 4; i++) hex += ('0' + ((w >>> (8 * i)) & 255).toString(16)).slice(-2); });
+    return hex;
+  }
+  let ownFingerprintPromise_ = null;
+  function ownBuildFingerprint_(){
+    if (ownFingerprintPromise_) return ownFingerprintPromise_;
+    ownFingerprintPromise_ = (async function(){
+      try {
+        if (!/^https?:$/.test(location.protocol)) return null;
+        const r = await fetch(location.href.split('#')[0], { cache: 'force-cache' });
+        if (!r.ok) return null;
+        return md5Hex_(new Uint8Array(await r.arrayBuffer()));
+      } catch (e){ return null; }
+    })();
+    return ownFingerprintPromise_;
+  }
+  // The newest build copy that Claude keeps for you: Hub folder > Handover > imagescape-hub-index.html
+  async function handoverBuildInfo_(){
+    const folderId = await ensureDriveFolder();
+    const fq = "name = 'Handover' and mimeType = 'application/vnd.google-apps.folder' and '" + folderId + "' in parents and trashed = false";
+    const fr = await driveApiFetch('/files?q=' + encodeURIComponent(fq) + '&fields=files(id)&spaces=drive');
+    if (!fr.ok) return null;
+    const hid = (((await fr.json()).files || [])[0] || {}).id;
+    if (!hid) return null;
+    const q = "name = 'imagescape-hub-index.html' and '" + hid + "' in parents and trashed = false";
+    const r = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,md5Checksum,modifiedTime)&spaces=drive');
+    if (!r.ok) return null;
+    return ((await r.json()).files || [])[0] || null;
+  }
+  // Everything directly inside the Hub folder (names and kinds), for the clutter check.
+  async function listHubFolder_(){
+    const folderId = await ensureDriveFolder();
+    const q = "'" + folderId + "' in parents and trashed = false";
+    const r = await driveApiFetch('/files?q=' + encodeURIComponent(q) + '&fields=files(id,name,mimeType)&pageSize=200&spaces=drive');
+    if (!r.ok) return null;
+    return (await r.json()).files || [];
+  }
+
   function renderAbout_(){
     const ver = document.getElementById('aboutVersion');
-    if (ver) ver.textContent = 'The Hub, version ' + HUB_VERSION;
+    if (ver){
+      ver.textContent = 'The Hub, version ' + HUB_VERSION;
+      const det = ver.closest ? ver.closest('details') : null;
+      if (det && !det.dataset.fpWired){
+        det.dataset.fpWired = '1';
+        det.addEventListener('toggle', function(){
+          if (!det.open) return;
+          ownBuildFingerprint_().then(function(fp){ if (fp) ver.textContent = 'The Hub, version ' + HUB_VERSION + ' (build ' + fp.slice(0, 8) + ')'; });
+        });
+      }
+    }
     const wrap = document.getElementById('aboutLog');
     if (!wrap) return;
     wrap.innerHTML = '';
@@ -9143,6 +9251,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } catch (e){
         add('bad', 'Cannot reach Google Drive', (e.message || String(e)) + ' Check your internet, then lock and unlock the Hub to sign in again.');
       }
+      try {
+        const dq = "name = '" + DRIVE_FOLDER_NAME + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+        const dr = await driveApiFetch('/files?q=' + encodeURIComponent(dq) + '&fields=files(id,createdTime)&spaces=drive');
+        if (dr.ok){
+          const dn = ((await dr.json()).files || []).length;
+          if (dn > 1) add('warn', 'There are ' + dn + ' Drive folders called "' + DRIVE_FOLDER_NAME + '"', 'Only the folder holding vault.json should have that name. Open the others, check they hold nothing but zoho-snapshot.json, then rename or bin them. Otherwise the Zoho script can write its data to a different folder from the one the Hub reads.');
+          else add('ok', 'One Hub folder in Drive', 'No duplicate "' + DRIVE_FOLDER_NAME + '" folders.');
+        }
+      } catch (e){ /* advisory only */ }
+      // Clutter check: the Hub folder should hold only the files the Hub and the Zoho script own.
+      try {
+        const kids = await listHubFolder_();
+        if (kids){
+          const expected = {};
+          [(conn && conn.fileName) || VAULT_FILE_NAME, 'vault.json', 'reminders.json', ZOHO_SNAPSHOT_FILENAME, 'Handover'].forEach(function(n){ expected[n] = true; });
+          const seen = {}, dupes = [], strays = [];
+          kids.forEach(function(k){
+            seen[k.name] = (seen[k.name] || 0) + 1;
+            if (seen[k.name] === 2) dupes.push(k.name);
+            if (!expected[k.name]) strays.push(k.name);
+          });
+          if (dupes.length) add('warn', 'Two copies of the same file in the Hub folder', dupes.join(', ') + ' appears more than once. Open the Hub folder in Drive and check which is the real one before anything is deleted. Nothing is changed for you.');
+          if (strays.length) add('warn', strays.length + ' unexpected item' + (strays.length === 1 ? '' : 's') + ' in the Hub folder', strays.slice(0, 5).join(', ') + (strays.length > 5 ? ' and ' + (strays.length - 5) + ' more' : '') + '. The Hub folder should hold only vault.json, reminders.json, zoho-snapshot.json and the Handover folder. Open it in Drive and move these out or bin them. Nothing is changed for you.');
+          if (!dupes.length && !strays.length) add('ok', 'The Hub folder is tidy', 'Only vault.json, reminders.json, zoho-snapshot.json and Handover are in it.');
+        }
+      } catch (e){ /* advisory only */ }
+      // Which build is this? Compare with the newest copy in Drive Handover.
+      try {
+        const fp = await ownBuildFingerprint_();
+        if (fp){
+          const hb = await handoverBuildInfo_();
+          if (hb && hb.md5Checksum){
+            if (String(hb.md5Checksum).toLowerCase() === fp) add('ok', 'This is the newest build', 'Version ' + HUB_VERSION + ', build ' + fp.slice(0, 8) + ', the same as the copy in Drive Handover.');
+            else add('warn', 'This copy is not the newest build in Drive', 'You are running build ' + fp.slice(0, 8) + '. The copy in Drive Handover (saved ' + new Date(hb.modifiedTime).toLocaleString() + ') is build ' + String(hb.md5Checksum).slice(0, 8) + '. If you have only just uploaded to GitHub, wait a few minutes and reload; otherwise upload the newest build.');
+          } else add('ok', 'Build ' + fp.slice(0, 8), 'No Handover copy was found in Drive to compare with.');
+        }
+      } catch (e){ /* advisory only */ }
       act.step(1);
       // 2 Zoho + backups
       if (!data.zohoConnection){
@@ -21024,6 +21169,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function spOpenImport_(){
     const b = spModal_('<h3>Import plan</h3>' +
       '<div class="sub">Paste a plan built with Claude. Weekly or monthly, any size. Importing the same plan again updates items rather than duplicating them.</div>' +
+      '<div class="field"><input type="file" id="spiF" accept=".json,application/json" multiple style="display:none;"><button class="btn btn-primary" id="spiPick" style="width:auto;">Choose file</button> <span class="sp-meta">or paste below</span></div>' +
       '<div class="field"><textarea id="spiT" rows="12" style="font-family:monospace;font-size:12px;"></textarea></div>' +
       '<div class="sp-meta" id="spiMsg">Nothing checked yet.</div>' +
       '<div class="row" style="margin-top:10px;"><button class="btn btn-ghost" id="spiX">Close</button><button class="btn btn-ghost" id="spiEx">Show example</button>' +
@@ -21039,6 +21185,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     b.querySelector('#spiX').addEventListener('click', function(){ b.remove(); });
     b.querySelector('#spiEx').addEventListener('click', function(){ ta.value = SP_EXAMPLE; check(); });
     b.querySelector('#spiChk').addEventListener('click', check);
+    b.querySelector('#spiPick').addEventListener('click', function(){ b.querySelector('#spiF').click(); });
+    b.querySelector('#spiF').addEventListener('change', function(ev){
+      const files = Array.prototype.slice.call(ev.target.files || []);
+      if (!files.length) return;
+      Promise.all(files.map(function(f){ return f.text().then(function(t){ try { return JSON.parse(t); } catch(e){ return { __bad: f.name }; } }); })).then(function(parts){
+        const bad = parts.filter(function(p){ return p && p.__bad; }).map(function(p){ return p.__bad; });
+        const good = parts.filter(function(p){ return !(p && p.__bad); });
+        const merged = { posts: [], accounts: [] };
+        good.forEach(function(p){
+          if (Array.isArray(p)) merged.posts = merged.posts.concat(p);
+          else if (p && typeof p === 'object'){ if (Array.isArray(p.posts)) merged.posts = merged.posts.concat(p.posts); if (Array.isArray(p.accounts)) merged.accounts = merged.accounts.concat(p.accounts); if (p.plan && !merged.plan) merged.plan = p.plan; }
+        });
+        ta.value = JSON.stringify(merged, null, 1);
+        check();
+        if (bad.length) msg.textContent += ' Could not read: ' + bad.join(', ') + '.';
+      });
+      ev.target.value = '';
+    });
     b.querySelector('#spiGo').addEventListener('click', function(){
       const r = check();
       if (!r.items.length && !r.accounts.length) return;
