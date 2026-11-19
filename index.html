@@ -8993,8 +8993,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------------------------------------------------------------- Hub version, change log and health check
   // Bump HUB_VERSION and add an entry to HUB_CHANGELOG with every delivered update. Plain English
   // only, newest first. After an update the Hub shows "What is new" once per browser.
-  const HUB_VERSION = '2026.11.12';
+  const HUB_VERSION = '2026.11.13';
   const HUB_CHANGELOG = [
+    { v: '2026.11.13', date: '19 Nov 2026', items: [
+      'Facebook refresh now swaps the Meta token you pasted for the Page token by itself, so a system-user token works (fixes Meta error 210, a page access token is required).' ] },
     { v: '2026.11.12', date: '19 Nov 2026', items: [
       'Tab badges are now a yellow circle when something is coming up soon and a red circle when something is overdue (the number is still how many).' ] },
     { v: '2026.11.11', date: '18 Nov 2026', items: [
@@ -21332,11 +21334,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function spFacebookCore_(){
     const m = data.social.meta || {};
     if (!m.token || !m.pageId) return { skipped: 'not set up' };
-    const info = await spGraph_(encodeURIComponent(m.pageId) + '?fields=name,followers_count,fan_count', m.token);
+    // A system-user or user token cannot read a Page directly: ask Meta for the Page's own token first.
+    // If the pasted token already is a Page token, this call just fails quietly and the pasted token is used as it is.
+    let ptok = m.token;
+    try {
+      const pt = await spGraph_(encodeURIComponent(m.pageId) + '?fields=access_token', m.token);
+      if (pt && pt.access_token) ptok = pt.access_token;
+    } catch (e0) { /* keep the pasted token */ }
+    const info = await spGraph_(encodeURIComponent(m.pageId) + '?fields=name,followers_count,fan_count', ptok);
     let next = encodeURIComponent(m.pageId) + '/published_posts?fields=id,message,created_time,permalink_url,full_picture&limit=50';
     let added = 0, updated = 0, pages = 0;
     while (next && pages < 6){
-      const j = await spGraph_(next, m.token);
+      const j = await spGraph_(next, ptok);
       (j.data || []).forEach(function(it){
         const res = spUpsert_('fb-' + it.id, { platform: 'facebook', status: 'published', kind: 'text post', date: String(it.created_time || '').slice(0, 10),
           title: spFirstLine_(it.message, 60) || 'Facebook post', caption: String(it.message || '').slice(0, 600), url: it.permalink_url || '', thumb: it.full_picture || '' }, ['title', 'caption', 'pillar', 'plan']);
